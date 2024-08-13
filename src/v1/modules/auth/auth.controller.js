@@ -1,16 +1,9 @@
-
-import jwt from 'jsonwebtoken'
 import User from '../../models/user.js';
+import { createJWT } from '../../../utils/token.js';
 
-
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: Date.now() + 10 * 24 * 60 * 60 * 1000,
-  });
-};
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const token = createJWT(user._id);
   const cookieOptions = {
     expires: new Date(
       Date.now() + 10 * 24 * 60 * 60 * 1000,
