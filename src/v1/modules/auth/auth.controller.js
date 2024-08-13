@@ -1,7 +1,4 @@
-// const jwt = require("jsonwebtoken");
-// const User = require("./../../models/user");
-// const catchAsync = require("./../utils/catchAsync");
-// const ApiError = require("./../utils/apiError");
+
 import jwt from 'jsonwebtoken'
 import User from '../../models/user.js';
 
@@ -37,11 +34,11 @@ const createSendToken = (user, statusCode, res) => {
 };
 export const login = async(req,res)=>{
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({message:"Email and Password are required!"});
+        const { phoneNumber, password } = req.body;
+        if (!phoneNumber || !password) {
+            return res.status(400).json({message:"Phone number and Password are required!"});
         }
-        const user = await User.findOne({ email }).select("+password");
+        const user = await User.findOne({ phoneNumber }).select("+password");
 
         if (!user) {
             return res.status(401).json({message:"Incorrect email or password"})
