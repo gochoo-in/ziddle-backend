@@ -1,26 +1,26 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-    fullname: {
-        type: String,
-        required: [true, 'name is requird']
-    },
     phoneNumber: {
-        type: Number,
+        type: String, 
         required: true,
-        unique: true
+        unique: true,
     },
     email: {
         type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
+        unique: true, 
+        sparse: true, 
     },
-    password: {
+    otp: {
         type: String,
-        required: true,
-        min: 8
-    }
+    },
+    otpExpires: {
+        type: Date,
+    },
+    verified: {
+        type: Boolean,
+        default: false, 
+    },
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('User', userSchema);
