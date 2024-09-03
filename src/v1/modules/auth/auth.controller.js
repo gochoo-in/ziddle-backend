@@ -9,9 +9,9 @@ import { FCM_KEY } from '../../../utils/constants.js';
 import { sendOTPMessage } from '../../services/index.js'; 
 
 const otpLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000,
+    windowMs: 5 * 60 * 1000,
     max: 5,
-    message: 'Too many OTP requests from this IP, please try again in 1 minutes.',
+    message: 'Too many OTP requests from this IP, please try again in 5 minutes.',
     keyGenerator: (req) => req.body.phoneNumber,
 });
 
@@ -97,7 +97,7 @@ export const signin = async (req, res) => {
                 }
 
                 user.otp = generateOTP();
-                user.otpExpires = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
+                user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
                 user.otpRequestCount = (user.otpRequestCount || 0) + 1;
                 user.lastOtpRequest = new Date();
                 await user.save();

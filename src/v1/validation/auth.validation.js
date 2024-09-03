@@ -39,7 +39,7 @@ const signinValidation = {
       .optional()
       .messages({
         'string.base': 'OTP must be a string',
-        'string.length': 'OTP must be exactly 6 digits',
+        'string.length': 'OTP must be exactly 4 digits',
       }),
   }),
 };
