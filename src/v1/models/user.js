@@ -21,6 +21,15 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false, 
     },
+    isLoggedIn:{
+        type:Boolean,
+        default:false
+    },
+    blocked:{
+        type:Boolean,
+        default:false
+    }
+    
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('User', userSchema);

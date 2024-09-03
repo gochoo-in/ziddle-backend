@@ -6,58 +6,66 @@ import httpFormatter from '../../../utils/formatter.js';
 import rateLimit from 'express-rate-limit';
 
 const otpLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, 
-    max: 3, 
-    message: 'Too many OTP requests from this IP, please try again later.',
+    windowMs: 5 * 60 * 1000, 
+    max: 5, 
+    message: 'Too many OTP requests from this IP, please try again in 5 minutes.',
     keyGenerator: (req) => req.body.phoneNumber,
 });
 
-export const createSendToken = (user, statusCode, res) => {
-    const token = createJWT(user._id);
-
-    res.status(statusCode).json({
-        status: 'success',
-        token,  
-        data: {
-            user,
-        },
-    });
-};
-
+// Function for handling signup
 export const signup = async (req, res) => {
     try {
-        const { phoneNumber } = req.body;
+        const { phoneNumber, otp } = req.body;
+
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
         }
 
         otpLimiter(req, res, async () => {
             let user = await User.findOne({ phoneNumber });
-            if (user) {
-                if (user.verified) {
-                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({user}, 'User already registered', false));
+
+            if (!otp) {
+                // Generate OTP for signup
+                if (user && user.verified) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({ user }, 'User already registered', false));
                 }
-                const otp = generateOTP();
-                const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-                user.otp = otp;
-                user.otpExpires = otpExpires;
-                user.otpRequestCount = (user.otpRequestCount || 0) + 1;
-                user.lastOtpRequest = new Date();
+
+                if (!user) {
+                    user = await User.create({
+                        phoneNumber,
+                        otp: generateOTP(),
+                        otpExpires: new Date(Date.now() + 5 * 60 * 1000),
+                        otpRequestCount: 1,
+                        lastOtpRequest: new Date(),
+                    });
+                } else {
+                    user.otp = generateOTP();
+                    user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+                    user.otpRequestCount = (user.otpRequestCount || 0) + 1;
+                    user.lastOtpRequest = new Date();
+                }
+
+                await user.save();
+                console.log(`OTP for signing up user with ${phoneNumber}: ${user.otp}`);
+                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
+            } else {
+                // Verify OTP for signup
+                if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP', false));
+                }
+
+                // OTP is valid, complete signup
+                user.verified = true;
+                user.otp = undefined;
+                user.otpExpires = undefined;
                 await user.save();
 
-                console.log(`OTP for signing up a user with ${phoneNumber}: ${otp}`);
-                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify to complete signup.', true));
-            } else {
-                user = await User.create({
-                    phoneNumber,
-                    otp: generateOTP(),
-                    otpExpires: new Date(Date.now() + 5 * 60 * 1000),
-                    otpRequestCount: 1,
-                    lastOtpRequest: new Date(),
+                const token = createJWT(user._id);
+                res.status(StatusCodes.OK).json({
+                    status: 'success',
+                    token,
+                    data: { user },
                 });
-
-                console.log(`OTP for signing up a user with ${phoneNumber}: ${user.otp}`);
-                res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify to complete signup.', true));
             }
         });
     } catch (error) {
@@ -66,88 +74,54 @@ export const signup = async (req, res) => {
     }
 };
 
-export const verifySignup = async (req, res) => {
+// Function for handling login
+export const signin = async (req, res) => {
     try {
         const { phoneNumber, otp } = req.body;
-        if (!phoneNumber || !otp) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number and OTP are required' ,false));
-        }
 
-        const user = await User.findOne({ phoneNumber });
-        if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP' ,false));
-        }
-
-        user.verified = true;
-        user.otp = undefined;
-        user.otpExpires = undefined;
-        await user.save();
-
-        res.status(StatusCodes.OK).json({user}, 'Signup successful' ,true);
-    } catch (error) {
-        console.error('Error verifying signup OTP:', error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error' ,false));
-    }
-};
-
-export const login = async (req, res) => {
-    try {
-        const { phoneNumber } = req.body;
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
         }
 
         otpLimiter(req, res, async () => {
-            const user = await User.findOne({ phoneNumber });
-            if (!user) {
-                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+            let user = await User.findOne({ phoneNumber });
+
+            if (!otp) {
+                // Generate OTP for login
+                if (!user) {
+                    return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+                }
+
+                user.otp = generateOTP();
+                user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+                user.otpRequestCount = (user.otpRequestCount || 0) + 1;
+                user.lastOtpRequest = new Date();
+                await user.save();
+
+                console.log(`OTP for logging in user with ${phoneNumber}: ${user.otp}`);
+                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
+            } else {
+                // Verify OTP for login
+                if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP', false));
+                }
+
+                // OTP is valid, complete login
+                user.isLoggedIn = true; // Only set to true if OTP is valid
+                user.otp = undefined;
+                user.otpExpires = undefined;
+                await user.save();
+
+                const token = createJWT(user._id);
+                res.status(StatusCodes.OK).json({
+                    status: 'success',
+                    token,
+                    data: { user },
+                });
             }
-
-            const otp = generateOTP();
-            const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-
-            user.otp = otp;
-            user.otpExpires = otpExpires;
-            user.otpRequestCount = (user.otpRequestCount || 0) + 1;
-            user.lastOtpRequest = new Date();
-            await user.save();
-
-            console.log(`OTP for signing in user with ${phoneNumber}: ${otp}`);
-
-            res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify to complete login.', true));
         });
     } catch (error) {
-        console.error('Error in login:', error);
+        console.error('Error in signing in:', error);
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};
-
-export const verifyLogin = async (req, res) => {
-    try {
-        const { phoneNumber, otp } = req.body;
-        if (!phoneNumber || !otp) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number and OTP are required' ,false));
-        }
-
-        const user = await User.findOne({ phoneNumber });
-        if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP' ,false));
-        }
-
-        user.otp = undefined;
-        user.otpExpires = undefined;
-        await user.save();
-
-        const token = createJWT(user._id);
-        res.status(StatusCodes.OK).json({
-            status: 'success',
-            token,
-            data: {
-                user,
-            },
-        });
-    } catch (error) {
-        console.error('Error verifying login OTP:', error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error' ,false));
     }
 };

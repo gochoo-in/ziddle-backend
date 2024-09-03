@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import auth from '../modules/auth/auth.routes.js'
 
-
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -9,7 +8,7 @@ const defaultRoutes = [
     {
         path: '/auth',
         route: auth,
-    },
+    }
 ]
 
 

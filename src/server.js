@@ -6,7 +6,6 @@ import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
 import middleware from './utils/middleware.js';
 import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
-import User from './v1/models/user.js';
 const { port } = Config;
 
 const app = express();
@@ -16,33 +15,6 @@ app.use(express.json())
 app.get('/', (req, res) => {
   res.status(StatusCodes.OK).json("API Testing SuccessFull!!");
 });
-// app.post('/users', async (req, res) => {
-//   const { fullname, email, password, photo, preferredLanguage, address, phoneNumber } = req.body;
-
-//   if (!fullname || !email || !password || !phoneNumber || !address || !address.pincode || !address.state || !address.address_line_1 ) {
-//       return res.status(400).json({ message: 'Required fields are missing' });
-//   }
-
-//   try {
-//       const newUser = new User({
-//           fullname,
-//           email,
-//           password, 
-//           photo,
-//           preferredLanguage,
-//           address,
-//           phoneNumber
-//       });
-
-//       const savedUser = await newUser.save();
-//       res.status(201).json(savedUser);
-//   } catch (error) {
-//       console.error('Error creating user:', error);
-//       console.log(error)
-//       res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
 
 
 app.get('/health', async (req, res) => {
