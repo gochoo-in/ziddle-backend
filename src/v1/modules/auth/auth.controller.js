@@ -1,4 +1,3 @@
-import axios from 'axios';
 import FCM from 'fcm-node';
 import User from '../../models/user.js';
 import { generateOTP, isOTPExpired } from '../../../utils/otp.js';
@@ -6,61 +5,22 @@ import { createJWT, verifyToken } from '../../../utils/token.js';
 import StatusCodes from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { FCM_KEY } from '../../../utils/constants.js';
-
-dotenv.config();
+import { sendOTPMessage } from '../../services/index.js'; 
 
 const otpLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000,
+    windowMs: 1 * 60 * 1000,
     max: 5,
-    message: 'Too many OTP requests from this IP, please try again in 5 minutes.',
+    message: 'Too many OTP requests from this IP, please try again in 1 minutes.',
     keyGenerator: (req) => req.body.phoneNumber,
 });
 
 const fcm = new FCM(FCM_KEY);
 
-const messageAuthKey = process.env.MESSAGE_AUTH_KEY;
-const messageTemplate = process.env.MESSAGE_TEMPLATE;
-
-const prependCountryCode = (phoneNumber) => {
-    return `91${phoneNumber}`;
-};
-
-const sendMessage = async (otp, mobile) => {
-    const options = {
-        method: 'POST',
-        url: 'https://control.msg91.com/api/v5/flow',
-        headers: {
-            authkey: messageAuthKey,
-            accept: 'application/json',
-            'content-type': 'application/json'
-        },
-        data: {
-            template_id: messageTemplate,
-            short_url: "1",
-            realTimeResponse: "1",
-            recipients: [
-                {
-                    mobiles: mobile,
-                    OTP: otp
-                }
-            ]
-        }
-    };
-
-    try {
-        const response = await axios.request(options);
-        console.log('Message sent:', response.data);
-    } catch (error) {
-        console.error('Error sending message:', error);
-    }
-};
-
 export const signup = async (req, res) => {
     try {
         let { phoneNumber, otp } = req.body;
-        phoneNumber = prependCountryCode(phoneNumber);
+        phoneNumber = phoneNumber;
 
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
@@ -78,13 +38,13 @@ export const signup = async (req, res) => {
                     user = await User.create({
                         phoneNumber,
                         otp: generateOTP(),
-                        otpExpires: new Date(Date.now() + 5 * 60 * 1000), // OTP expires in 5 minutes
+                        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // OTP expires in 10 minutes
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
                     });
                 } else {
                     user.otp = generateOTP();
-                    user.otpExpires = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
+                    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
                     user.otpRequestCount = (user.otpRequestCount || 0) + 1;
                     user.lastOtpRequest = new Date();
                 }
@@ -92,7 +52,7 @@ export const signup = async (req, res) => {
                 await user.save();
                 console.log(`OTP for signing up user with ${phoneNumber}: ${user.otp}`);
 
-                await sendMessage(user.otp, phoneNumber);
+                await sendOTPMessage(user.otp, phoneNumber); // Use the sendOTPMessage service
 
                 return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
@@ -122,7 +82,7 @@ export const signup = async (req, res) => {
 export const signin = async (req, res) => {
     try {
         let { phoneNumber, otp } = req.body;
-        phoneNumber = prependCountryCode(phoneNumber);
+        phoneNumber = phoneNumber;
 
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
@@ -144,7 +104,7 @@ export const signin = async (req, res) => {
 
                 console.log(`OTP for logging in user with ${phoneNumber}: ${user.otp}`);
 
-                await sendMessage(user.otp, phoneNumber);
+                await sendOTPMessage(user.otp, phoneNumber); // Use the sendOTPMessage service
 
                 return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
