@@ -1,10 +1,9 @@
 import User from '../../models/user.js';
 import { generateOTP, isOTPExpired } from '../../../utils/otp.js';
-import { createJWT } from '../../../utils/token.js';
+import { createJWT, verifyToken } from '../../../utils/token.js'; // Import the token functions
 import StatusCodes from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import rateLimit from 'express-rate-limit';
-import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv'; 
 
 dotenv.config(); 
@@ -132,32 +131,20 @@ export const signin = async (req, res) => {
 // Function for handling logout
 export const logout = async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(" ")[1];
+        // Use the verifyToken middleware to handle token verification
+        verifyToken(req, res, async () => {
+            const userId = req.user.userId;
 
-        if (!token) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'No token provided', false));
-        }
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+            }
 
-        // Verify the token and get the user ID
-        let decoded;
-        try {
-            decoded = jwt.verify(token, process.env.COMMON_JWT_KEY); 
-        } catch (err) {
-            console.error('JWT Verification Error:', err);
-            return res.status(StatusCodes.UNAUTHORIZED).json(httpFormatter({}, 'Invalid token', false));
-        }
+            user.isLoggedIn = false;
+            await user.save();
 
-        const userId = decoded.userId; 
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
-        }
-
-        user.isLoggedIn = false;
-        await user.save();
-
-        res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
+            res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
+        });
     } catch (error) {
         console.error('Error in logging out:', error);
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
