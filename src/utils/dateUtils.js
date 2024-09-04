@@ -1,4 +1,3 @@
-
 import moment from 'moment'; // Ensure you have moment.js installed
 
 // Function to add dates to the itinerary and calculate total days and nights
@@ -12,12 +11,19 @@ export function addDatesToItinerary(data, startDate) {
         let totalDays = 0;  // Initialize total days counter
         let totalNights = 0; // Initialize total nights counter
 
+        // Track days assigned to each city
+        const cityStayDays = {};
+
         // Iterate over each leg of the itinerary
         itinerary.forEach((leg, index) => {
             if (leg.days) {
                 const days = leg.days;
                 const dayKeys = Object.keys(days);
                 const numberOfDays = dayKeys.length;
+
+                // Set the stayDays for the current city
+                leg.stayDays = numberOfDays;
+                cityStayDays[leg.currentCity] = numberOfDays;
 
                 // Add dates to each day in the leg
                 dayKeys.forEach(dayKey => {
@@ -27,7 +33,6 @@ export function addDatesToItinerary(data, startDate) {
 
                 // Update totals
                 totalDays += numberOfDays;
-
             }
 
             // Set the next city
