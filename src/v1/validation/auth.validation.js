@@ -1,7 +1,7 @@
 import Joi from 'joi';
 
 const signupValidation = {
-  body: Joi.object({
+  body: Joi.object().keys({
     phoneNumber: Joi.string()
       .length(10)
       .pattern(/^[0-9]+$/)

@@ -1,12 +1,10 @@
-import mongoose from "mongoose";
-import Country from "../models/country";
-const citySchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    country: { type: mongoose.Schema.Types.ObjectId, ref: 'Country', required: true },
-    iataCode: { type: String, required: true },
-    images: [{ type: String }],
-    activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
-    // hotels: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' }]
+import mongoose from 'mongoose';
+import Activity from './activity';
+
+const CitySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  iata_code: { type: String, required: true },
+  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity', required: true }] 
 });
 
-export default mongoose.model('City', citySchema);
+export default mongoose.model('City', CitySchema);
