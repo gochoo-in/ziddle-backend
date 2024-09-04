@@ -2,3 +2,4 @@ node_modules
 logs
 .env
 gatoes-aws.pem 
+test.js
