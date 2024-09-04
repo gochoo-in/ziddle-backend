@@ -19,13 +19,13 @@ const activitySchema = Joi.object({
       'string.base': 'Category must be a string',
       'any.required': 'Category is required',
     }),
-  opens_at: Joi.string()
+  opensAt: Joi.string()
     .required()
     .messages({
       'string.base': 'Activity opening time must be a string',
       'any.required': 'Activity opening time is required',
     }),
-  closes_at: Joi.string()
+  closesAt: Joi.string()
     .required()
     .messages({
       'string.base': 'Activity closing time must be a string',
@@ -40,7 +40,7 @@ const citySchema = Joi.object({
       'string.base': 'City name must be a string',
       'any.required': 'City name is required',
     }),
-  iata_code: Joi.string()
+  iataCode: Joi.string()
     .length(3)
     .pattern(/^[A-Z]{3}$/)
     .required()
@@ -68,7 +68,7 @@ const itineraryValidation = {
         'string.base': 'Country must be a string',
         'any.required': 'Country is required',
       }),
-    min_nights: Joi.number()
+    minNights: Joi.number()
       .integer()
       .min(0)
       .messages({
@@ -77,7 +77,7 @@ const itineraryValidation = {
         'number.min': 'Minimum nights cannot be negative',
         'any.required': 'Minimum nights is required',
       }),
-    trip_days: Joi.number()
+    tripDays: Joi.number()
       .integer()
       .min(1)
       .required()
@@ -94,7 +94,7 @@ const itineraryValidation = {
         'date.base': 'Start date must be a valid date',
         'any.required': 'Start date is required',
       }),
-    travelling_with: Joi.string()
+    travellingWith: Joi.string()
       .valid('friends', 'family', 'solo', 'couple')
       .required()
       .messages({
@@ -133,4 +133,4 @@ const itineraryValidation = {
   }),
 };
 
-export default itineraryValidation 
+export default itineraryValidation;

@@ -11,7 +11,7 @@ export const createItinerary = async (req, res) => {
     const { startDate, adults, children } = req.body;
     const cityIATACodes = itineraryData.cities.map(city => ({
       name: city.name,
-      iata_code: city.iata_code
+      iataCode: city.iataCode
     }));
 
     if (!startDate) {
