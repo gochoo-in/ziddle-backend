@@ -23,7 +23,7 @@ const signupValidation = {
 };
 
 const signinValidation = {
-  body: Joi.object({
+  body: Joi.object().keys({
     phoneNumber: Joi.string()
       .length(10)
       .pattern(/^[0-9]+$/)

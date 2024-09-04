@@ -103,7 +103,7 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
                 // Fetch all available flights for the next city on the last day
                 let flights = await fetchFlightDetails(currentCity, nextCity, lastDay.date, adults, children, cityIATACodes);
 
-                // Filter flights based on whether they are after the last activity ends, with a 2-hour buffer
+                // Filter flights based on whether they are after the last activity ends, with a 4-hour buffer
                 let suitableFlights = flights.filter(flight => isFlightAfterLastActivity(flight, lastActivityEndTime));
 
                 if (suitableFlights.length === 0) {

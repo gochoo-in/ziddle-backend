@@ -70,21 +70,21 @@ const itineraryValidation = {
       }),
     minNights: Joi.number()
       .integer()
-      .min(0)
+      .min(3)
       .messages({
         'number.base': 'Minimum nights must be a number',
         'number.integer': 'Minimum nights must be an integer',
-        'number.min': 'Minimum nights cannot be negative',
+        'number.min': 'Minimum nights must be 3',
         'any.required': 'Minimum nights is required',
       }),
     tripDays: Joi.number()
       .integer()
-      .min(1)
+      .min(4)
       .required()
       .messages({
         'number.base': 'Trip days must be a number',
         'number.integer': 'Trip days must be an integer',
-        'number.min': 'Trip days must be at least 1',
+        'number.min': 'Trip days must be at least 4',
         'any.required': 'Trip days are required',
       }),
     startDate: Joi.date()
