@@ -10,8 +10,15 @@ export const addCity = async (req, res) => {
     try {
         const { name, iataCode, countryName } = req.body;
 
-        if (!name || !iataCode || !countryName) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Name, IATA code, and country name are required', false));
+        if (!name) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City name is required', false));
+        }
+        if(!iataCode){
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Iata Code is required', false));
+        }
+        if(!countryName){
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country is required', false));
+
         }
 
         const country = await Country.findOne({ name: countryName });
@@ -62,6 +69,75 @@ export const getCityWithActivities = async (req, res) => {
         return res.status(StatusCodes.OK).json(httpFormatter({ city: city[0] }, 'City with activities retrieved successfully', true));
     } catch (error) {
         console.error('Error retrieving city with activities:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+export const getCityById = async (req, res) => {
+    try {
+        const { cityId } = req.params;
+
+        const city = await City.findById(cityId);
+        if (!city) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+        }
+
+        return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City retrieved successfully', true));
+    } catch (error) {
+        console.error('Error retrieving city by ID:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+export const updateCityById = async (req, res) => {
+    try {
+        const { cityId } = req.params;
+        const { name, iataCode, countryName } = req.body;
+
+        if (!name && !iataCode && !countryName) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field (name, iataCode, or country) is required to update', false));
+        }
+
+        const city = await City.findById(cityId);
+        if (!city) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+        }
+
+        if (name) city.name = name;
+        if (iataCode) city.iataCode = iataCode;
+
+        if (countryName) {
+            const country = await Country.findOne({ name: countryName });
+            if (!country) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${countryName} not found`, false));
+            }
+            city.country = country._id;
+        }
+
+        await city.save();
+        return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City updated successfully', true));
+    } catch (error) {
+        console.error('Error updating city by ID:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+export const deleteCityById = async (req, res) => {
+    try {
+        const { cityId } = req.params;
+
+        const city = await City.findById(cityId);
+        if (!city) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+        }
+
+        await Activity.deleteMany({ city: city._id });
+
+        await City.findByIdAndDelete(cityId);
+
+        return res.status(StatusCodes.OK).json(httpFormatter({}, 'City and associated activities deleted successfully', true));
+    } catch (error) {
+        console.error('Error deleting city and activities:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
