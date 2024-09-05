@@ -26,20 +26,3 @@ export const addActivity = async (req, res) => {
     }
 };
 
-// Get all activities for a specific city
-export const getActivitiesByCity = async (req, res) => {
-    try {
-        const { cityName } = req.params;
-
-        const city = await City.findOne({ name: cityName }).populate('activities');
-        if (!city) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
-        }
-
-        const activities = city.activities; 
-        return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
-    } catch (error) {
-        console.error('Error retrieving activities:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};

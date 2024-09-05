@@ -47,7 +47,7 @@ export const getCityWithActivities = async (req, res) => {
             { $match: { name: cityName } },
             {
                 $lookup: {
-                    from: 'activities', // Collection name for activities
+                    from: 'activities', 
                     localField: '_id',
                     foreignField: 'city',
                     as: 'activities'
