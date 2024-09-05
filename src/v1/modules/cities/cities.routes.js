@@ -3,8 +3,8 @@ import { addCity, getAllCities, addActivityToCity, removeActivityFromCity } from
 
 const router = express.Router();
 
-router.post('/cities', addCity); 
-router.get('/cities', getAllCities); 
-router.post('/cities/add-activity', addActivityToCity); 
+router.post('/', addCity); 
+router.get('/', getAllCities); 
+router.post('/add-activity', addActivityToCity); 
 
 export default router;

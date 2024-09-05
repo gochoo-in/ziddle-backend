@@ -1,5 +1,5 @@
-import httpFormatter from '../../../../utils/formatter.js';
-import Country from '../../../models/country.js';
+import httpFormatter from '../../../utils/formatter.js';
+import Country from '../../models/country.js';
 import StatusCodes from 'http-status-codes';
 
 export const addDestination = async (req, res) => {

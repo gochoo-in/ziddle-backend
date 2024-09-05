@@ -3,7 +3,7 @@ import { addActivity, getActivitiesByCity } from './activities.controller.js';
 
 const router = express.Router();
 
-router.post('/activities', addActivity); 
-router.get('/activities/:cityName', getActivitiesByCity); 
+router.post('/', addActivity); 
+router.get('/:cityName', getActivitiesByCity); 
 
 export default router;

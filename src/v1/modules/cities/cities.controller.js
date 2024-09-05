@@ -1,7 +1,7 @@
-import httpFormatter from '../../../../../utils/formatter.js';
-import City from '../../../../models/city.js';
-import Country from '../../../../models/country.js';
-import Activity from '../../../../models/activity.js'
+import httpFormatter from '../../../utils/formatter.js';
+import City from '../../models/city.js';
+import Country from '../../models/country.js';
+import Activity from '../../models/activity.js'
 import StatusCodes from 'http-status-codes';
 import mongoose from 'mongoose';
 // Create a new city

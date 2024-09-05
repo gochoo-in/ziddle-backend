@@ -1,6 +1,6 @@
-import httpFormatter from '../../../../../../utils/formatter.js';
-import Activity from '../../../../../models/activity.js';
-import City from '../../../../../models/city.js';
+import httpFormatter from '../../../utils/formatter.js';
+import Activity from '../../models/activity.js';
+import City from '../../models/city.js';
 import StatusCodes from 'http-status-codes';
 
 // Create a new activity and associate it with a city based on the city name

@@ -1,9 +1,9 @@
 import { Router } from 'express'
 import auth from '../modules/auth/auth.routes.js'
 import itinerary from '../modules/itinerary/itinerary.routes.js'
-import customize from '../modules/customize/destination/destination.routes.js'
-import cities from '../modules/customize/destination/cities/cities.routes.js'
-import activities from '../modules/customize/destination/cities/activities/activities.routes.js'
+import destination from '../modules/destination/destination.routes.js'
+import cities from '../modules/cities/cities.routes.js'
+import activities from '../modules/activities/activities.routes.js'
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -17,19 +17,19 @@ const defaultRoutes = [
         route: itinerary
     },
     {
-        path: '/customize',
-        route: customize
+        path: '/destination',
+        route: destination
     },
     {
-        path: '/customize/destination',
+        path: '/cities',
         route: cities
     },
     {
-        path: '/customize/destination/cities',
+        path: '/activities',
         route: activities
     }
+    
 ]
-
 
 /*This is how we can define Routes */
 
