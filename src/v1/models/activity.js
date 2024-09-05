@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import City from './city.js';  
 
 const ActivitySchema = new mongoose.Schema({
     name: { type: String, required: true },

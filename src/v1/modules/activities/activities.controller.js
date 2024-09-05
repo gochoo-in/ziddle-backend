@@ -19,9 +19,6 @@ export const addActivity = async (req, res) => {
 
         const activity = await Activity.create({ name, duration, category, opensAt, closesAt, city: city._id });
 
-        city.activities.push(activity._id);
-        await city.save();
-
         return res.status(StatusCodes.CREATED).json(httpFormatter({ activity }, 'Activity added and associated with city successfully', true));
     } catch (error) {
         console.error('Error adding activity:', error);
@@ -34,12 +31,12 @@ export const getActivitiesByCity = async (req, res) => {
     try {
         const { cityName } = req.params;
 
-        const city = await City.findOne({ name: cityName });
+        const city = await City.findOne({ name: cityName }).populate('activities');
         if (!city) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        const activities = await Activity.find({ _id: { $in: city.activities } });
+        const activities = city.activities; 
         return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
     } catch (error) {
         console.error('Error retrieving activities:', error);

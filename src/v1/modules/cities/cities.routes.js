@@ -1,10 +1,10 @@
 import express from 'express';
-import { addCity, getAllCities, addActivityToCity, removeActivityFromCity } from './cities.controller.js';
+import { addCity, getAllCities, getCityWithActivities } from './cities.controller.js';
 
 const router = express.Router();
 
 router.post('/', addCity); 
 router.get('/', getAllCities); 
-router.post('/add-activity', addActivityToCity); 
+router.get('/:cityName/activities', getCityWithActivities);
 
 export default router;

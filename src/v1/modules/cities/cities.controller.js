@@ -1,9 +1,10 @@
 import httpFormatter from '../../../utils/formatter.js';
 import City from '../../models/city.js';
 import Country from '../../models/country.js';
-import Activity from '../../models/activity.js'
+import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 import mongoose from 'mongoose';
+
 // Create a new city
 export const addCity = async (req, res) => {
     try {
@@ -29,7 +30,7 @@ export const addCity = async (req, res) => {
 // Get all cities
 export const getAllCities = async (req, res) => {
     try {
-        const cities = await City.find()
+        const cities = await City.find();
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, 'Cities retrieved successfully', true));
     } catch (error) {
         console.error('Error retrieving cities:', error);
@@ -37,62 +38,30 @@ export const getAllCities = async (req, res) => {
     }
 };
 
-// Add activity to a city
-export const addActivityToCity = async (req, res) => {
+// Get a city with its activities using aggregation
+export const getCityWithActivities = async (req, res) => {
     try {
-        const { cityName, activityId } = req.body;
+        const { cityName } = req.params;
 
-        if (!cityName || !activityId) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City name and activity ID are required', false));
-        }
+        const city = await City.aggregate([
+            { $match: { name: cityName } },
+            {
+                $lookup: {
+                    from: 'activities', // Collection name for activities
+                    localField: '_id',
+                    foreignField: 'city',
+                    as: 'activities'
+                }
+            }
+        ]);
 
-        if (!mongoose.Types.ObjectId.isValid(activityId)) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid activity ID format', false));
-        }
-
-        const city = await City.findOne({ name: cityName });
-        if (!city) {
+        if (city.length === 0) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        const activity = await Activity.findById(activityId);
-        if (!activity) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Activity not found', false));
-        }
-
-        if (!city.activities.includes(activityId)) {
-            city.activities.push(activityId);
-            await city.save();
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'Activity added to city successfully', true));
+        return res.status(StatusCodes.OK).json(httpFormatter({ city: city[0] }, 'City with activities retrieved successfully', true));
     } catch (error) {
-        console.error('Error adding activity to city:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};
-
-
-// Remove activity from a city
-export const removeActivityFromCity = async (req, res) => {
-    try {
-        const { cityName, activityId } = req.body;
-
-        if (!cityName || !activityId) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City name and activity ID are required', false));
-        }
-
-        const city = await City.findOne({ name: cityName });
-        if (!city) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
-        }
-
-        city.activities = city.activities.filter(activity => activity.toString() !== activityId);
-        await city.save();
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'Activity removed from city successfully', true));
-    } catch (error) {
-        console.error('Error removing activity from city:', error);
+        console.error('Error retrieving city with activities:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
