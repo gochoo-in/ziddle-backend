@@ -10,8 +10,8 @@ export const addTransferActivity = (data) => {
             // Prepare transfer activity for the next city
             const transferActivity = {
                 name: `Travel from ${citySegment.currentCity} to ${nextCitySegment.currentCity}`,
-                startTime: "00:00",
-                endTime: "23:59",
+                startTime: "12:00 PM",
+                endTime: "4:00 PM",
                 duration: citySegment.transferDuration,
                 timeStamp: "All day",
                 category: "Travel",
