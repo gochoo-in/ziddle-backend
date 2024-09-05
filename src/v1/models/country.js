@@ -5,6 +5,6 @@ const countrySchema = new mongoose.Schema({
         type: String,
         required: true
     }
-});
+}, {versionKey: false});
 
 export default mongoose.model('Country', countrySchema);
