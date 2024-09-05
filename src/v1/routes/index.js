@@ -4,6 +4,7 @@ import itinerary from '../modules/itinerary/itinerary.routes.js'
 import destination from '../modules/destination/destination.routes.js'
 import cities from '../modules/cities/cities.routes.js'
 import activities from '../modules/activities/activities.routes.js'
+import cityHotels from '../modules/hotels/hotels.routes.js'
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -27,6 +28,10 @@ const defaultRoutes = [
     {
         path: '/activities',
         route: activities
+    },
+    {
+        path: '/hotels',
+        route: cityHotels
     }
     
 ]
