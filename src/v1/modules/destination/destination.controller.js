@@ -6,16 +6,27 @@ import StatusCodes from 'http-status-codes';
 
 export const addDestination = async (req, res) => {
     try {
-        if (!req.body.name) {
+        const { name, currency, timezone } = req.body;
+
+        // Validate required fields
+        if (!name) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country name is required', false));
         }
+        if (!currency) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Currency is required', false));
+        }
+        if (!timezone) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Timezone is required', false));
+        }
 
-        const existingCountry = await Country.findOne({ name: req.body.name });
+        // Check if country already exists
+        const existingCountry = await Country.findOne({ name });
         if (existingCountry) {
             return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Country with this name already exists', false));
         }
 
-        const data = await Country.create({ name: req.body.name });
+        // Create and save new country with name, currency, and timezone
+        const data = await Country.create({ name, currency, timezone });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 
     } catch (error) {
@@ -23,6 +34,7 @@ export const addDestination = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 // Get all destinations (countries)
 export const getAllDestinations = async (req, res) => {
