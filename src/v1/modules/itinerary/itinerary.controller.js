@@ -3,6 +3,8 @@ import { generateItinerary } from '../../services/gpt.js';
 import { addDatesToItinerary } from '../../../utils/dateUtils.js';
 import { settransformItinerary } from '../../../utils/transformItinerary.js';
 import { addFlightDetailsToItinerary } from '../../services/flightdetails.js';
+import { addTransferActivity } from '../../../utils/travelItinerary.js';
+import { addGeneralDummyData } from '../../../utils/dummydata.js';
 import httpFormatter from '../../../utils/formatter.js';
 
 export const createItinerary = async (req, res) => {
@@ -34,19 +36,20 @@ export const createItinerary = async (req, res) => {
       subtitle,
       itinerary
     };
-
+    
     // Add dates to the generated itinerary
-    const itineraryWithDates = addDatesToItinerary(itineraryWithTitles, startDate);
+    const itineraryWithTravel=addTransferActivity(itineraryWithTitles);
+    const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
     const transformItinerary = settransformItinerary(itineraryWithDates);
 
-    // Add flight details to the itinerary with dates
+    // // Add flight details to the itinerary with dates
     const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityIATACodes);
 
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
-
-    res.json(itineraryWithFlights);
+    const enreachItinerary=addGeneralDummyData(itineraryWithFlights);
+    res.json(enreachItinerary);
   } catch (error) {
     console.error('Error creating itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));

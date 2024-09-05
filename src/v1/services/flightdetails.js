@@ -100,22 +100,13 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
                 const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
                 const lastActivityEndTime = moment(lastDay.date + ' ' + lastDay.activities[lastDay.activities.length - 1].endTime, 'YYYY-MM-DD h:mm A');
 
-                // Fetch all available flights for the next city on the last day
-                let flights = await fetchFlightDetails(currentCity, nextCity, lastDay.date, adults, children, cityIATACodes);
+                // Always find flights on the next day after the last activity
+                const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
+                const flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults, children, cityIATACodes);
 
-                // Filter flights based on whether they are after the last activity ends, with a 2-hour buffer
-                let suitableFlights = flights.filter(flight => isFlightAfterLastActivity(flight, lastActivityEndTime));
-
-                if (suitableFlights.length === 0) {
-                    // If no suitable flights are found, fetch flights for the next day
-                    const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
-                    flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults, children, cityIATACodes);
-                    suitableFlights = flights; // All flights on the next day are considered suitable
-                }
-
-                if (suitableFlights.length > 0) {
-                    // Find the cheapest suitable flight
-                    const cheapestFlight = suitableFlights.reduce((prev, current) => {
+                if (flights.length > 0) {
+                    // Find the cheapest flight
+                    const cheapestFlight = flights.reduce((prev, current) => {
                         return parseFloat(prev.price) < parseFloat(current.price) ? prev : current;
                     });
 
@@ -127,7 +118,7 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
                         priceInINR: priceInINR.toFixed(2)
                     };
                 } else {
-                    itinerary[i].transport.modeDetails = 'No suitable flights found after the last activity.';
+                    itinerary[i].transport.modeDetails = 'No flights found for the next day after the last activity.';
                 }
             }
         }
