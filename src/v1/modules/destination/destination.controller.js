@@ -51,9 +51,27 @@ export const getActivitiesByDestination = async (req, res) => {
 
         const activities = await Activity.find({ city: { $in: cityIds } });
 
-        return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
+        return res.status(StatusCodes.OK).json(httpFormatter({ activities }, `Activities retrieved for ${country.name} `, true));
     } catch (error) {
         console.error('Error retrieving activities by destination:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+
+export const getCitiesByDestination = async (req, res) => {
+    try {
+        const { destinationId } = req.params;
+
+        const country = await Country.findById(destinationId);
+        if (!country) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
+        }
+
+        const cities = await City.find({ country: country._id });
+        return res.status(StatusCodes.OK).json(httpFormatter({ cities }, `Cities for ${country.name} retrieved successfully`, true));
+    } catch (error) {
+        console.error('Error retrieving cities by destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

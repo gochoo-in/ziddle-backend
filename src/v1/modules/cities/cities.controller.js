@@ -16,7 +16,7 @@ export const addCity = async (req, res) => {
 
         const country = await Country.findOne({ name: countryName });
         if (!country) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Referenced country not found', false));
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${countryName} not found`, false));
         }
 
         const city = await City.create({ name, iataCode, country: country._id });
