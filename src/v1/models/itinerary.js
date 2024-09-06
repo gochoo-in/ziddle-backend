@@ -5,8 +5,7 @@ import Country from './country';
 // Define the Itinerary schema
 const ItinerarySchema = new mongoose.Schema({
   country: { type: mongoose.Schema.Types.ObjectId, ref: 'Country', required: true },
-  minNights: { type: Number },
-  tripDays: { type: Number, required: true },
+  tripDuration: { type: String, required: true },
   startDate: { type: Date, required: true },
   travellingWith: { type: String, required: true },
   adults: { type: Number, required: true },
