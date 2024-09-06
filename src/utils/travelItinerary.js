@@ -24,7 +24,7 @@ export const addTransferActivity = (data) => {
                 days: [
                     {
                         day: 1,
-                        date: nextCitySegment.days[0].date,
+                        date: "",
                         activities: [transferActivity]
                     },
                     ...nextCitySegment.days.map((day, index) => ({
@@ -33,6 +33,7 @@ export const addTransferActivity = (data) => {
                     }))
                 ]
             });
+            
         } else {
             
         }

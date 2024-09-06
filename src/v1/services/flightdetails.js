@@ -95,7 +95,7 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
             const currentCity = itinerary[i].currentCity;
             const nextCity = itinerary[i + 1].currentCity;
 
-            if (itinerary[i].transport.mode === 'Flight') {
+            if (itinerary[i].transport && itinerary[i].transport.mode === 'Flight') {
                 // Get the last day's details for calculating the flight time
                 const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
                 const lastActivityEndTime = moment(lastDay.date + ' ' + lastDay.activities[lastDay.activities.length - 1].endTime, 'YYYY-MM-DD h:mm A');
