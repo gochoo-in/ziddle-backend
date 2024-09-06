@@ -28,8 +28,12 @@ const userSchema = new mongoose.Schema({
     blocked:{
         type:Boolean,
         default:false
+    },
+    role: {
+        type: String,
+        enum: ['user', 'admin', 'staff'], 
+        default: 'user',
     }
-    
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('User', userSchema);

@@ -7,6 +7,7 @@ import activities from '../modules/activities/activities.routes.js'
 import contactUs from '../modules/contactUs/contactUs.routes.js'
 import profile from '../modules/profiles/profiles.routes.js'
 import cityHotels from '../modules/hotels/hotels.routes.js'
+import adminUser from '../modules/admin/user.routes.js'
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -42,6 +43,10 @@ const defaultRoutes = [
     {
         path: '/profile',
         route: profile
+    },
+    {
+        path: '/admin',
+        route: adminUser
     }
     
 ]

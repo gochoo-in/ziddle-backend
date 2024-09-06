@@ -10,7 +10,7 @@ import { sendOTPMessage } from '../../services/index.js';
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 5,
+    max: 7,
     message: 'Too many OTP requests from this IP, please try again in 5 minutes.',
     keyGenerator: (req) => req.body.phoneNumber,
 });
