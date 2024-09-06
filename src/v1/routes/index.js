@@ -32,7 +32,7 @@ const defaultRoutes = [
         route: activities
     },
     {
-        path: '/hotels',
+        path: '/cities',
         route: cityHotels
     },
     {
