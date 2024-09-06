@@ -7,7 +7,7 @@ import StatusCodes from 'http-status-codes';
 export const addProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fullName, email, role = 'user', preferredLanguage, address, profilePhoto, phoneNumber } = req.body;
+        const { fullName, email, preferredLanguage, address, profilePhoto, phoneNumber } = req.body;
 
         if (!fullName || !email || !address || !address.line1 || !address.pincode || !phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
@@ -21,7 +21,6 @@ export const addProfileDetails = async (req, res) => {
         const profileData = {
             fullName,
             email,
-            role,  
             preferredLanguage,
             address,
             profilePhoto,
@@ -37,6 +36,7 @@ export const addProfileDetails = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 // Get profile by ID
 export const getProfileById = async (req, res) => {

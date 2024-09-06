@@ -1,35 +1,22 @@
-import cors from "cors";
-import bodyParser from "body-parser";
-import { StatusCodes } from "http-status-codes";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
+import { verifyToken } from './token.js';
+import User from '../v1/models/user.js';
 
- const middleware = [
-  cors(),
-  helmet(),
-  bodyParser.json(),
-  bodyParser.urlencoded({ extended: true }),  
-  rateLimit({
-    max: 50,
-    windowMs: 10000, // 10 seconds
-    message: "You can't make any more requests at the moment. Try again later",
-    headers: true, // Allow custom headers
-    keyGenerator: (req) => req.ip, // Limit requests based on IP address
-  }),
-  (req, res, next) => {
-    res.set('Cache-Control', 'no-store, max-age=0');
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-  },
-  (error, req, res, next) => {
-    if (error.type === 'time-out') {
-      return res.status(StatusCodes.REQUEST_TIMEOUT).json(error);
-    } 
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        message: error.message,
-      });
-    
+const isAdmin = async (req, res, next) => {
+  try {
+    verifyToken(req, res, async () => {
+      const userId = req.user.userId;
+      const user = await User.findById(userId);
+
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied. Admins only.' });
+      }
+
+      next();
+    });
+  } catch (error) {
+    console.error(`isAdmin Error: ${error.message}`);
+    return res.status(500).json({ message: 'Internal server error.' });
   }
-];
+};
 
-export default middleware
+export default isAdmin;
