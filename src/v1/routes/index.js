@@ -8,6 +8,7 @@ import contactUs from '../modules/contactUs/contactUs.routes.js'
 import profile from '../modules/profiles/profiles.routes.js'
 import cityHotels from '../modules/hotels/hotels.routes.js'
 import adminUser from '../modules/admin/user.routes.js'
+import callbackRequest  from '../modules/callbackRequest/callbackRequest.routes.js'
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -47,6 +48,10 @@ const defaultRoutes = [
     {
         path: '/admin',
         route: adminUser
+    },
+    {
+        path: '/user',
+        route: callbackRequest
     }
     
 ]
