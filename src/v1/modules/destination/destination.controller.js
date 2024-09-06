@@ -6,7 +6,7 @@ import StatusCodes from 'http-status-codes';
 
 export const addDestination = async (req, res) => {
     try {
-        const { name, currency, timezone } = req.body;
+        const { name, currency, timezone, tripDuration } = req.body;
 
         if (!name) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country name is required', false));
@@ -17,13 +17,16 @@ export const addDestination = async (req, res) => {
         if (!timezone) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Timezone is required', false));
         }
+        if (!tripDuration || !Array.isArray(tripDuration) || tripDuration.length === 0) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Trip duration is required and should be a non-empty array', false));
+        }
 
         const existingCountry = await Country.findOne({ name });
         if (existingCountry) {
             return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Country with this name already exists', false));
         }
 
-        const data = await Country.create({ name, currency, timezone });
+        const data = await Country.create({ name, currency, timezone, tripDuration });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 
     } catch (error) {
@@ -31,6 +34,7 @@ export const addDestination = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 
 // Get all destinations (countries)
