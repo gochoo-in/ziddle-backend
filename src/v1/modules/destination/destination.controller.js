@@ -97,7 +97,7 @@ export const getCitiesByDestination = async (req, res) => {
 export const updateDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
-        const { name, currency, timezone } = req.body;
+        const { name, currency, timezone,tripDuration } = req.body;
 
         // Check if the destination (country) exists
         const country = await Country.findById(destinationId);
@@ -118,6 +118,9 @@ export const updateDestination = async (req, res) => {
         }
         if (timezone) {
             country.timezone = timezone;
+        }
+        if(tripDuration){
+            country.tripDuration=tripDuration;
         }
 
         // Save the updated country document

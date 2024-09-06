@@ -14,6 +14,10 @@ const countrySchema = new mongoose.Schema({
         type: String,
         required: true,
         match: /^UTC[+-]\d{2}:\d{2}$/ // Matches 'UTC+07:00', 'UTC-05:00', etc.
+    },
+    tripDuration: {
+        type: [String], 
+        required: true
     }
 }, { versionKey: false });
 
