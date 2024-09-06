@@ -30,12 +30,10 @@ export const getActivity = async (req, res) => {
     try {
         const { activityId } = req.params;
 
-        // Validate activity ID format (if necessary)
         if (!activityId) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Activity ID is required', false));
         }
 
-        // Find the activity by its ID
         const activity = await Activity.findById(activityId).populate('city');
 
         if (!activity) {
@@ -46,35 +44,27 @@ export const getActivity = async (req, res) => {
     } catch (error) {
         console.error('Error retrieving activity:', error);
 
-        // Handle specific error types if needed
-        if (error.name === 'CastError') {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid activity ID format', false));
-        }
-
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
 
-// Update an existing activity by ID (Partial update with PATCH)
+// Update an existing activity by ID 
 export const updateActivity = async (req, res) => {
     try {
         const { activityId } = req.params;
         const { name, duration, category, opensAt, closesAt, cityName } = req.body;
 
-        // Find the activity by its ID
         const activity = await Activity.findById(activityId);
         if (!activity) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Activity not found', false));
         }
 
-        // Update activity fields if they are present in the request body
         if (name) activity.name = name;
         if (duration) activity.duration = duration;
         if (category) activity.category = category;
         if (opensAt) activity.opensAt = opensAt;
         if (closesAt) activity.closesAt = closesAt;
 
-        // If cityName is provided, check if the city exists and associate it
         if (cityName) {
             const city = await City.findOne({ name: cityName });
             if (!city) {
@@ -83,7 +73,6 @@ export const updateActivity = async (req, res) => {
             activity.city = city._id;
         }
 
-        // Save the updated activity
         await activity.save();
 
         return res.status(StatusCodes.OK).json(httpFormatter({ activity }, 'Activity updated successfully', true));
@@ -97,12 +86,10 @@ export const deleteActivity = async (req, res) => {
     try {
         const { activityId } = req.params;
 
-        // Validate activity ID format (if necessary)
         if (!activityId) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Activity ID is required', false));
         }
 
-        // Find and delete the activity by its ID
         const activity = await Activity.findByIdAndDelete(activityId);
 
         if (!activity) {
@@ -112,11 +99,6 @@ export const deleteActivity = async (req, res) => {
         return res.status(StatusCodes.OK).json(httpFormatter({}, 'Activity deleted successfully', true));
     } catch (error) {
         console.error('Error deleting activity:', error);
-
-        // Handle specific error types if needed
-        if (error.name === 'CastError') {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid activity ID format', false));
-        }
 
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
