@@ -30,6 +30,12 @@ export const addDestination = async (req, res) => {
         if (!visa_type) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Visa type is required', false));
         }
+        if(!country){
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country is required', false));
+        }
+        if(!continent){
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Continent type is required', false));
+        }
 
         const existingDestination = await Destination.findOne({ name });
         if (existingDestination) {
