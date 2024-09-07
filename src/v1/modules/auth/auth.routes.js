@@ -5,6 +5,7 @@ import { signup, signin, logout } from './auth.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 
 const router = express.Router();
+
 router.post('/signup', validate(authValidation.signupValidation), signup);
 router.post('/signin', validate(authValidation.signinValidation), signin);
 router.post('/logout', verifyToken, logout); 

@@ -6,7 +6,9 @@ import StatusCodes from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import rateLimit from 'express-rate-limit';
 import { FCM_KEY } from '../../../utils/constants.js';
-import { sendOTPMessage } from '../../services/index.js'; 
+import { sendOTPMessage } from '../../services/index.js';
+import requestIp from 'request-ip';  
+import useragent from 'useragent';  
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -19,8 +21,7 @@ const fcm = new FCM(FCM_KEY);
 
 export const signup = async (req, res) => {
     try {
-        let { phoneNumber, otp } = req.body;
-        phoneNumber = phoneNumber;
+        const { phoneNumber, otp } = req.body;
 
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
@@ -38,21 +39,19 @@ export const signup = async (req, res) => {
                     user = await User.create({
                         phoneNumber,
                         otp: generateOTP(),
-                        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // OTP expires in 10 minutes
+                        otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
                     });
                 } else {
                     user.otp = generateOTP();
-                    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+                    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
                     user.otpRequestCount = (user.otpRequestCount || 0) + 1;
                     user.lastOtpRequest = new Date();
                 }
 
                 await user.save();
-                console.log(`OTP for signing up user with ${phoneNumber}: ${user.otp}`);
-
-                await sendOTPMessage(user.otp, phoneNumber); // Use the sendOTPMessage service
+                await sendOTPMessage(user.otp, phoneNumber);
 
                 return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
@@ -63,6 +62,7 @@ export const signup = async (req, res) => {
                 user.verified = true;
                 user.otp = undefined;
                 user.otpExpires = undefined;
+                user.otpVerifiedAt = new Date();  
                 await user.save();
 
                 const token = createJWT(user._id);
@@ -81,8 +81,7 @@ export const signup = async (req, res) => {
 
 export const signin = async (req, res) => {
     try {
-        let { phoneNumber, otp } = req.body;
-        phoneNumber = phoneNumber;
+        const { phoneNumber, otp } = req.body;
 
         if (!phoneNumber) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
@@ -97,14 +96,12 @@ export const signin = async (req, res) => {
                 }
 
                 user.otp = generateOTP();
-                user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+                user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
                 user.otpRequestCount = (user.otpRequestCount || 0) + 1;
                 user.lastOtpRequest = new Date();
                 await user.save();
 
-                console.log(`OTP for logging in user with ${phoneNumber}: ${user.otp}`);
-
-                await sendOTPMessage(user.otp, phoneNumber); // Use the sendOTPMessage service
+                await sendOTPMessage(user.otp, phoneNumber);
 
                 return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
@@ -115,6 +112,21 @@ export const signin = async (req, res) => {
                 user.isLoggedIn = true;
                 user.otp = undefined;
                 user.otpExpires = undefined;
+
+                const ip_address = requestIp.getClientIp(req) || 'Unknown IP';
+                const agent = useragent.parse(req.headers['user-agent'] || '');
+                const device_type = agent.device.family || 'Unknown device';
+                const os = agent.os.toString() || 'Unknown OS';
+                const browser = agent.toAgent() || 'Unknown browser';
+
+                user.userLogins.push({
+                    login_time: new Date(),
+                    device_type,
+                    ip_address,
+                    browser,
+                    os
+                });
+
                 await user.save();
 
                 const token = createJWT(user._id);
