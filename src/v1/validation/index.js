@@ -4,6 +4,9 @@ import callbackRequestValidation from './callbackRequest.validation.js';
 import contactUsValidation from './contactUs.validation.js';
 import destinationValidation  from './destination.validation.js'
 import cityValidation from './cities.validation.js';
+import activityValidation from './activity.validation.js';
+import categorySectionValidation from './categorySection.validation.js';
+import profileValidation from './profile.validation.js';
 
 export {
   authValidation,
@@ -11,5 +14,8 @@ export {
   callbackRequestValidation,
   contactUsValidation,
   destinationValidation,
-  cityValidation
+  cityValidation,
+  activityValidation,
+  categorySectionValidation,
+  profileValidation
 };
