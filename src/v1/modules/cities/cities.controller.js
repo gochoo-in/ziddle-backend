@@ -1,32 +1,38 @@
 import httpFormatter from '../../../utils/formatter.js';
 import City from '../../models/city.js';
-import Country from '../../models/country.js';
+import Destination from '../../models/destination.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
-import mongoose from 'mongoose';
 
 // Create a new city
 export const addCity = async (req, res) => {
     try {
-        const { name, iataCode, countryName } = req.body;
+        const { name, iataCode, destinationName, country, latitude, longitude, best_time_to_visit, is_major_hub, points_of_interest, climate, language_spoken, travel_time_from_hub } = req.body;
 
-        if (!name) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City name is required', false));
-        }
-        if(!iataCode){
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Iata Code is required', false));
-        }
-        if(!countryName){
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country is required', false));
-
+        if (!name || !iataCode || !destinationName || !country || latitude === undefined || longitude === undefined || !language_spoken) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
-        const country = await Country.findOne({ name: countryName });
-        if (!country) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${countryName} not found`, false));
+        const destination = await Destination.findOne({ name: destinationName });
+        if (!destination) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationName} not found`, false));
         }
 
-        const city = await City.create({ name, iataCode, country: country._id });
+        const city = await City.create({
+            name,
+            iataCode,
+            destination: destination._id,
+            country,
+            latitude,
+            longitude,
+            best_time_to_visit,
+            is_major_hub,
+            points_of_interest,
+            climate,
+            language_spoken,
+            travel_time_from_hub
+        });
+
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));
     } catch (error) {
         console.error('Error adding city:', error);
@@ -54,7 +60,7 @@ export const getCityWithActivities = async (req, res) => {
             { $match: { name: cityName } },
             {
                 $lookup: {
-                    from: 'activities', 
+                    from: 'activities',
                     localField: '_id',
                     foreignField: 'city',
                     as: 'activities'
@@ -73,6 +79,7 @@ export const getCityWithActivities = async (req, res) => {
     }
 };
 
+// Get a city by ID
 export const getCityById = async (req, res) => {
     try {
         const { cityId } = req.params;
@@ -89,13 +96,14 @@ export const getCityById = async (req, res) => {
     }
 };
 
+// Update a city by ID
 export const updateCityById = async (req, res) => {
     try {
         const { cityId } = req.params;
-        const { name, iataCode, countryName } = req.body;
+        const { name, iataCode, destinationName, country, latitude, longitude, best_time_to_visit, is_major_hub, points_of_interest, climate, language_spoken, travel_time_from_hub } = req.body;
 
-        if (!name && !iataCode && !countryName) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field (name, iataCode, or country) is required to update', false));
+        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !language_spoken) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
         }
 
         const city = await City.findById(cityId);
@@ -105,14 +113,22 @@ export const updateCityById = async (req, res) => {
 
         if (name) city.name = name;
         if (iataCode) city.iataCode = iataCode;
-
-        if (countryName) {
-            const country = await Country.findOne({ name: countryName });
-            if (!country) {
-                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${countryName} not found`, false));
+        if (destinationName) {
+            const destination = await Destination.findOne({ name: destinationName });
+            if (!destination) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationName} not found`, false));
             }
-            city.country = country._id;
+            city.destination = destination._id;
         }
+        if (country) city.country = country;
+        if (latitude !== undefined) city.latitude = latitude;
+        if (longitude !== undefined) city.longitude = longitude;
+        if (best_time_to_visit) city.best_time_to_visit = best_time_to_visit;
+        if (is_major_hub !== undefined) city.is_major_hub = is_major_hub;
+        if (points_of_interest) city.points_of_interest = points_of_interest;
+        if (climate) city.climate = climate;
+        if (language_spoken) city.language_spoken = language_spoken;
+        if (travel_time_from_hub !== undefined) city.travel_time_from_hub = travel_time_from_hub;
 
         await city.save();
         return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City updated successfully', true));
@@ -122,6 +138,7 @@ export const updateCityById = async (req, res) => {
     }
 };
 
+// Delete a city by ID
 export const deleteCityById = async (req, res) => {
     try {
         const { cityId } = req.params;
@@ -132,7 +149,6 @@ export const deleteCityById = async (req, res) => {
         }
 
         await Activity.deleteMany({ city: city._id });
-
         await City.findByIdAndDelete(cityId);
 
         return res.status(StatusCodes.OK).json(httpFormatter({}, 'City and associated activities deleted successfully', true));
