@@ -11,6 +11,10 @@ import { addDatesToItinerary } from './utils/dateUtils.js'; // Import the date a
 import dotenv from 'dotenv';
 import { settransformItinerary } from "./utils/transformItinerary.js";
 import { addFlightDetailsToItinerary } from "./v1/services/flightdetails.js";
+import { trackUserActivity } from "./utils/middleware.js";
+import cookieParser from 'cookie-parser';
+import { cookieManager } from "./utils/middleware.js";
+
 
 dotenv.config();
 const { port } = Config;
@@ -19,6 +23,12 @@ const app = express();
 const httpServer = http.Server;
 
 app.use(express.json());
+app.use(cookieParser());
+app.use(cookieManager);
+app.use(trackUserActivity);
+
+
+
 
 app.get('/', (req, res) => {
   res.status(StatusCodes.OK).json("API Testing SuccessFull!!");

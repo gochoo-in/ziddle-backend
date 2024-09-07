@@ -9,6 +9,7 @@ import { FCM_KEY } from '../../../utils/constants.js';
 import { sendOTPMessage } from '../../services/index.js';
 import requestIp from 'request-ip';  
 import useragent from 'useragent';  
+import UserCookie from '../../models/userCookie.js'; // Adjust path as necessary
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -130,6 +131,13 @@ export const signin = async (req, res) => {
                 await user.save();
 
                 const token = createJWT(user._id);
+
+                // Update the User_Cookies record to include user_id
+                await UserCookie.updateOne(
+                    { cookie_id: req.cookieId },
+                    { $set: { user_id: user._id } }
+                );
+
                 res.status(StatusCodes.OK).json({
                     status: 'success',
                     token,
@@ -147,6 +155,11 @@ export const logout = async (req, res) => {
     try {
         verifyToken(req, res, async () => {
             const userId = req.user.userId;
+            const cookieId = req.cookies['user_cookie_id']; // Extract cookie ID from request
+
+            if (!cookieId) {
+                return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cookie ID not found', false));
+            }
 
             const user = await User.findById(userId);
             if (!user) {
@@ -155,6 +168,12 @@ export const logout = async (req, res) => {
 
             user.isLoggedIn = false;
             await user.save();
+
+            // Update the User_Cookies record to set user_id to null
+            await UserCookie.updateOne(
+                { cookie_id: cookieId },
+                { $set: { user_id: null } }
+            );
 
             res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
         });
