@@ -6,9 +6,30 @@ import StatusCodes from 'http-status-codes';
 // Create a new activity and associate it with a city based on the city name
 export const addActivity = async (req, res) => {
     try {
-        const { name, duration, description, opensAt, closesAt, cityName, best_time_to_participate, physical_difficulty, required_equipment, age_restriction, local_guides_available, group_size, cultural_significance, ideal_companion_type, is_family_friendly } = req.body;
+        const { 
+            name, 
+            duration, 
+            description, 
+            opensAt, 
+            closesAt, 
+            cityName, 
+            best_time_to_participate, 
+            physical_difficulty, 
+            required_equipment, 
+            age_restriction, 
+            local_guides_available, 
+            group_size, 
+            cultural_significance, 
+            ideal_companion_type, 
+            is_family_friendly, 
+            inclusions, 
+            exclusions, 
+            shared_activity, 
+            refundable, 
+            price 
+        } = req.body;
 
-        if (!name || !duration || !opensAt || !closesAt || !cityName || !physical_difficulty || local_guides_available === undefined || is_family_friendly === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || !cityName || !physical_difficulty || local_guides_available === undefined || is_family_friendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -32,7 +53,12 @@ export const addActivity = async (req, res) => {
             group_size,
             cultural_significance,
             ideal_companion_type,
-            is_family_friendly
+            is_family_friendly,
+            inclusions,
+            exclusions,
+            shared_activity,
+            refundable,
+            price
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ activity }, 'Activity added and associated with city successfully', true));
@@ -68,7 +94,28 @@ export const getActivity = async (req, res) => {
 export const updateActivity = async (req, res) => {
     try {
         const { activityId } = req.params;
-        const { name, duration, description, opensAt, closesAt, cityName, best_time_to_participate, physical_difficulty, required_equipment, age_restriction, local_guides_available, group_size, cultural_significance, ideal_companion_type, is_family_friendly } = req.body;
+        const { 
+            name, 
+            duration, 
+            description, 
+            opensAt, 
+            closesAt, 
+            cityName, 
+            best_time_to_participate, 
+            physical_difficulty, 
+            required_equipment, 
+            age_restriction, 
+            local_guides_available, 
+            group_size, 
+            cultural_significance, 
+            ideal_companion_type, 
+            is_family_friendly, 
+            inclusions, 
+            exclusions, 
+            shared_activity, 
+            refundable, 
+            price 
+        } = req.body;
 
         if (!activityId) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Activity ID is required', false));
@@ -102,6 +149,11 @@ export const updateActivity = async (req, res) => {
         if (cultural_significance) activity.cultural_significance = cultural_significance;
         if (ideal_companion_type) activity.ideal_companion_type = ideal_companion_type;
         if (is_family_friendly !== undefined) activity.is_family_friendly = is_family_friendly;
+        if (inclusions) activity.inclusions = inclusions;
+        if (exclusions) activity.exclusions = exclusions;
+        if (shared_activity !== undefined) activity.shared_activity = shared_activity;
+        if (refundable !== undefined) activity.refundable = refundable;
+        if (price !== undefined) activity.price = price;
 
         await activity.save();
 

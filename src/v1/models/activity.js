@@ -15,7 +15,12 @@ const ActivitySchema = new mongoose.Schema({
     group_size: { type: String },
     cultural_significance: { type: String },
     ideal_companion_type: { type: [String] },
-    is_family_friendly: { type: Boolean, required: true }
+    is_family_friendly: { type: Boolean, required: true },
+    inclusions: { type: [String] },
+    exclusions: { type: [String] },
+    shared_activity: { type: Boolean },
+    refundable: { type: Boolean, required: true },
+    price: { type: Number, required: true }
 }, { versionKey: false });
 
 export default mongoose.model('Activity', ActivitySchema);
