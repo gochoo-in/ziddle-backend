@@ -13,7 +13,7 @@ const destinationSchema = new mongoose.Schema({
     category: {
         type: String,
     },
-    visa_type: {
+    visaType: {
         type: String,
         required: true
     },
@@ -25,24 +25,33 @@ const destinationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    languages_spoken: {
+    languagesSpoken: {
         type: [String],
         default: []
     },
-    best_time_to_visit: {
+    bestTimeToVisit: {
         type: String,
         default: ''
     },
-    image_urls: {
-        type: [String], 
+    imageUrls: {
+        type: [{
+            type: {
+                type: String,
+                required: true
+            },
+            url: {
+                type: String,
+                required: true
+            }
+        }],
         default: []
     },
     latitude: {
-        type: String,
+        type: Number,
         required: true
     },
     longitude: {
-        type: String,
+        type: Number,
         required: true
     },
     currency: {
@@ -58,6 +67,6 @@ const destinationSchema = new mongoose.Schema({
         type: [String], 
         required: true
     }
-}, { timestamps: true ,versionKey: false });
+}, { timestamps: true, versionKey: false });
 
 export default mongoose.model('Destination', destinationSchema);

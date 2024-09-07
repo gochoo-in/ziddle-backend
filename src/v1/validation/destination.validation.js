@@ -24,7 +24,7 @@ const destinationValidation = {
       .messages({
         'string.base': 'Category must be a string',
       }),
-    visa_type: Joi.string()
+    visaType: Joi.string()
       .required()
       .messages({
         'string.base': 'Visa type must be a string',
@@ -42,31 +42,48 @@ const destinationValidation = {
         'string.base': 'Continent must be a string',
         'any.required': 'Continent is required',
       }),
-    languages_spoken: Joi.array()
+    languagesSpoken: Joi.array()
       .items(Joi.string())
       .default([])
       .messages({
         'array.base': 'Languages spoken must be an array of strings',
       }),
-    best_time_to_visit: Joi.string()
+    bestTimeToVisit: Joi.string()
       .allow('')
       .messages({
         'string.base': 'Best time to visit must be a string',
       }),
-    image_urls: Joi.array()
-      .items(Joi.string().uri())
+    imageUrls: Joi.array()
+      .items(
+        Joi.object({
+          type: Joi.string()
+            .required()
+            .messages({
+              'string.base': 'Image type must be a string',
+              'any.required': 'Image type is required',
+            }),
+          url: Joi.string()
+            .uri()
+            .required()
+            .messages({
+              'string.base': 'Image URL must be a string',
+              'string.uri': 'Each image URL must be a valid URI',
+              'any.required': 'Image URL is required',
+            }),
+        })
+      )
       .default([])
       .messages({
-        'array.base': 'Image URLs must be an array of strings',
-        'string.uri': 'Each image URL must be a valid URI',
+        'array.base': 'Image URLs must be an array of objects',
+        'object.base': 'Each item in image URLs must be an object',
       }),
-    latitude: Joi.string()
+    latitude: Joi.number()
       .required()
       .messages({
         'string.base': 'Latitude must be a string',
         'any.required': 'Latitude is required',
       }),
-    longitude: Joi.string()
+    longitude: Joi.number()
       .required()
       .messages({
         'string.base': 'Longitude must be a string',

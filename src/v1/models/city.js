@@ -8,12 +8,12 @@ const CitySchema = new mongoose.Schema({
   country: { type: String, required: true },
   latitude: { type: Number, required: true },
   longitude: { type: Number, required: true },
-  best_time_to_visit: { type: String },
-  is_major_hub: { type: Boolean, default: false },
-  points_of_interest: [{ type: String }],
+  bestTimeToVisit: { type: String },
+  isMajorHub: { type: Boolean, default: false },
+  pointsOfInterest: [{ type: String }],
   climate: { type: String },
-  language_spoken: { type: String, required: true },
-  travel_time_from_hub: { type: Number }
+  languageSpoken: { type: String, required: true },
+  travelTimeFromHub: { type: Number }
 }, { versionKey: false });
 
 export default mongoose.model('City', CitySchema);

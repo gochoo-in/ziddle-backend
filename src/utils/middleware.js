@@ -9,29 +9,6 @@ import { v4 as uuidv4 } from 'uuid';
 import cookie from 'cookie';
 
 
-const isAdmin = async (req, res, next) => {
-  try {
-    verifyToken(req, res, async () => {
-      const userId = req.user.userId;
-      const user = await User.findById(userId);
-
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ message: 'Access denied. Admins only.' });
-      }
-
-      next();
-    });
-  } catch (error) {
-    console.error(`isAdmin Error: ${error.message}`);
-    return res.status(500).json({ message: 'Internal server error.' });
-  }
-};
-
-export default isAdmin;
-
-
-
-
 export const trackUserActivity = async (req, res, next) => {
     try {
         const cookieId = req.cookieId;

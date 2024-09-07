@@ -4,14 +4,16 @@ import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 
+// Create a new destination
 export const addDestination = async (req, res) => {
     try {
         const {
-            name, currency, timezone, tripDuration, description, category, visa_type,
-            country, continent, languages_spoken, best_time_to_visit, image_urls,
+            name, currency, timezone, tripDuration, description, category, visaType,
+            country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
             latitude, longitude
         } = req.body;
 
+        // Validate required fields
         if (!name) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Destination name is required', false));
         }
@@ -27,14 +29,32 @@ export const addDestination = async (req, res) => {
         if (!latitude || !longitude) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Latitude and longitude are required', false));
         }
-        if (!visa_type) {
+        if (!visaType) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Visa type is required', false));
         }
-        if(!country){
+        if (!country) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Country is required', false));
         }
-        if(!continent){
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Continent type is required', false));
+        if (!continent) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Continent is required', false));
+        }
+
+        // Validate imageUrls if provided
+        if (imageUrls) {
+            if (!Array.isArray(imageUrls)) {
+                return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Image URLs must be an array of objects', false));
+            }
+            for (const image of imageUrls) {
+                if (typeof image !== 'object' || !image.type || !image.url) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be an object with type and URL fields', false));
+                }
+                // Check URL format
+                try {
+                    new URL(image.url); // Validate URL
+                } catch (e) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be a valid URI', false));
+                }
+            }
         }
 
         const existingDestination = await Destination.findOne({ name });
@@ -43,8 +63,8 @@ export const addDestination = async (req, res) => {
         }
 
         const data = await Destination.create({
-            name, currency, timezone, tripDuration, description, category, visa_type,
-            country, continent, languages_spoken, best_time_to_visit, image_urls,
+            name, currency, timezone, tripDuration, description, category, visaType,
+            country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
             latitude, longitude
         });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
@@ -116,12 +136,13 @@ export const getCitiesByDestination = async (req, res) => {
     }
 };
 
+// Update a destination
 export const updateDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
         const {
-            name, currency, timezone, tripDuration, description, category, visa_type,
-            country, continent, languages_spoken, best_time_to_visit, image_urls,
+            name, currency, timezone, tripDuration, description, category, visaType,
+            country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
             latitude, longitude
         } = req.body;
 
@@ -152,8 +173,8 @@ export const updateDestination = async (req, res) => {
         if (category) {
             destination.category = category;
         }
-        if (visa_type) {
-            destination.visa_type = visa_type;
+        if (visaType) {
+            destination.visaType = visaType;
         }
         if (country) {
             destination.country = country;
@@ -161,14 +182,28 @@ export const updateDestination = async (req, res) => {
         if (continent) {
             destination.continent = continent;
         }
-        if (languages_spoken) {
-            destination.languages_spoken = languages_spoken;
+        if (languagesSpoken) {
+            destination.languagesSpoken = languagesSpoken;
         }
-        if (best_time_to_visit) {
-            destination.best_time_to_visit = best_time_to_visit;
+        if (bestTimeToVisit) {
+            destination.bestTimeToVisit = bestTimeToVisit;
         }
-        if (image_urls) {
-            destination.image_urls = image_urls;
+        if (imageUrls) {
+            if (!Array.isArray(imageUrls)) {
+                return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Image URLs must be an array of objects', false));
+            }
+            for (const image of imageUrls) {
+                if (typeof image !== 'object' || !image.type || !image.url) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be an object with type and URL fields', false));
+                }
+                // Check URL format
+                try {
+                    new URL(image.url); // Validate URL
+                } catch (e) {
+                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be a valid URI', false));
+                }
+            }
+            destination.imageUrls = imageUrls;
         }
         if (latitude) {
             destination.latitude = latitude;
@@ -186,6 +221,7 @@ export const updateDestination = async (req, res) => {
     }
 };
 
+// Delete a destination
 export const deleteDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
@@ -195,7 +231,7 @@ export const deleteDestination = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
         }
 
-        const cities = await City.find({ Destination: destination._id });
+        const cities = await City.find({ destination: destination._id });
 
         const cityIds = cities.map(city => city._id);
 
@@ -212,6 +248,7 @@ export const deleteDestination = async (req, res) => {
     }
 };
 
+// Get a destination by ID
 export const getDestinationById = async (req, res) => {
     try {
         const { destinationId } = req.params;

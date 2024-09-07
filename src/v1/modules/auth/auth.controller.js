@@ -114,16 +114,16 @@ export const signin = async (req, res) => {
                 user.otp = undefined;
                 user.otpExpires = undefined;
 
-                const ip_address = requestIp.getClientIp(req) || 'Unknown IP';
+                const ipAddress = requestIp.getClientIp(req) || 'Unknown IP';
                 const agent = useragent.parse(req.headers['user-agent'] || '');
-                const device_type = agent.device.family || 'Unknown device';
+                const deviceType = agent.device.family || 'Unknown device';
                 const os = agent.os.toString() || 'Unknown OS';
                 const browser = agent.toAgent() || 'Unknown browser';
 
                 user.userLogins.push({
-                    login_time: new Date(),
-                    device_type,
-                    ip_address,
+                    loginTime: new Date(),
+                    deviceType,
+                    ipAddress,
                     browser,
                     os
                 });
@@ -132,10 +132,10 @@ export const signin = async (req, res) => {
 
                 const token = createJWT(user._id);
 
-                // Update the User_Cookies record to include user_id
+                // Update the UserCookies record to include userId
                 await UserCookie.updateOne(
-                    { cookie_id: req.cookieId },
-                    { $set: { user_id: user._id } }
+                    { cookieId: req.cookieId },
+                    { $set: { userId: user._id } }
                 );
 
                 res.status(StatusCodes.OK).json({
@@ -155,7 +155,7 @@ export const logout = async (req, res) => {
     try {
         verifyToken(req, res, async () => {
             const userId = req.user.userId;
-            const cookieId = req.cookies['user_cookie_id']; // Extract cookie ID from request
+            const cookieId = req.cookies['userCookieId']; // Extract cookie ID from request
 
             if (!cookieId) {
                 return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cookie ID not found', false));
@@ -169,10 +169,10 @@ export const logout = async (req, res) => {
             user.isLoggedIn = false;
             await user.save();
 
-            // Update the User_Cookies record to set user_id to null
+            // Update the UserCookies record to set userId to null
             await UserCookie.updateOne(
-                { cookie_id: cookieId },
-                { $set: { user_id: null } }
+                { cookieId: cookieId },
+                { $set: { userId: null } }
             );
 
             res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));

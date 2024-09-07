@@ -13,23 +13,23 @@ export const addActivity = async (req, res) => {
             opensAt, 
             closesAt, 
             cityName, 
-            best_time_to_participate, 
-            physical_difficulty, 
-            required_equipment, 
-            age_restriction, 
-            local_guides_available, 
-            group_size, 
-            cultural_significance, 
-            ideal_companion_type, 
-            is_family_friendly, 
+            bestTimeToParticipate, 
+            physicalDifficulty, 
+            requiredEquipment, 
+            ageRestriction, 
+            localGuidesAvailable, 
+            groupSize, 
+            culturalSignificance, 
+            idealCompanionType, 
+            isFamilyFriendly, 
             inclusions, 
             exclusions, 
-            shared_activity, 
+            sharedActivity, 
             refundable, 
             price 
         } = req.body;
 
-        if (!name || !duration || !opensAt || !closesAt || !cityName || !physical_difficulty || local_guides_available === undefined || is_family_friendly === undefined || refundable === undefined || price === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -45,18 +45,18 @@ export const addActivity = async (req, res) => {
             opensAt, 
             closesAt, 
             city: city._id,
-            best_time_to_participate,
-            physical_difficulty,
-            required_equipment,
-            age_restriction,
-            local_guides_available,
-            group_size,
-            cultural_significance,
-            ideal_companion_type,
-            is_family_friendly,
+            bestTimeToParticipate,
+            physicalDifficulty,
+            requiredEquipment,
+            ageRestriction,
+            localGuidesAvailable,
+            groupSize,
+            culturalSignificance,
+            idealCompanionType,
+            isFamilyFriendly,
             inclusions,
             exclusions,
-            shared_activity,
+            sharedActivity,
             refundable,
             price
         });
@@ -101,18 +101,18 @@ export const updateActivity = async (req, res) => {
             opensAt, 
             closesAt, 
             cityName, 
-            best_time_to_participate, 
-            physical_difficulty, 
-            required_equipment, 
-            age_restriction, 
-            local_guides_available, 
-            group_size, 
-            cultural_significance, 
-            ideal_companion_type, 
-            is_family_friendly, 
+            bestTimeToParticipate, 
+            physicalDifficulty, 
+            requiredEquipment, 
+            ageRestriction, 
+            localGuidesAvailable, 
+            groupSize, 
+            culturalSignificance, 
+            idealCompanionType, 
+            isFamilyFriendly, 
             inclusions, 
             exclusions, 
-            shared_activity, 
+            sharedActivity, 
             refundable, 
             price 
         } = req.body;
@@ -140,18 +140,18 @@ export const updateActivity = async (req, res) => {
             activity.city = city._id;
         }
 
-        if (best_time_to_participate) activity.best_time_to_participate = best_time_to_participate;
-        if (physical_difficulty) activity.physical_difficulty = physical_difficulty;
-        if (required_equipment) activity.required_equipment = required_equipment;
-        if (age_restriction) activity.age_restriction = age_restriction;
-        if (local_guides_available !== undefined) activity.local_guides_available = local_guides_available;
-        if (group_size) activity.group_size = group_size;
-        if (cultural_significance) activity.cultural_significance = cultural_significance;
-        if (ideal_companion_type) activity.ideal_companion_type = ideal_companion_type;
-        if (is_family_friendly !== undefined) activity.is_family_friendly = is_family_friendly;
+        if (bestTimeToParticipate) activity.bestTimeToParticipate = bestTimeToParticipate;
+        if (physicalDifficulty) activity.physicalDifficulty = physicalDifficulty;
+        if (requiredEquipment) activity.requiredEquipment = requiredEquipment;
+        if (ageRestriction) activity.ageRestriction = ageRestriction;
+        if (localGuidesAvailable !== undefined) activity.localGuidesAvailable = localGuidesAvailable;
+        if (groupSize) activity.groupSize = groupSize;
+        if (culturalSignificance) activity.culturalSignificance = culturalSignificance;
+        if (idealCompanionType) activity.idealCompanionType = idealCompanionType;
+        if (isFamilyFriendly !== undefined) activity.isFamilyFriendly = isFamilyFriendly;
         if (inclusions) activity.inclusions = inclusions;
         if (exclusions) activity.exclusions = exclusions;
-        if (shared_activity !== undefined) activity.shared_activity = shared_activity;
+        if (sharedActivity !== undefined) activity.sharedActivity = sharedActivity;
         if (refundable !== undefined) activity.refundable = refundable;
         if (price !== undefined) activity.price = price;
 

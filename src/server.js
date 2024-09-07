@@ -4,7 +4,6 @@ import { StatusCodes } from "http-status-codes";
 import Config from "./config/index.js";
 import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
-import middleware from './utils/middleware.js';
 import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
 import { generateItinerary } from './v1/services/gpt.js'; // Import your existing generateItinerary function
 import { addDatesToItinerary } from './utils/dateUtils.js'; // Import the date adding function

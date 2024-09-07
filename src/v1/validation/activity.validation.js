@@ -41,50 +41,50 @@ const activityValidation = {
         'string.base': 'City name must be a string',
         'any.required': 'City name is required',
       }),
-    best_time_to_participate: Joi.string()
+    bestTimeToParticipate: Joi.string()
       .optional()
       .messages({
         'string.base': 'Best time to participate must be a string',
       }),
-    physical_difficulty: Joi.string()
+    physicalDifficulty: Joi.string()
       .valid('Easy', 'Moderate', 'Difficult')
       .required()
       .messages({
         'string.base': 'Physical difficulty must be a string',
         'any.required': 'Physical difficulty is required',
       }),
-    required_equipment: Joi.array().items(Joi.string())
+    requiredEquipment: Joi.array().items(Joi.string())
       .optional()
       .messages({
         'array.base': 'Required equipment must be an array of strings',
       }),
-    age_restriction: Joi.string()
+    ageRestriction: Joi.string()
       .optional()
       .messages({
         'string.base': 'Age restriction must be a string',
       }),
-    local_guides_available: Joi.boolean()
+    localGuidesAvailable: Joi.boolean()
       .required()
       .messages({
         'boolean.base': 'Local guides available must be a boolean',
         'any.required': 'Local guides available is required',
       }),
-    group_size: Joi.string()
+    groupSize: Joi.string()
       .optional()
       .messages({
         'string.base': 'Group size must be a string',
       }),
-    cultural_significance: Joi.string()
+    culturalSignificance: Joi.string()
       .optional()
       .messages({
         'string.base': 'Cultural significance must be a string',
       }),
-    ideal_companion_type: Joi.array().items(Joi.string())
+    idealCompanionType: Joi.array().items(Joi.string())
       .optional()
       .messages({
         'array.base': 'Ideal companion type must be an array of strings',
       }),
-    is_family_friendly: Joi.boolean()
+    isFamilyFriendly: Joi.boolean()
       .required()
       .messages({
         'boolean.base': 'Is family friendly must be a boolean',

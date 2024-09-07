@@ -7,20 +7,20 @@ const ActivitySchema = new mongoose.Schema({
     opensAt: { type: String, required: true },
     closesAt: { type: String, required: true },
     city: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
-    best_time_to_participate: { type: String },
-    physical_difficulty: { type: String, required: true },
-    required_equipment: { type: [String] },
-    age_restriction: { type: String },
-    local_guides_available: { type: Boolean, required: true },
-    group_size: { type: String },
-    cultural_significance: { type: String },
-    ideal_companion_type: { type: [String] },
-    is_family_friendly: { type: Boolean, required: true },
+    bestTimeToParticipate: { type: String },
+    physicalDifficulty: { type: String, required: true },
+    requiredEquipment: { type: [String] },
+    ageRestriction: { type: String },
+    localGuidesAvailable: { type: Boolean, required: true },
+    groupSize: { type: String },
+    culturalSignificance: { type: String },
+    idealCompanionType: { type: [String] },
+    isFamilyFriendly: { type: Boolean, required: true },
     inclusions: { type: [String] },
     exclusions: { type: [String] },
-    shared_activity: { type: Boolean },
+    sharedActivity: { type: Boolean },
     refundable: { type: Boolean, required: true },
-    price: { type: Number, required: true }
+    price: { type: String, required: true }
 }, { versionKey: false });
 
 export default mongoose.model('Activity', ActivitySchema);

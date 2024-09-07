@@ -44,22 +44,22 @@ const cityValidation = {
         'number.base': 'Longitude must be a number',
         'any.required': 'Longitude is required',
       }),
-    best_time_to_visit: Joi.string()
+    bestTimeToVisit: Joi.string()
       .optional(),
-    is_major_hub: Joi.boolean()
+    isMajorHub: Joi.boolean()
       .optional(),
-    points_of_interest: Joi.array()
+    pointsOfInterest: Joi.array()
       .items(Joi.string())
       .optional(),
     climate: Joi.string()
       .optional(),
-    language_spoken: Joi.string()
+    languageSpoken: Joi.string()
       .required()
       .messages({
         'string.base': 'Language spoken must be a string',
         'any.required': 'Language spoken is required',
       }),
-    travel_time_from_hub: Joi.number()
+    travelTimeFromHub: Joi.number()
       .optional()
   }),
 };

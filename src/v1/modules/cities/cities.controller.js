@@ -7,9 +7,22 @@ import StatusCodes from 'http-status-codes';
 // Create a new city
 export const addCity = async (req, res) => {
     try {
-        const { name, iataCode, destinationName, country, latitude, longitude, best_time_to_visit, is_major_hub, points_of_interest, climate, language_spoken, travel_time_from_hub } = req.body;
+        const {
+            name,
+            iataCode,
+            destinationName,
+            country,
+            latitude,
+            longitude,
+            bestTimeToVisit,
+            isMajorHub,
+            pointsOfInterest,
+            climate,
+            languageSpoken,
+            travelTimeFromHub
+        } = req.body;
 
-        if (!name || !iataCode || !destinationName || !country || latitude === undefined || longitude === undefined || !language_spoken) {
+        if (!name || !iataCode || !destinationName || !country || latitude === undefined || longitude === undefined || !languageSpoken) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
@@ -25,12 +38,12 @@ export const addCity = async (req, res) => {
             country,
             latitude,
             longitude,
-            best_time_to_visit,
-            is_major_hub,
-            points_of_interest,
+            bestTimeToVisit,
+            isMajorHub,
+            pointsOfInterest,
             climate,
-            language_spoken,
-            travel_time_from_hub
+            languageSpoken,
+            travelTimeFromHub
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));
@@ -100,9 +113,22 @@ export const getCityById = async (req, res) => {
 export const updateCityById = async (req, res) => {
     try {
         const { cityId } = req.params;
-        const { name, iataCode, destinationName, country, latitude, longitude, best_time_to_visit, is_major_hub, points_of_interest, climate, language_spoken, travel_time_from_hub } = req.body;
+        const {
+            name,
+            iataCode,
+            destinationName,
+            country,
+            latitude,
+            longitude,
+            bestTimeToVisit,
+            isMajorHub,
+            pointsOfInterest,
+            climate,
+            languageSpoken,
+            travelTimeFromHub
+        } = req.body;
 
-        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !language_spoken) {
+        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !languageSpoken) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
         }
 
@@ -123,12 +149,12 @@ export const updateCityById = async (req, res) => {
         if (country) city.country = country;
         if (latitude !== undefined) city.latitude = latitude;
         if (longitude !== undefined) city.longitude = longitude;
-        if (best_time_to_visit) city.best_time_to_visit = best_time_to_visit;
-        if (is_major_hub !== undefined) city.is_major_hub = is_major_hub;
-        if (points_of_interest) city.points_of_interest = points_of_interest;
+        if (bestTimeToVisit) city.bestTimeToVisit = bestTimeToVisit;
+        if (isMajorHub !== undefined) city.isMajorHub = isMajorHub;
+        if (pointsOfInterest) city.pointsOfInterest = pointsOfInterest;
         if (climate) city.climate = climate;
-        if (language_spoken) city.language_spoken = language_spoken;
-        if (travel_time_from_hub !== undefined) city.travel_time_from_hub = travel_time_from_hub;
+        if (languageSpoken) city.languageSpoken = languageSpoken;
+        if (travelTimeFromHub !== undefined) city.travelTimeFromHub = travelTimeFromHub;
 
         await city.save();
         return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City updated successfully', true));

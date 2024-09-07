@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 
 const userLoginSchema = new mongoose.Schema({
-    login_time: {
+    loginTime: {
         type: Date,
         default: Date.now,
     },
-    ip_address: {
+    ipAddress: {
         type: String,
         default: 'Unknown IP',
     },
-    device_type: {
+    deviceType: {
         type: String,
         default: 'Unknown device',
     },
@@ -28,11 +28,6 @@ const userSchema = new mongoose.Schema({
         type: String, 
         required: true,
         unique: true,
-    },
-    email: {
-        type: String,
-        unique: true, 
-        sparse: true, 
     },
     otp: {
         type: String,
@@ -54,11 +49,6 @@ const userSchema = new mongoose.Schema({
     blocked: {
         type: Boolean,
         default: false,
-    },
-    role: {
-        type: String,
-        enum: ['user', 'admin', 'staff'], 
-        default: 'user',
     },
     userLogins: [userLoginSchema],
 }, { timestamps: true, versionKey: false });

@@ -1,9 +1,7 @@
 import express from 'express'
-import { updateUserRole, getAllUsers } from './user.controller.js';
-import isAdmin from '../../../utils/middleware.js';
+import { getAllUsers } from './user.controller.js';
 
 const router = express.Router();
-router.patch('/:userId', isAdmin, updateUserRole);
-router.get('/users', isAdmin, getAllUsers);
+router.get('/users',getAllUsers);
 
 export default router;
