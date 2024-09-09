@@ -33,22 +33,26 @@ export const createItinerary = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more city or activity IDs are invalid.', false));
     }
 
-    // Generate the initial itinerary
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
+      // Map over city details and link the corresponding activities for each city
       cities: cityDetails.map(city => ({
         name: city.name,
         iataCode: city.iataCode,
-        activities: []  // Initialize with empty activities
-      })),
-      activities: activityDetails.map(activity => ({
-        name: activity.name,
-        duration: activity.duration,
-        opensAt: activity.opensAt,
-        closesAt: activity.closesAt
+        activities: activityDetails
+          .filter(activity => activity.city.toString() === city._id.toString()) // Convert ObjectId to string for comparison
+          .map(activity => ({
+            name: activity.name,
+            duration: activity.duration,
+            category: activity.category,  // Added category field
+            opensAt: activity.opensAt,
+            closesAt: activity.closesAt
+          }))
       }))
     });
+    
+    
 
     console.log("result", result);
     console.log("itinerary",result.itinerary)
