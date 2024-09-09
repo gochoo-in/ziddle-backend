@@ -4,12 +4,12 @@ import { addDatesToItinerary } from '../../../utils/dateUtils.js';
 import { settransformItinerary } from '../../../utils/transformItinerary.js';
 import { addFlightDetailsToItinerary } from '../../services/flightdetails.js';
 import { addTransferActivity } from '../../../utils/travelItinerary.js';
-import { addGeneralDummyData } from '../../../utils/dummydata.js';
 import httpFormatter from '../../../utils/formatter.js';
 import Destination from '../../models/destination.js'; 
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
+import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; // Import hotel details service
 
 export const createItinerary = async (req, res) => {
   try {
@@ -51,7 +51,7 @@ export const createItinerary = async (req, res) => {
     });
 
     console.log("result", result);
-    console.log("itinerary",result.itinerary)
+    console.log("itinerary", result.itinerary);
 
     // Extract title, subtitle, and itinerary from result
     const title = result.title;
@@ -77,8 +77,9 @@ export const createItinerary = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
 
-    // Add general dummy data to the itinerary
-    const enrichedItinerary = addGeneralDummyData(itineraryWithFlights);
+    // Fetch hotel details and add to the itinerary
+    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithFlights);
+    
     return res.status(StatusCodes.OK).json(httpFormatter(enrichedItinerary, 'Create Itinerary Successful'));
 
   } catch (error) {
