@@ -38,8 +38,6 @@ export const addTransferActivity = (data) => {
                     }))
                 ]
             });
-        } else {
-            updatedItinerary.push(citySegment);
         }
     }
 
