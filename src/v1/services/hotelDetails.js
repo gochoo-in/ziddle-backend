@@ -23,7 +23,7 @@ async function convertToINR(amount, currency) {
     }
 }
 
-async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate) {
+async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults) {
     try {
         const options = {
             method: 'GET',
@@ -34,14 +34,14 @@ async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate
                 arrival_date: arrivalDate,
                 departure_date: departureDate,
                 radius: '10',
-                adults: '1',
+                adults: adults,
                 children_age: '0',
                 room_qty: '1',
                 units: 'metric',
                 page_number: '1',
                 temperature_unit: 'c',
                 languagecode: 'en-us',
-                currency_code: 'USD' // Use USD for the initial response
+                currency_code: 'INR' 
             },
             headers: {
                 'x-rapidapi-key': API_KEY,
@@ -110,6 +110,7 @@ export async function addHotelDetailsToItinerary(data) {
             const { latitude, longitude } = city;
 
             // Extract arrival and departure dates from days array
+            const adults = itinerary.adults;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
             const departureDate = days.length > 0 ? days[days.length - 1].date : null;
@@ -124,7 +125,7 @@ export async function addHotelDetailsToItinerary(data) {
             }
 
             // Fetch hotel details
-            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate);
+            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults);
 
             // Add hotel details to the itinerary
             itinerary[i].hotelDetails = currentCityHotel || 'No hotels found for the specified dates in current city.';
