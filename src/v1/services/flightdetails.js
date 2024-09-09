@@ -71,7 +71,8 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
                 departureTime: segment.departing_at,
                 arrivalTime: segment.arriving_at,
                 carrierCode: segment.marketing_carrier.iataCode,
-                flightNumber: segment.marketing_carrier_flight_number
+                flightNumber: segment.marketing_carrier_flight_number,
+                baggage: segment.passengers[0].baggages
             }))
         }));
     } catch (error) {
