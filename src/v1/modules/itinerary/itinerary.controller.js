@@ -24,7 +24,7 @@ export const createItinerary = async (req, res) => {
     const result = await generateItinerary(itineraryData);
 
     if (result.error) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, result.error, false));
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, result.error, false));
     }
 
     // Add title and subtitle to the itinerary
@@ -46,10 +46,12 @@ export const createItinerary = async (req, res) => {
     const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityIATACodes);
 
     if (itineraryWithFlights.error) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, itineraryWithFlights.error, false));
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
     const enreachItinerary=addGeneralDummyData(itineraryWithFlights);
-    res.json(enreachItinerary);
+    // res.json(enreachItinerary);
+    return res.status(StatusCodes.OK).json(httpFormatter(enreachItinerary, 'Crate Iternary Successfull'));
+    
   } catch (error) {
     console.error('Error creating itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
