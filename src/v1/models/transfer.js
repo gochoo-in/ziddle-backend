@@ -6,7 +6,7 @@ const transferSchema = new mongoose.Schema({
     dropoffLocation: { type: String, required: true },
     departureTime: { type: Date, required: true },
     arrivalTime: { type: Date, required: true },
-    mode: { type: Mongoose.Schema.Types.ObjectId, ref: 'Mode', required: true },
+    mode: { type: mongoose.Schema.Types.ObjectId, ref: 'Mode', required: true },
     passengerCount: { type: Number, required: true },
     luggageAllowed: { type: Number, required: true },
     price: { type: Number, required: true },

@@ -1,11 +1,16 @@
 export const addTransferActivity = (data) => {
     const { itinerary } = data;
+
+    if (!itinerary || !Array.isArray(itinerary)) {
+        throw new Error('Invalid itinerary format: itinerary should be an array.');
+    }
+
     const updatedItinerary = [];
     
     for (let i = 0; i < itinerary.length; i++) {
         const citySegment = itinerary[i];
         const nextCitySegment = itinerary[i + 1];
-        if(i==0) updatedItinerary.push(citySegment);
+        if (i === 0) updatedItinerary.push(citySegment);
         if (nextCitySegment) {
             // Prepare transfer activity for the next city
             const transferActivity = {
@@ -33,13 +38,13 @@ export const addTransferActivity = (data) => {
                     }))
                 ]
             });
-            
         } else {
-            
+            updatedItinerary.push(citySegment);
         }
-        // console.log("here");
     }
-    return {...data,
-        itinerary:updatedItinerary
-    }
+
+    return {
+        ...data,
+        itinerary: updatedItinerary
+    };
 };

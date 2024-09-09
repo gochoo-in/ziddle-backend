@@ -6,29 +6,57 @@ import { addFlightDetailsToItinerary } from '../../services/flightdetails.js';
 import { addTransferActivity } from '../../../utils/travelItinerary.js';
 import { addGeneralDummyData } from '../../../utils/dummydata.js';
 import httpFormatter from '../../../utils/formatter.js';
+import Destination from '../../models/destination.js'; 
+import City from '../../models/city.js';
+import Activity from '../../models/activity.js';
+import Itinerary from '../../models/itinerary.js';
 
 export const createItinerary = async (req, res) => {
   try {
-    const itineraryData = req.body;
-    const { startDate, adults, children } = req.body;
-    const cityIATACodes = itineraryData.cities.map(city => ({
-      name: city.name,
-      iataCode: city.iataCode
-    }));
+    const { startDate, adults, children, countryId, cities, activities } = req.body;
 
-    if (!startDate) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing required startDate in request body.', false));
+    if (!startDate || !countryId) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing required fields in request body.', false));
+    }
+
+    // Fetch country details
+    const country = await Destination.findById(countryId);
+    if (!country) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
+    }
+
+    // Fetch city and activity details
+    const cityDetails = await City.find({ '_id': { $in: cities } });
+    const activityDetails = await Activity.find({ '_id': { $in: activities } });
+
+    if (!cityDetails.length || !activityDetails.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more city or activity IDs are invalid.', false));
     }
 
     // Generate the initial itinerary
-    const result = await generateItinerary(itineraryData);
+    const result = await generateItinerary({
+      ...req.body,
+      country: country.name,
+      cities: cityDetails.map(city => ({
+        name: city.name,
+        iataCode: city.iataCode,
+        activities: []  // Initialize with empty activities
+      })),
+      activities: activityDetails.map(activity => ({
+        name: activity.name,
+        duration: activity.duration,
+        opensAt: activity.opensAt,
+        closesAt: activity.closesAt
+      }))
+    });
 
-    if (result.error) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, result.error, false));
-    }
+    console.log("result", result);
+    console.log("itinerary",result.itinerary)
 
-    // Add title and subtitle to the itinerary
-    const { title, subtitle, itinerary } = result;
+    // Extract title, subtitle, and itinerary from result
+    const title = result.title;
+    const subtitle = result.subtitle;
+    const itinerary = result.itinerary;
 
     // Include title and subtitle in the itinerary
     const itineraryWithTitles = {
@@ -36,22 +64,23 @@ export const createItinerary = async (req, res) => {
       subtitle,
       itinerary
     };
-    
-    // Add dates to the generated itinerary
-    const itineraryWithTravel=addTransferActivity(itineraryWithTitles);
+
+    // Add transfer activities and dates to the generated itinerary
+    const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
     const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
     const transformItinerary = settransformItinerary(itineraryWithDates);
 
-    // // Add flight details to the itinerary with dates
-    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityIATACodes);
+    // Add flight details to the itinerary with dates
+    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityDetails);
 
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
-    const enreachItinerary=addGeneralDummyData(itineraryWithFlights);
-    // res.json(enreachItinerary);
-    return res.status(StatusCodes.OK).json(httpFormatter(enreachItinerary, 'Crate Iternary Successfull'));
-    
+
+    // Add general dummy data to the itinerary
+    const enrichedItinerary = addGeneralDummyData(itineraryWithFlights);
+    return res.status(StatusCodes.OK).json(httpFormatter(enrichedItinerary, 'Create Itinerary Successful'));
+
   } catch (error) {
     console.error('Error creating itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));

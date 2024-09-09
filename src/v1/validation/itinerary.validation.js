@@ -1,6 +1,13 @@
 import Joi from 'joi';
 
+// Activity Schema
 const activitySchema = Joi.object({
+  _id: Joi.string()
+    .required()
+    .messages({
+      'string.base': 'Activity ID must be a string',
+      'any.required': 'Activity ID is required',
+    }),
   name: Joi.string()
     .required()
     .messages({
@@ -33,7 +40,14 @@ const activitySchema = Joi.object({
     }),
 });
 
+// City Schema
 const citySchema = Joi.object({
+  _id: Joi.string()
+    .required()
+    .messages({
+      'string.base': 'City ID must be a string',
+      'any.required': 'City ID is required',
+    }),
   name: Joi.string()
     .required()
     .messages({
@@ -60,6 +74,7 @@ const citySchema = Joi.object({
     }),
 });
 
+// Itinerary Validation Schema
 const itineraryValidation = {
   body: Joi.object().keys({
     country: Joi.string()

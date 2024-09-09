@@ -13,12 +13,17 @@ const openai = new OpenAI({
  */
 export async function generateItinerary(itineraryData) {
     // Format the cities and activities for the prompt
-    const cityActivityList = itineraryData.cities
-        .map(city =>
-            `${city.name}: ${city.activities.map(activity => `- ${activity.name} (${activity.duration})`).join(', ')}`
-        )
-        .join('\n');
+    const cityList = itineraryData.cities
+        .map(city => city.name)
+        .join(', ');
 
+    // Format the activities for the prompt
+    const activityList = itineraryData.activities
+        .map(activity => 
+            `${activity.name} in ${activity.city} (${activity.duration}) - Opens: ${activity.opens_at}, Closes: ${activity.closes_at}`
+        )
+        .join(', ');
+        console.log(activityList)
         const messages = [
           {
               role: "system",
@@ -26,7 +31,7 @@ export async function generateItinerary(itineraryData) {
       
         Key Requirements:
       
-        1. **Reorder Cities**: Reorder the cities to optimize travel cost, time efficiency, and **distance**. Consider factors like proximity, travel costs, and minimizing travel time. **Only use the cities provided in the cityActivityList. Do not add any new cities.**
+        1. **Reorder Cities**: Reorder the cities to optimize travel cost, time efficiency, and **distance**. Consider factors like proximity, travel costs, and minimizing travel time. **Only use the cities provided in the cityList. Do not add any new cities.**
         2. **Reorder Activities**: Reorder activities within each city to minimize **distance between activity locations**. Ensure each day is fully utilized, and activities flow naturally from one to the next.
         3. **Day Utilization**: Each day should be fully utilized with activities, planned effectively with appropriate start and end times strictly between **10:00 AM and 10:00 PM**. If a day's activities cannot fit within this window, extend the trip duration or adjust the itinerary. **Must not have empty array of activities**. If necessary, redistribute activities across days to prevent any day from being empty.
         4. **Include Durations**: Retain the provided duration for each activity and ensure it is respected in the itinerary.
@@ -34,15 +39,17 @@ export async function generateItinerary(itineraryData) {
         6. **JSON Output**: Structure the output in JSON format with a title, subtitle, and details such as current city, next city, stay days, transport method, cost, and a day-by-day breakdown of activities.
         7. **Transport Methods**: Use only the following transport methods: Car, Train, Ferry, and Flight.
         8. timeStamp can be morning, afternoon, evening, and night only.
-        9. **Include all given cities. Do not include any cities that are not provided in the cityActivityList.**
+        9. **Include all given cities. Do not include any cities that are not provided in the ${cityList}.**
         10. **Days array should not be empty, all activities must be covered.**
         11. Assign activities timings (startTime and endTime) according to opens_at and closes_at time given in input.
         12. Activities endTime should not be after 11:59 PM and startTime should not be before 3:00 AM.
-        13. **Use only the cities provided in the cityActivityList. Do not include any additional cities.**
+        13. **Use only the cities provided in the ${cityList}. Do not include any additional cities.**
+        14. **Use only activities provided in the ${activityList}. Do not add other activities unless provided.**
       
         Cities and Activities:
       
-        ${cityActivityList}
+        ${cityList}
+        ${activityList}
       
         Output Format:
       
@@ -99,7 +106,7 @@ export async function generateItinerary(itineraryData) {
               content: `Create a detailed itinerary for a trip to ${itineraryData.country}, including all provided cities and their activities.
       
         The itinerary should:
-        - **Reorder the cities to optimize for both travel cost and time efficiency.** Consider the overall flow and proximity of cities to each other to minimize travel time. **Only use the cities provided in the cityActivityList. No additional cities should be included.**
+        - **Reorder the cities to optimize for both travel cost and time efficiency.** Consider the overall flow and proximity of cities to each other to minimize travel time. **Only use the cities provided in the ${cityList}. No additional cities should be included.**
         - **Reorder activities within each city to maximize enjoyment and efficiency.** Consider the proximity of activities within the city, their opening hours, and any other factors that might affect the sequence.
         - Include the number of stay days in each city and ensure that the activities fit into these days. The trip duration can be extended if necessary to include all activities.
         - Specify the transportation method and cost per person in INR between each city.
@@ -107,7 +114,7 @@ export async function generateItinerary(itineraryData) {
         - Offer a day-by-day breakdown of activities in each city, ensuring no day is left empty. Activities should be scheduled to make full use of the stay days within the time frame of **10:00 AM to 10:00 PM**. No activities should be scheduled outside this time frame, and there should be no empty arrays of activities for any day.
         - Ensure that each activity is only included **once throughout the entire trip** and is not repeated.
         - **Ensure that the duration for each activity is respected and included in the itinerary.**
-        - **Use only the cities provided in the cityActivityList. No additional cities should be included.**
+        - **Use only the cities provided in the ${cityList}. No additional cities should be included.**
         - Use only the activities listed below for each city and do not include any new activities.
         - Use only the provided transport methods: Car, Train, Ferry, and Flight.
         - timeStamp can be morning, afternoon, evening, and night only.
@@ -115,8 +122,10 @@ export async function generateItinerary(itineraryData) {
         - **Days array should not be empty, all activities must be covered.**
         - Assign activities timings (startTime and endTime) according to opens_at and closes_at time given in input.
         - Activities endTime should not be after 11:59 PM and startTime should not be before 3:00 AM.
+        - **Use only activities provided in the ${activityList}. Do not add other activities unless provided.**
       
-        ${cityActivityList}
+        ${activityList}
+        ${cityList}
       
         Output the result in JSON format with the following structure:
       
@@ -165,7 +174,7 @@ export async function generateItinerary(itineraryData) {
           ]
         }
       
-        Ensure that each city is visited only once, the route is optimized based on travel cost and time, and all days are utilized with scheduled activities. The last city in the itinerary should have "nextCity" set to null, and its "transport", "transferCostPerPersonINR", and "transferDuration" should also be set to null. Extend the trip duration if needed to include all activities. **Verify that only the cities in the cityActivityList are included. No extra cities should be added.**
+        Ensure that each city is visited only once, the route is optimized based on travel cost and time, and all days are utilized with scheduled activities. The last city in the itinerary should have "nextCity" set to null, and its "transport", "transferCostPerPersonINR", and "transferDuration" should also be set to null. Extend the trip duration if needed to include all activities. **Verify that only the cities in the cityList are included. No extra cities should be added.**
         `,
           },
       ];
@@ -180,7 +189,7 @@ export async function generateItinerary(itineraryData) {
         });
 
         const rawResponse = response.choices[0].message.content;
-
+        console.log("raw response", rawResponse);
         // Ensure the response is in JSON format
         let parsedResponse;
         try {
@@ -189,26 +198,8 @@ export async function generateItinerary(itineraryData) {
             console.error("Failed to parse response:", error);
             throw new Error("Failed to parse response from OpenAI.");
         }
-
-        // Validate the parsed response
-        if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
-            throw new Error("Response is missing required fields.");
-        }
-
-        // Reintroduce the filtering logic
-        const validActivityNames = new Set(
-            itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
-        );
-
-        parsedResponse.itinerary.forEach(leg => {
-            leg.days = leg.days
-                .map(day => {
-                    day.activities = day.activities.filter(activity => validActivityNames.has(activity.name));
-                    return day;
-                })
-                .filter(day => day.activities.length > 0);
-        });
-        // console.log(parsedResponse);
+        console.log(parsedResponse);
+    
         
         return parsedResponse;
 
