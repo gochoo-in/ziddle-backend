@@ -4,7 +4,7 @@ import { verifyToken } from './token.js';
 import User from '../v1/models/user.js';
 import UserCookie from '../v1/models/userCookie.js';
 import UserActivity from '../v1/models/userActivity.js';
-import { getLocationFromIp } from './GeoLocation.js';
+import { getLocationFromIp } from './geoLocation.js';
 import requestIp from 'request-ip';
 import useragent from 'useragent';
 import { v4 as uuidv4 } from 'uuid';
