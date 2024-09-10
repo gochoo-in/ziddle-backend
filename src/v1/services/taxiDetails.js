@@ -76,11 +76,9 @@ async function searchLocation(query) {
 
         if (response.status && response.data && response.data.length > 0) {
             return response.data[0].googlePlaceId;
-        } else {
-            throw new Error('No results found or error in response.');
         }
     } catch (error) {
-        console.error('Error searching location:', error.message);
+        console.error('Error searching location:', error);
         throw error; // Rethrow error to be handled by the caller
     }
 }
@@ -111,30 +109,36 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         };
 
         const response = await rateLimitedFetch(options);
-        const data = JSON.parse(response);
-
+        const data2 = JSON.stringify(response);
+        const data=JSON.parse(JSON.parse(data2))
+        
+        console.log("data",data)
         // Check if data exists and if results is an array
         if (data && data.data && Array.isArray(data.data.results)) {
-            const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
 
-        // Calculate the arrival time based on departure time and duration
-        const arrivalTime = departureTime !== 'Unknown' && result.duration
-            ? moment(departureTime).add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss')
-            : 'Unknown';
-            return data.data.results.map(result => ({
-                transferId: result.resultId,
-                pickupLocation: data.data.journeys[0].pickupLocation ? data.data.journeys[0].pickupLocation.name : 'Unknown',
-                dropoffLocation: data.data.journeys[0].dropOffLocation ? data.data.journeys[0].dropOffLocation.name : 'Unknown',
-                departureTime: departureTime,
-                duration: result.duration || 0,
-                arrivalTime: arrivalTime,
-                vehicleType: result.vehicleType || 'Unknown',
-                passengerCount: result.passengerCapacity || 0,
-                luggageAllowed: result.bags || 0,
-                price: parseFloat(result.price.amount) || 0,
-                currency: result.price.currencyCode || 'Unknown',
-                sharedTransfer: false
-            }));
+            return data.data.results.map(result => {
+                const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
+        
+                // Calculate the arrival time based on departure time and result.duration
+                const arrivalTime = departureTime !== 'Unknown' && result.duration
+                    ? moment(departureTime).add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss')
+                    : 'Unknown';
+        
+                return {
+                    transferId: result.resultId,
+                    pickupLocation: data.data.journeys[0].pickupLocation ? data.data.journeys[0].pickupLocation.name : 'Unknown',
+                    dropoffLocation: data.data.journeys[0].dropOffLocation ? data.data.journeys[0].dropOffLocation.name : 'Unknown',
+                    departureTime: departureTime,
+                    duration: result.duration || 0,
+                    arrivalTime: arrivalTime,
+                    vehicleType: result.vehicleType || 'Unknown',
+                    passengerCount: result.passengerCapacity || 0,
+                    luggageAllowed: result.bags || 0,
+                    price: parseFloat(result.price.amount) || 0,
+                    currency: result.price.currencyCode || 'Unknown',
+                    sharedTransfer: false
+                };
+            });
         } else {
             console.error('Invalid response data structure');
             return [];
@@ -163,7 +167,10 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
 
                     // Get location IDs for pick-up and drop-off
                     const pickUpPlaceId = await searchLocation(currentCity);
+                    console.log(currentCity,pickUpPlaceId);
                     const dropOffPlaceId = await searchLocation(nextCity);
+                    console.log(nextCity,dropOffPlaceId);
+                    
 
                     if (!pickUpPlaceId || !dropOffPlaceId) {
                         itinerary[i].transport.modeDetails = 'Unable to find location details.';

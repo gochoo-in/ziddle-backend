@@ -87,9 +87,9 @@ export const createItinerary = async (req, res) => {
     // }
     console.log((itineraryWithTaxi));
     // Fetch hotel details and add to the itinerary
-    // const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
+    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
     
-    return res.status(StatusCodes.OK).json(httpFormatter(itineraryWithTaxi, 'Create Itinerary Successful'));
+    return res.status(StatusCodes.OK).json(httpFormatter(enrichedItinerary, 'Create Itinerary Successful'));
 
   } catch (error) {
     console.error('Error creating itinerary:', error);
