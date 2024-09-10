@@ -10,6 +10,7 @@ import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; // Import hotel details service
+import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -54,8 +55,8 @@ export const createItinerary = async (req, res) => {
     
     
 
-    console.log("result", result);
-    console.log("itinerary", result.itinerary);
+    // console.log("result", result);
+    // console.log("itinerary", result.itinerary);
 
     // Extract title, subtitle, and itinerary from result
     const title = result.title;
@@ -76,15 +77,19 @@ export const createItinerary = async (req, res) => {
 
     // Add flight details to the itinerary with dates
     const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityDetails);
-
+    
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
-
+    const itineraryWithTaxi=await addTaxiDetailsToItinerary(itineraryWithFlights);
+    // if (itineraryWithTaxi.error) {
+    //   return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithTaxi.error, false));
+    // }
+    console.log((itineraryWithTaxi));
     // Fetch hotel details and add to the itinerary
-    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithFlights);
+    // const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
     
-    return res.status(StatusCodes.OK).json(httpFormatter(enrichedItinerary, 'Create Itinerary Successful'));
+    return res.status(StatusCodes.OK).json(httpFormatter(itineraryWithTaxi, 'Create Itinerary Successful'));
 
   } catch (error) {
     console.error('Error creating itinerary:', error);

@@ -32,7 +32,7 @@ console.log(cityActivityList);
   4. **Include Durations**: Retain the provided duration for each activity and ensure it is respected in the itinerary.
   5. **Transportation Details**: Include the method of transport between cities, the cost per person in INR, and the travel duration.
   6. **JSON Output**: Structure the output in JSON format with a title, subtitle, and details such as current city, next city, stay days, transport method, cost, and a day-by-day breakdown of activities.
-  7. **Transport Methods**: Use only the following transport methods: Car, Train, Ferry, and Flight.
+  7. **Transport Methods**: Use only the following transport methods: Car, Ferry, and Flight.
   8. timeStamp can be morning, afternoon, evening, and night only.
   9. **Include all given cities.**
   10. **Days array should not be empty, all activities must be covered.**
@@ -106,7 +106,7 @@ console.log(cityActivityList);
   - Ensure that each activity is only included **once throughout the entire trip** and is not repeated.
   - **Ensure that the duration for each activity is respected and included in the itinerary.**
   - Use only the activities listed below for each city and do not include any new activities.
-  - Use only the provided transport methods: Car, Train, Ferry, and Flight.
+  - Use only the provided transport methods: Car, Ferry, and Flight.
   - timeStamp can be morning, afternoon, evening, and night only.
   - **Include all given cities.**
   - **Days array should not be empty, all activities must be covered.**

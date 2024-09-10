@@ -136,7 +136,7 @@ export async function addHotelDetailsToItinerary(data) {
             itinerary
         };
     } catch (error) {
-        console.error("Error adding hotel details:", error.message);
+        console.error("Error adding hotel details:", error);
         return { error: "Error adding hotel details" };
     }
 }
