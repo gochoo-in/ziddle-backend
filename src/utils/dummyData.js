@@ -79,15 +79,7 @@ function getDummyTransportDetails(mode, segment, nextSegment) {
                 refundable: true
             };
         case 'Car':
-            return {
-                carNumber: `CAR${Math.floor(Math.random() * 1000)}`,
-                pickupPoint: `${departureCity} Hotel`,
-                dropOffPoint: `${arrivalCity} Hotel`,
-                pickupTime: `${departureDate}T08:00:00`,
-                dropOffTime: `${arrivalDate}T10:30:00`,
-                duration: '2 hours 30 minutes',
-                refundable: true
-            };
+            return segment.transport.modeDetails || { message: 'No transport details available for mode: Car' };
         case 'Train':
             return {
                 trainNumber: `TR${Math.floor(Math.random() * 1000)}`,
