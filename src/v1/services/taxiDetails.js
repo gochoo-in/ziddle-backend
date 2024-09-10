@@ -98,7 +98,6 @@ async function convertToINR(amount, currency) {
         return amount; // Return the amount unchanged in case of an error
     }
 }
-
 async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickUpTime, currencyCode) {
     try {
         const options = {
@@ -114,25 +113,38 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         const response = await rateLimitedFetch(options);
         const data = JSON.parse(response);
 
-        return data.results.map(result => ({
-            transferId: result.resultId,
-            pickupLocation: result.pickupLocation ? result.pickupLocation.description : 'Unknown',
-            dropoffLocation: result.dropOffLocation ? result.dropOffLocation.description : 'Unknown',
-            departureTime: result.departureTime || 'Unknown',
-            duration: result.duration || 0,
-            arrivalTime: moment(result.departureTime).clone().add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss'),
-            vehicleType: result.vehicleType || 'Unknown',
-            passengerCount: result.passengerCapacity || 0,
-            luggageAllowed: result.bags || 0,
-            price: parseFloat(result.price.amount) || 0,
-            currency: result.price.currencyCode || 'Unknown',
-            sharedTransfer: false
-        }));
+        // Check if data exists and if results is an array
+        if (data && data.data && Array.isArray(data.data.results)) {
+            const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
+
+        // Calculate the arrival time based on departure time and duration
+        const arrivalTime = departureTime !== 'Unknown' && result.duration
+            ? moment(departureTime).add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss')
+            : 'Unknown';
+            return data.data.results.map(result => ({
+                transferId: result.resultId,
+                pickupLocation: data.data.journeys[0].pickupLocation ? data.data.journeys[0].pickupLocation.name : 'Unknown',
+                dropoffLocation: data.data.journeys[0].dropOffLocation ? data.data.journeys[0].dropOffLocation.name : 'Unknown',
+                departureTime: data.data.journeys[0].requestedPickupDateTime || 'Unknown',
+                duration: result.duration || 0,
+                arrivalTime: moment(result.departureTime).clone().add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss'),
+                vehicleType: result.vehicleType || 'Unknown',
+                passengerCount: result.passengerCapacity || 0,
+                luggageAllowed: result.bags || 0,
+                price: parseFloat(result.price.amount) || 0,
+                currency: result.price.currencyCode || 'Unknown',
+                sharedTransfer: false
+            }));
+        } else {
+            console.error('Invalid response data structure');
+            return [];
+        }
     } catch (error) {
         console.error('Error fetching taxi details:', error.message);
         throw error;
     }
 }
+
 
 export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
     try {
@@ -142,38 +154,52 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
             const currentCity = itinerary[i].currentCity;
             const nextCity = itinerary[i + 1].currentCity;
 
+            // Only process if transport mode is 'Car'
             if (itinerary[i].transport && itinerary[i].transport.mode === 'Car') {
-                const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
-                const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
+                try {
+                    // Get the last day and set the next day for taxi pickup
+                    const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
+                    const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
 
-                const pickUpPlaceId = await searchLocation(currentCity);
-                const dropOffPlaceId = await searchLocation(nextCity);
+                    // Get location IDs for pick-up and drop-off
+                    const pickUpPlaceId = await searchLocation(currentCity);
+                    const dropOffPlaceId = await searchLocation(nextCity);
 
-                if (!pickUpPlaceId || !dropOffPlaceId) {
-                    itinerary[i].transport.modeDetails = 'Unable to find location details.';
-                    continue;
-                }
+                    if (!pickUpPlaceId || !dropOffPlaceId) {
+                        itinerary[i].transport.modeDetails = 'Unable to find location details.';
+                        continue;
+                    }
 
-                const taxis = await fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, nextDay, '10:00', currencyCode);
+                    // Fetch taxi details
+                    const taxis = await fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, nextDay, '10:00', currencyCode);
 
-                if (taxis.length > 0) {
-                    const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
+                    if (taxis.length > 0) {
+                        // Find the cheapest taxi
+                        const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
 
-                    const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
+                        // Convert the price to INR
+                        const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
 
-                    itinerary[i].transport.modeDetails = {
-                        ...cheapestTaxi,
-                        priceInINR: priceInINR.toFixed(2)
-                    };
-                } else {
-                    itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
+                        itinerary[i].transport.modeDetails = {
+                            ...cheapestTaxi,
+                            priceInINR: priceInINR.toFixed(2)
+                        };
+                    } else {
+                        itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
+                    }
+                } catch (innerError) {
+                    // Log the error but don't break the loop or overall itinerary
+                    console.error(`Error processing taxi details for leg ${i}:`, innerError.message);
+                    itinerary[i].transport.modeDetails = 'Error fetching taxi details.';
                 }
             }
         }
 
+        // Return the updated itinerary
         return { ...data, itinerary };
     } catch (error) {
-        console.error("Error adding taxi details:", error.message);
-        return { error: "Error adding taxi details" };
+        console.error("Error adding taxi details to itinerary:", error.message);
+        return { ...data, error: "Error adding taxi details" };
     }
 }
+
