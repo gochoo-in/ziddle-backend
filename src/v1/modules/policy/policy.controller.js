@@ -7,20 +7,20 @@ import httpFormatter from '../../../utils/formatter.js';
 
 // Assign Access Function
 export const assignAccess = async (req, res) => {
-  const { ptype, userId, endpoint, action } = req.body;
+  const { ptype, employeeId, endpoint, action } = req.body;
 
   // Validate required fields
-  if (!userId || !endpoint || !action) {
+  if (!employeeId || !endpoint || !action) {
     return res
       .status(StatusCodes.BAD_REQUEST)
-      .json(httpFormatter({}, 'Missing userId, endpoint, or action', false));
+      .json(httpFormatter({}, 'Missing employeeId, endpoint, or action', false));
   }
 
   try {
     // Check if the policy already exists
     const existingPolicy = await casbinpolicy.findOne({
       ptype,
-      v0: userId,
+      v0: employeeId,
       v1: endpoint,
       v2: action,
     });
@@ -35,7 +35,7 @@ export const assignAccess = async (req, res) => {
     // Create the new policy
     const data = await casbinpolicy.create({
       ptype,
-      v0: userId,
+      v0: employeeId,
       v1: endpoint,
       v2: action,
     });
@@ -69,13 +69,13 @@ export const getPolicies = async (req, res) => {
 // Update Policy Function
 export const updatePolicy = async (req, res) => {
   const { id } = req.params;
-  const { ptype, userId, endpoint, action } = req.body;
+  const { ptype, employeeId, endpoint, action } = req.body;
 
   // Validate required fields
-  if (!userId || !endpoint || !action) {
+  if (!employeeId || !endpoint || !action) {
     return res
       .status(StatusCodes.BAD_REQUEST)
-      .json(httpFormatter({}, 'Missing userId, endpoint, or action', false));
+      .json(httpFormatter({}, 'Missing employeeId, endpoint, or action', false));
   }
 
   try {
@@ -83,7 +83,7 @@ export const updatePolicy = async (req, res) => {
     const existingPolicy = await casbinpolicy.findOne({
       _id: { $ne: id },
       ptype,
-      v0: userId,
+      v0: employeeId,
       v1: endpoint,
       v2: action,
     });
@@ -97,7 +97,7 @@ export const updatePolicy = async (req, res) => {
     // Update the policy
     const updatedPolicy = await casbinpolicy.findByIdAndUpdate(
       id,
-      { ptype, v0: userId, v1: endpoint, v2: action },
+      { ptype, v0: employeeId, v1: endpoint, v2: action },
       { new: true, runValidators: true }
     );
 

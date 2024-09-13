@@ -10,6 +10,7 @@ import cityHotels from '../modules/hotels/hotels.routes.js'
 import callbackRequest from '../modules/callbackRequest/callbackRequest.routes.js'
 import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
+import policy from '../modules/policy/policy.routes.js'
 
 const allRoutes = Router()
 
@@ -58,6 +59,10 @@ const defaultRoutes = [
     {
         path: '/admin',
         route: admin
+    },
+    {
+        path: '/policy',
+        route: policy
     }
 
 ]
