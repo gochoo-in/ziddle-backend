@@ -4,41 +4,54 @@ import { StatusCodes } from "http-status-codes";
 import Config from "./config/index.js";
 import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
-import middleware from './utils/middleware.js';
-import { checkSDatabaseConnection, checkSqlDatabaseHealth } from "./config/db/sql.js";
-import { connectMongoDB,checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
+import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
+import { generateItinerary } from './v1/services/gpt.js'; // Import your existing generateItinerary function
+import { addDatesToItinerary } from './utils/dateUtils.js'; // Import the date adding function
+import dotenv from 'dotenv';
+import { settransformItinerary } from "./utils/transformItinerary.js";
+import { addFlightDetailsToItinerary } from "./v1/services/flightdetails.js";
+import { trackUserActivity } from "./utils/middleware.js";
+import cookieParser from 'cookie-parser';
+import { cookieManager } from "./utils/middleware.js";
 
+
+dotenv.config();
 const { port } = Config;
 
 const app = express();
-
 const httpServer = http.Server;
+
+app.use(express.json());
+app.use(cookieParser());
+app.use(cookieManager);
+// app.use(trackUserActivity);
+
+
+
 
 app.get('/', (req, res) => {
   res.status(StatusCodes.OK).json("API Testing SuccessFull!!");
 });
 
-
 app.get('/health', async (req, res) => {
   const healthStatus = await checkSqlDatabaseHealth();
   if (healthStatus.status === 'healthy') {
-      res.status(StatusCodes.OK).json(healthStatus);
+    res.status(StatusCodes.OK).json(healthStatus);
   } else {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(healthStatus);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(healthStatus);
   }
 });
 
 app.get('/health/mongo', async (req, res) => {
   const healthStatus = await checkMongoDBDatabaseHealth();
   if (healthStatus.status === 'healthy') {
-      res.status(StatusCodes.OK).json(healthStatus);
+    res.status(StatusCodes.OK).json(healthStatus);
   } else {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(healthStatus);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(healthStatus);
   }
 });
 
-
-app.use('/api/v1', middleware, allV1Routes);
+app.use('/api/v1', allV1Routes);
 
 
 // Error handling middleware
@@ -60,13 +73,13 @@ app.use((error, req, res, next) => {
 });
 
 // Start server function
-async function startServer () {
+async function startServer() {
   try {
     const server = app.listen(port, '0.0.0.0', () => {
       logger.info(`Listening on port ${port}`);
     });
-    await checkSDatabaseConnection();
-    await  connectMongoDB()
+    await connectMongoDB();
+
     // Error handling for EADDRINUSE
     server.on("error", (error) => {
       if (error.code === "EADDRINUSE") {
@@ -98,10 +111,8 @@ const exitHandler = () => {
   }
 };
 
-
 const unexpectedErrorHandler = (error) => {
   logger.error(error);
-  exitHandler();
 };
 
 process.on('uncaughtException', unexpectedErrorHandler);

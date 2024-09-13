@@ -1,4 +1,4 @@
-
+export const FCM_KEY= 'AAAAmrmDs8A:APA91bHGdAWqTrg3Bb89Tt533jUUsO2DuYjJOO6RrzJLNNYLAIhKlz6G2c02dWioaNjJg8Yp_6Gw9pWmZ1t_wihWDqJnBTgTukrJyXLYZAMCS8pMQVblQnD8zfgP7C_whNZnL8x2UhbA';
 export const constants ={
     DEVICE_TYPE: {
     "WEB": "WEB",
