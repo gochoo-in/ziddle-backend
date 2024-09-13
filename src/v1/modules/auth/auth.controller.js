@@ -9,7 +9,7 @@ import { FCM_KEY } from '../../../utils/constants.js';
 import { sendOTPMessage } from '../../services/index.js';
 import requestIp from 'request-ip';  
 import useragent from 'useragent';  
-import UserCookie from '../../models/userCookie.js'; // Adjust path as necessary
+import UserCookie from '../../models/userCookie.js'; 
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -132,7 +132,6 @@ export const signin = async (req, res) => {
 
                 const token = createJWT(user._id);
 
-                // Update the UserCookies record to include userId
                 await UserCookie.updateOne(
                     { cookieId: req.cookieId },
                     { $set: { userId: user._id } }
@@ -155,7 +154,7 @@ export const logout = async (req, res) => {
     try {
         verifyToken(req, res, async () => {
             const userId = req.user.userId;
-            const cookieId = req.cookies['userCookieId']; // Extract cookie ID from request
+            const cookieId = req.cookies['userCookieId']; 
 
             if (!cookieId) {
                 return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cookie ID not found', false));
@@ -169,7 +168,6 @@ export const logout = async (req, res) => {
             user.isLoggedIn = false;
             await user.save();
 
-            // Update the UserCookies record to set userId to null
             await UserCookie.updateOne(
                 { cookieId: cookieId },
                 { $set: { userId: null } }
