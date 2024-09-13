@@ -24,7 +24,7 @@ const httpServer = http.Server;
 app.use(express.json());
 app.use(cookieParser());
 app.use(cookieManager);
-app.use(trackUserActivity);
+// app.use(trackUserActivity);
 
 
 

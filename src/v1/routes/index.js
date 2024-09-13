@@ -7,9 +7,10 @@ import activities from '../modules/activities/activities.routes.js'
 import contactUs from '../modules/contactUs/contactUs.routes.js'
 import profile from '../modules/profiles/profiles.routes.js'
 import cityHotels from '../modules/hotels/hotels.routes.js'
-import adminUser from '../modules/admin/user.routes.js'
 import callbackRequest from '../modules/callbackRequest/callbackRequest.routes.js'
 import categorySection from '../modules/categorySection/category.routes.js'
+import admin from '../modules/admin/admin.routes.js'
+
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -47,16 +48,16 @@ const defaultRoutes = [
         route: profile
     },
     {
-        path: '/admin',
-        route: adminUser
-    },
-    {
         path: '/user',
         route: callbackRequest
     },
     {
         path: '/section',
         route: categorySection
+    },
+    {
+        path: '/admin',
+        route: admin
     }
 
 ]
