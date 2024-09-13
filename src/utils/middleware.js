@@ -61,23 +61,53 @@ export const trackUserActivity = async (req, res, next) => {
 
 export const cookieManager = async (req, res, next) => {
     try {
-        const cookies = req.cookies; // Use cookie-parser middleware directly
-        let cookieId = cookies['user_cookie_id'];
+        const cookies = req.cookies; // Use cookie-parser middleware to parse cookies
+        let cookieId = cookies['userCookieId'];
 
         if (!cookieId) {
-            // If no cookie, generate a new one
+            // No cookie found, generate a new one
             cookieId = uuidv4();
+
+            // Store the new cookie in the database
             await UserCookie.create({
                 cookieId: cookieId,
                 cookieValue: cookieId, 
-                user_id: null // Assuming user is null if not logged in
+                user_id: null, 
             });
 
-            // Set the cookie for the user with 1-year expiry
-            res.cookie('user_cookie_id', cookieId, { httpOnly: true, maxAge: 365 * 24 * 60 * 60 * 1000 });
+            // Set the cookie in the user's browser with a 1-year expiration
+            res.cookie('userCookieId', cookieId, { 
+                httpOnly: true, 
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            });
+        } else {
+            // Optionally, check if the cookie exists in the database
+            const existingCookie = await UserCookie.findOne({ cookieId });
+
+            if (!existingCookie) {
+                // If the cookie doesn't exist in the database, regenerate a new one
+                cookieId = uuidv4();
+
+                // Store the new cookie in the database
+                await UserCookie.create({
+                    cookieId: cookieId,
+                    cookieValue: cookieId,
+                    user_id: null
+                });
+
+                // Set the new cookie
+                res.cookie('userCookieId', cookieId, { 
+                    httpOnly: true, 
+                    maxAge: 7 * 24 * 60 * 60 * 1000 
+                });
+            } else {
+                // Optionally, update the updatedAt field in the database
+                existingCookie.updatedAt = new Date();
+                await existingCookie.save();
+            }
         }
 
-        // Attach cookieId to the request object
+        // Attach the cookieId to the request object for use in further middleware or routes
         req.cookieId = cookieId;
         next();
     } catch (error) {
