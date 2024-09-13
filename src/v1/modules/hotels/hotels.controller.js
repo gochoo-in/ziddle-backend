@@ -1,7 +1,7 @@
 import { fetchHotels } from '../../services/hotelService.js';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
-
+import logger from '../../../config/logger.js';
 // Controller to get hotel data by cityId, startDate, endDate, adults, and rooms
 export const getHotels = async (req, res) => {
     try {
@@ -23,7 +23,7 @@ export const getHotels = async (req, res) => {
         // If successful, return the hotel data
         return res.status(StatusCodes.OK).json(httpFormatter({ hotels }, 'Hotels retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving hotels:', error);
+        logger.error('Error retrieving hotels:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

@@ -1,4 +1,5 @@
 import moment from 'moment'; // Ensure you have moment.js installed
+import logger from '../config/logger.js';
 
 // Function to add dates to the itinerary and calculate total days and nights
 export function addDatesToItinerary(data, startDate) {
@@ -52,7 +53,7 @@ export function addDatesToItinerary(data, startDate) {
             totalNights
         };
     } catch (error) {
-        console.error('Error adding dates to itinerary:', error);
+        logger.error('Error adding dates to itinerary:', error);
         return { error: 'Error adding dates to itinerary' };
     }
 }

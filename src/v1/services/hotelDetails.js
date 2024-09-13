@@ -1,6 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
-import City from '../models/city.js'
+import City from '../models/city.js';
+import logger from '../../config/logger.js'; 
 
 dotenv.config();
 
@@ -18,8 +19,8 @@ async function convertToINR(amount, currency) {
         }
         return amount * rate;
     } catch (error) {
-        console.error(`Error converting currency ${currency} to INR:`, error.message);
-        return amount; 
+        logger.error(`Error converting currency ${currency} to INR: ${error.message}`);
+        return amount; // Fallback: return the original amount if conversion fails
     }
 }
 
@@ -79,15 +80,15 @@ async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate
 
                 return cheapestHotel;
             } else {
-                console.warn('No hotels found in response data.');
+                logger.warn('No hotels found in response data.');
                 return null;
             }
         } else {
-            console.warn('No results found in response data.');
+            logger.warn('No results found in response data.');
             return null;
         }
     } catch (error) {
-        console.error('Error fetching hotel details:', error.message);
+        logger.error('Error fetching hotel details:', { message: error.message });
         return null;
     }
 }
@@ -102,7 +103,7 @@ export async function addHotelDetailsToItinerary(data) {
             // Fetch city details from the database
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
-                console.warn(`City ${currentCityName} not found in the database.`);
+                logger.warn(`City ${currentCityName} not found in the database.`);
                 itinerary[i].hotelDetails = 'City not found in the database.';
                 continue;
             }
@@ -115,9 +116,9 @@ export async function addHotelDetailsToItinerary(data) {
             const arrivalDate = days.length > 0 ? days[0].date : null;
             const departureDate = days.length > 0 ? days[days.length - 1].date : null;
 
-            // Debug: Log the extracted dates
-            console.log(`Arrival Date for ${currentCityName}:`, arrivalDate);
-            console.log(`Departure Date for ${currentCityName}:`, departureDate);
+            // Log the extracted dates
+            logger.debug(`Arrival Date for ${currentCityName}: ${arrivalDate}`);
+            logger.debug(`Departure Date for ${currentCityName}: ${departureDate}`);
 
             if (!arrivalDate || !departureDate) {
                 itinerary[i].hotelDetails = 'No days found to determine arrival and departure dates.';
@@ -136,7 +137,7 @@ export async function addHotelDetailsToItinerary(data) {
             itinerary
         };
     } catch (error) {
-        console.error("Error adding hotel details:", error);
+        logger.error("Error adding hotel details:", { message: error.message });
         return { error: "Error adding hotel details" };
     }
 }

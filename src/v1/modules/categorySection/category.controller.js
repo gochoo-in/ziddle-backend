@@ -1,6 +1,7 @@
 import Section from '../../models/categorySection.js';
 import httpFormatter from '../../../utils/formatter.js';
 import { StatusCodes } from 'http-status-codes';
+import logger from '../../../config/logger.js';
 
 // Add a new section
 export const addSection = async (req, res) => {
@@ -20,7 +21,7 @@ export const addSection = async (req, res) => {
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ section }, 'Section added successfully', true));
     } catch (error) {
-        console.error('Error adding section:', error);
+        logger.error('Error adding section:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -32,7 +33,7 @@ export const getAllSections = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ sections }, 'Sections retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving sections:', error);
+        logger.error('Error retrieving sections:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -54,7 +55,7 @@ export const getSectionById = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ section }, 'Section retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving section:', error);
+        logger.error('Error retrieving section:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -86,7 +87,7 @@ export const updateSection = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ section }, 'Section updated successfully', true));
     } catch (error) {
-        console.error('Error updating section:', error);
+        logger.error('Error updating section:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -108,7 +109,7 @@ export const deleteSection = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({}, 'Section deleted successfully', true));
     } catch (error) {
-        console.error('Error deleting section:', error);
+        logger.error('Error deleting section:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

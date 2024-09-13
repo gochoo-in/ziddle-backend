@@ -3,7 +3,7 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
-
+import logger from '../../../config/logger.js';
 // Create a new destination
 export const addDestination = async (req, res) => {
     try {
@@ -70,7 +70,7 @@ export const addDestination = async (req, res) => {
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 
     } catch (error) {
-        console.error('Error adding destination:', error);
+        logger.error('Error adding destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -81,7 +81,7 @@ export const getAllDestinations = async (req, res) => {
         const data = await Destination.find();
         return res.status(StatusCodes.OK).json(httpFormatter({ data }, 'Destinations retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving destinations:', error);
+        logger.error('Error retrieving destinations:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -108,7 +108,7 @@ export const getActivitiesByDestination = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ activities }, `Activities retrieved for ${destination.name}`, true));
     } catch (error) {
-        console.error('Error retrieving activities by destination:', error);
+        logger.error('Error retrieving activities by destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -131,7 +131,7 @@ export const getCitiesByDestination = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, `Cities for ${destination.name} retrieved successfully`, true));
     } catch (error) {
-        console.error('Error retrieving cities by destination:', error);
+        logger.error('Error retrieving cities by destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -216,7 +216,7 @@ export const updateDestination = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ destination }, 'Destination updated successfully', true));
     } catch (error) {
-        console.error('Error updating destination:', error);
+        logger.error('Error updating destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -243,7 +243,7 @@ export const deleteDestination = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({}, 'Destination and associated cities and activities deleted successfully', true));
     } catch (error) {
-        console.error('Error deleting destination:', error);
+        logger.error('Error deleting destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -260,7 +260,7 @@ export const getDestinationById = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ destination }, 'Destination retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving destination:', error);
+        logger.error('Error retrieving destination:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

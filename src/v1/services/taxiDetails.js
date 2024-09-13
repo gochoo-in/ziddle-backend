@@ -2,12 +2,14 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import moment from 'moment';
 import https from 'https';
+import logger from '../../config/logger.js'; 
+import httpFormatter from '../../utils/formatter.js'; 
 
 dotenv.config();
 
-const API_KEY = process.env.API_KEY; // Securely access your API key from environment variables
-const REQUEST_LIMIT = 1000; // Rate limit
-const RESET_INTERVAL = 3600000; // 1 hour in milliseconds
+const API_KEY = process.env.API_KEY; 
+const REQUEST_LIMIT = 1000; 
+const RESET_INTERVAL = 3600000; 
 
 let requestCount = 0;
 let resetTimestamp = Date.now();
@@ -23,7 +25,7 @@ async function rateLimitedFetch(options, retries = 3, delay = 1000) {
         
         if (requestCount >= REQUEST_LIMIT) {
             const timeUntilReset = resetTimestamp - now;
-            console.log(`Rate limit reached. Waiting ${Math.ceil(timeUntilReset / 1000)} seconds...`);
+            logger.warn(`Rate limit reached. Waiting ${Math.ceil(timeUntilReset / 1000)} seconds...`);
             setTimeout(() => rateLimitedFetch(options, retries, delay).then(resolve).catch(reject), timeUntilReset);
             return;
         }
@@ -41,7 +43,7 @@ async function rateLimitedFetch(options, retries = 3, delay = 1000) {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     resolve(data);
                 } else if (res.statusCode === 429 && retries > 0) {
-                    console.log('Rate limit exceeded. Retrying in ' + delay + 'ms...');
+                    logger.warn(`Rate limit exceeded. Retrying in ${delay} ms...`);
                     setTimeout(() => {
                         rateLimitedFetch(options, retries - 1, delay * 2).then(resolve).catch(reject);
                     }, delay);
@@ -76,10 +78,13 @@ async function searchLocation(query) {
 
         if (response.status && response.data && response.data.length > 0) {
             return response.data[0].googlePlaceId;
+        } else {
+            logger.warn('No location found for query:', query);
+            return null;
         }
     } catch (error) {
-        console.error('Error searching location:', error);
-        throw error; // Rethrow error to be handled by the caller
+        logger.error('Error searching location:', { error: error.message });
+        throw error;
     }
 }
 
@@ -92,10 +97,11 @@ async function convertToINR(amount, currency) {
         const rate = response.data.rates[BASE_CURRENCY];
         return amount * rate;
     } catch (error) {
-        console.error(`Error converting currency ${currency} to INR:`, error.message);
-        return amount; // Return the amount unchanged in case of an error
+        logger.error(`Error converting currency ${currency} to INR:`, { error: error.message });
+        return amount;
     }
 }
+
 async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickUpTime, currencyCode) {
     try {
         const options = {
@@ -109,21 +115,16 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         };
 
         const response = await rateLimitedFetch(options);
-        const data2 = JSON.stringify(response);
-        const data=JSON.parse(JSON.parse(data2))
-        
-        console.log("data",data)
+        const data = JSON.parse(JSON.stringify(JSON.parse(response)));
+
         // Check if data exists and if results is an array
         if (data && data.data && Array.isArray(data.data.results)) {
-
             return data.data.results.map(result => {
                 const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
-        
-                // Calculate the arrival time based on departure time and result.duration
                 const arrivalTime = departureTime !== 'Unknown' && result.duration
                     ? moment(departureTime).add(result.duration, 'minutes').format('YYYY-MM-DDTHH:mm:ss')
                     : 'Unknown';
-        
+
                 return {
                     transferId: result.resultId,
                     pickupLocation: data.data.journeys[0].pickupLocation ? data.data.journeys[0].pickupLocation.name : 'Unknown',
@@ -140,15 +141,14 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
                 };
             });
         } else {
-            console.error('Invalid response data structure');
+            logger.warn('Invalid response data structure for taxi details.');
             return [];
         }
     } catch (error) {
-        console.error('Error fetching taxi details:', error.message);
+        logger.error('Error fetching taxi details:', { error: error.message });
         throw error;
     }
 }
-
 
 export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
     try {
@@ -158,33 +158,23 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
             const currentCity = itinerary[i].currentCity;
             const nextCity = itinerary[i + 1].currentCity;
 
-            // Only process if transport mode is 'Car'
             if (itinerary[i].transport && itinerary[i].transport.mode === 'Car') {
                 try {
-                    // Get the last day and set the next day for taxi pickup
                     const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
                     const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
 
-                    // Get location IDs for pick-up and drop-off
                     const pickUpPlaceId = await searchLocation(currentCity);
-                    console.log(currentCity,pickUpPlaceId);
                     const dropOffPlaceId = await searchLocation(nextCity);
-                    console.log(nextCity,dropOffPlaceId);
-                    
 
                     if (!pickUpPlaceId || !dropOffPlaceId) {
                         itinerary[i].transport.modeDetails = 'Unable to find location details.';
                         continue;
                     }
 
-                    // Fetch taxi details
                     const taxis = await fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, nextDay, '10:00', currencyCode);
 
                     if (taxis.length > 0) {
-                        // Find the cheapest taxi
                         const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
-
-                        // Convert the price to INR
                         const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
 
                         itinerary[i].transport.modeDetails = {
@@ -195,18 +185,15 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
                         itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
                     }
                 } catch (innerError) {
-                    // Log the error but don't break the loop or overall itinerary
-                    console.error(`Error processing taxi details for leg ${i}:`, innerError.message);
+                    logger.error(`Error processing taxi details for leg ${i}:`, { error: innerError.message });
                     itinerary[i].transport.modeDetails = 'Error fetching taxi details.';
                 }
             }
         }
 
-        // Return the updated itinerary
-        return { ...data, itinerary };
+        return httpFormatter({ ...data, itinerary }, 'Taxi details added successfully', true);
     } catch (error) {
-        console.error("Error adding taxi details to itinerary:", error.message);
-        return { ...data, error: "Error adding taxi details" };
+        logger.error("Error adding taxi details to itinerary:", { error: error.message });
+        return httpFormatter(null, 'Error adding taxi details to itinerary', false);
     }
 }
-

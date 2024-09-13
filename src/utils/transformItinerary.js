@@ -1,5 +1,5 @@
 import moment from 'moment';
-
+import logger from '../config/logger.js';
 export function settransformItinerary(itineraryData) {
     try {
         for (let cityIndex = 0; cityIndex < itineraryData.itinerary.length; cityIndex++) {
@@ -49,7 +49,7 @@ export function settransformItinerary(itineraryData) {
         }
         return itineraryData;
     } catch (error) {
-        console.error('Error transforming itinerary:', error);
+        logger.error('Error transforming itinerary:', error);
         return { error: 'Error transforming itinerary' };
     }
 }

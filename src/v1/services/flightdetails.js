@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import moment from 'moment';
 import { Duffel } from '@duffel/api';
-
+import logger from '../../config/logger.js';
 dotenv.config();
 
 const duffel = new Duffel({
@@ -19,7 +19,7 @@ async function convertToINR(amount, currency) {
         const rate = response.data.rates[BASE_CURRENCY];
         return amount * rate;
     } catch (error) {
-        console.error(`Error converting currency ${currency} to INR:`, error.message);
+        logger.error(`Error converting currency ${currency} to INR:`, error.message);
         return amount; // Return the amount unchanged in case of an error
     }
 }
@@ -84,7 +84,6 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
 // Function to check if a flight fits within the free time window
 function isFlightAfterLastActivity(flight, lastActivityEndTime) {
     const flightDepartureTime = moment(flight.flightSegments[0].departureTime);
-    console.log(flightDepartureTime);
     return flightDepartureTime.isAfter(lastActivityEndTime.add(4, 'hours'));
 }
 

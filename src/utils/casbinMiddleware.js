@@ -8,7 +8,6 @@ import { verifyToken } from './token.js';
 export const casbinMiddleware = async (req, res, next) => {
   try {
     await verifyToken(req, res, async () => {
-        console.log(req.user)
       logger.info('--- Casbin Middleware Start ---');
       logger.debug('Extracted user from token', { user: req.user });
 
@@ -28,11 +27,9 @@ export const casbinMiddleware = async (req, res, next) => {
       const enforcer = await getCasbinEnforcer();
 
       const policies = await enforcer.getPolicy();
-      console.log(policies)
       logger.debug('Loaded Casbin policies', { policies });
 
       const allowed = await enforcer.enforce(employeeId, resource, action); 
-console.log("result", allowed)
       logger.info('Enforcement result', {
         employeeId,
         resource,
