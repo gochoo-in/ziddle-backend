@@ -3,6 +3,7 @@ import Employee from '../../models/employee.js';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import { createJWT } from '../../../utils/token.js';
+import { getCasbinEnforcer } from '../../../config/casbinEnforcer.js';
 
 export const adminSignup = async (req, res) => {
   try {
@@ -89,6 +90,37 @@ export const adminLogout = async (req, res) => {
 
     res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
   } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};
+
+
+
+export const deleteEmployee = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+
+    const employee = await Employee.findById(employeeId);
+
+    if (!employee) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Employee not found', false));
+    }
+
+    await Employee.findByIdAndDelete(employeeId);
+
+    const enforcer = await getCasbinEnforcer();
+
+    const removedPolicies = await enforcer.removeFilteredPolicy(0, employeeId);
+
+    if (removedPolicies) {
+      console.log(`Removed ${removedPolicies} policies for employee ${employeeId}`);
+    }
+
+    await enforcer.savePolicy();
+
+    res.status(StatusCodes.OK).json(httpFormatter({}, 'Employee and associated policies deleted successfully', true));
+  } catch (error) {
+    console.error('Error deleting employee or policies:', error.message);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
