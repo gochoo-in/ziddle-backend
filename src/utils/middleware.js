@@ -8,6 +8,7 @@ import { getLocationFromIp } from './geoLocation.js';
 import requestIp from 'request-ip';
 import useragent from 'useragent';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../config/logger.js';
 import cookie from 'cookie';
 
 export const trackUserActivity = async (req, res, next) => {
@@ -52,7 +53,7 @@ export const trackUserActivity = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Error tracking user activity:', error);
+        logger.error('Error tracking user activity:', error);
         return res
             .status(StatusCodes.INTERNAL_SERVER_ERROR)
             .json(httpFormatter({}, 'Internal server error', false));
@@ -111,7 +112,7 @@ export const cookieManager = async (req, res, next) => {
         req.cookieId = cookieId;
         next();
     } catch (error) {
-        console.error('Error managing cookie:', error);
+        logger.error('Error managing cookie:', error);
         return res
             .status(StatusCodes.INTERNAL_SERVER_ERROR)
             .json(httpFormatter({}, 'Internal server error', false));

@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import httpFormatter from "../../../utils/formatter.js";
 import CallbackRequest from "../../models/requestCallback.js";
+import logger from "../../../config/logger.js";
 
 export const callbackRequest = async(req,res,next) => {
     try{
@@ -22,7 +23,7 @@ export const callbackRequest = async(req,res,next) => {
     return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Callback request sent sucessfully', true));
     }
     catch(error){
-        console.error('Error sending callback request:', error);
+        logger.error('Error sending callback request:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

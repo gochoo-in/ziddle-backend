@@ -10,6 +10,7 @@ import { sendOTPMessage } from '../../services/index.js';
 import requestIp from 'request-ip';  
 import useragent from 'useragent';  
 import UserCookie from '../../models/userCookie.js'; 
+import logger from '../../../config/logger.js'
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -75,7 +76,7 @@ export const signup = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error in signup:', error);
+        logger.error('Error in signup:', { message: error.message });
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -145,7 +146,7 @@ export const signin = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error in signing in:', error);
+        logger.error('Error in signin:', { message: error.message });
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -176,7 +177,7 @@ export const logout = async (req, res) => {
             res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
         });
     } catch (error) {
-        console.error('Error in logging out:', error);
+        logger.error('Error in logout:', { message: error.message });
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

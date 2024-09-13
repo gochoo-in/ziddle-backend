@@ -2,7 +2,7 @@ import httpFormatter from '../../../utils/formatter.js';
 import Profile from '../../models/profile.js';
 import User from '../../models/user.js'; 
 import StatusCodes from 'http-status-codes';
-
+import logger from '../../../config/logger.js';
 // Add profile details
 export const addProfileDetails = async (req, res) => {
     try {
@@ -32,7 +32,7 @@ export const addProfileDetails = async (req, res) => {
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: savedProfile }, 'Profile created successfully', true));
     } catch (error) {
-        console.error('Error adding profile details:', error);
+        logger.error('Error adding profile details:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -50,7 +50,7 @@ export const getProfileById = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
     } catch (error) {
-        console.error('Error retrieving profile:', error);
+        logger.error('Error retrieving profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -69,7 +69,7 @@ export const updateProfileDetails = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
     } catch (error) {
-        console.error('Error updating profile details:', error);
+        logger.error('Error updating profile details:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -87,7 +87,7 @@ export const deleteProfile = async (req, res) => {
 
         return res.status(StatusCodes.OK).json(httpFormatter({}, 'Profile deleted successfully', true));
     } catch (error) {
-        console.error('Error deleting profile:', error);
+        logger.error('Error deleting profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import logger from '../../config/logger.js'; // Import your logger
 
 dotenv.config();
 
@@ -36,8 +37,8 @@ export const sendOTPMessage = async (otp, phoneNumber) => {
 
     try {
         const response = await axios.request(options);
-        console.log('Message sent:', response.data);
+        logger.info('Message sent successfully', { response: response.data });
     } catch (error) {
-        console.error('Error sending message:', error);
+        logger.error('Error sending message', { error: error.message });
     }
 };

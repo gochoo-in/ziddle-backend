@@ -11,6 +11,7 @@ import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; // Import hotel details service
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
+import logger from '../../../config/logger.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -55,9 +56,6 @@ export const createItinerary = async (req, res) => {
     
     
 
-    // console.log("result", result);
-    // console.log("itinerary", result.itinerary);
-
     // Extract title, subtitle, and itinerary from result
     const title = result.title;
     const subtitle = result.subtitle;
@@ -85,14 +83,13 @@ export const createItinerary = async (req, res) => {
     // if (itineraryWithTaxi.error) {
     //   return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithTaxi.error, false));
     // }
-    console.log((itineraryWithTaxi));
     // Fetch hotel details and add to the itinerary
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
     
     return res.status(StatusCodes.OK).json(httpFormatter(enrichedItinerary, 'Create Itinerary Successful'));
 
   } catch (error) {
-    console.error('Error creating itinerary:', error);
+    logger.error('Error creating itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };

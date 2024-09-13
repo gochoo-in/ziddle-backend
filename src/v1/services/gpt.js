@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import logger from '../../config/logger.js';
 dotenv.config();
 
 const openai = new OpenAI({
@@ -18,7 +19,6 @@ export async function generateItinerary(itineraryData) {
             `${city.name}: ${city.activities.map(activity => `- ${activity.name} (${activity.duration})`).join(', ')}`
         )
         .join('\n');
-console.log(cityActivityList);
     const messages = [
         {
             role: "system",
@@ -181,7 +181,7 @@ console.log(cityActivityList);
         try {
             parsedResponse = JSON.parse(rawResponse);
         } catch (error) {
-            console.error("Failed to parse response:", error);
+            logger.error("Failed to parse response:", error);
             throw new Error("Failed to parse response from OpenAI.");
         }
 
@@ -207,7 +207,7 @@ console.log(cityActivityList);
         return parsedResponse;
 
     } catch (error) {
-        console.error("Error generating itinerary:", error);
+        logger.error("Error generating itinerary:", error);
         throw new Error("Failed to generate itinerary.");
     }
 }
