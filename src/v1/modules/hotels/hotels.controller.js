@@ -1,29 +1,56 @@
-import { fetchHotels } from '../../services/hotelService.js';
-import { StatusCodes } from 'http-status-codes';
-import httpFormatter from '../../../utils/formatter.js';
+import City from '../../models/city.js';
 import logger from '../../../config/logger.js';
-// Controller to get hotel data by cityId, startDate, endDate, adults, and rooms
-export const getHotels = async (req, res) => {
+import fetchHotelDetails from '../../services/hotelDetails.js';
+import StatusCodes from 'http-status-codes';
+import httpFormatter from '../../../utils/formatter.js';
+
+export const getTopHotels = async (req, res) => {
+    const { cityId } = req.params;
+    const { arrivalDate, departureDate, adults = 1 } = req.query;
+
     try {
-        const { cityId } = req.params;
-        const { startDate, endDate, adults, rooms } = req.query;
+        logger.info(`Fetching hotels for cityId: ${cityId}, arrivalDate: ${arrivalDate}, departureDate: ${departureDate}, adults: ${adults}`);
 
-        // Validate that required query params are provided
-        if (!startDate || !endDate || !adults || !rooms) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing required query parameters: startDate, endDate, adults, or rooms', false));
+        if (!arrivalDate || !departureDate) {
+            logger.warn('Missing arrival or departure date');
+            return res
+                .status(StatusCodes.BAD_REQUEST)
+                .json(httpFormatter({}, 'Arrival date and departure date are required.', false));
         }
 
-        // Fetch hotels using the service
-        const hotels = await fetchHotels(cityId, startDate, endDate, adults, rooms);
-
-        if (!hotels || hotels.length === 0) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No hotels found for the given criteria', false));
+        const city = await City.findById(cityId);
+        if (!city) {
+            logger.warn(`City with ID ${cityId} not found`);
+            return res
+                .status(StatusCodes.NOT_FOUND)
+                .json(httpFormatter({}, 'City not found.', false));
         }
 
-        // If successful, return the hotel data
-        return res.status(StatusCodes.OK).json(httpFormatter({ hotels }, 'Hotels retrieved successfully', true));
+        const { latitude, longitude } = city;
+        logger.info(`Found city: ${city.name}, latitude: ${latitude}, longitude: ${longitude}`);
+
+        const hotels = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults);
+
+        const hotelsArray = Array.isArray(hotels) ? hotels : [hotels];
+
+        if (!hotelsArray || hotelsArray.length === 0) {
+            logger.warn(`No hotels found for cityId: ${cityId} and the specified dates.`);
+            return res
+                .status(StatusCodes.NOT_FOUND)
+                .json(httpFormatter({}, 'No hotels found for the specified city and dates.', false));
+        }
+
+        const top5Hotels = hotelsArray.slice(0, 5);
+
+        logger.info(`Successfully fetched 5 hotels for cityId: ${cityId}`);
+
+        return res
+            .status(StatusCodes.OK)
+            .json(httpFormatter({ top5Hotels }, 'Hotels fetched successfully.'));
     } catch (error) {
-        logger.error('Error retrieving hotels:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+        logger.error('Error fetching hotels:', { message: error.message });
+        return res
+            .status(StatusCodes.INTERNAL_SERVER_ERROR)
+            .json(httpFormatter({}, 'Internal server error.', false));
     }
 };

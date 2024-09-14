@@ -20,11 +20,11 @@ async function convertToINR(amount, currency) {
         return amount * rate;
     } catch (error) {
         logger.error(`Error converting currency ${currency} to INR: ${error.message}`);
-        return amount; // Fallback: return the original amount if conversion fails
+        return amount; 
     }
 }
 
-async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults) {
+export default async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults) {
     try {
         const options = {
             method: 'GET',
@@ -100,7 +100,6 @@ export async function addHotelDetailsToItinerary(data) {
         for (let i = 0; i < itinerary.length; i++) {
             const currentCityName = itinerary[i].currentCity;
 
-            // Fetch city details from the database
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
                 logger.warn(`City ${currentCityName} not found in the database.`);
@@ -110,13 +109,11 @@ export async function addHotelDetailsToItinerary(data) {
 
             const { latitude, longitude } = city;
 
-            // Extract arrival and departure dates from days array
             const adults = itinerary.adults;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
             const departureDate = days.length > 0 ? days[days.length - 1].date : null;
 
-            // Log the extracted dates
             logger.debug(`Arrival Date for ${currentCityName}: ${arrivalDate}`);
             logger.debug(`Departure Date for ${currentCityName}: ${departureDate}`);
 
@@ -125,10 +122,8 @@ export async function addHotelDetailsToItinerary(data) {
                 continue;
             }
 
-            // Fetch hotel details
             const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults);
 
-            // Add hotel details to the itinerary
             itinerary[i].hotelDetails = currentCityHotel || 'No hotels found for the specified dates in current city.';
         }
 
