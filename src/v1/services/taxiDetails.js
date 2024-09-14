@@ -191,7 +191,10 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
             }
         }
 
-        return httpFormatter({ ...data, itinerary }, 'Taxi details added successfully', true);
+        return {
+            ...data,
+            itinerary
+        };
     } catch (error) {
         logger.error("Error adding taxi details to itinerary:", { error: error.message });
         return httpFormatter(null, 'Error adding taxi details to itinerary', false);
