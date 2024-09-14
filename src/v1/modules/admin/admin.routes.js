@@ -7,6 +7,6 @@ const router = express.Router();
 router.post('/signup', adminSignup);
 router.post('/signin', adminSignin);
 router.post('/logout', verifyToken, adminLogout);
-router.delete('/:id', casbinMiddleware, deleteEmployee)
+router.delete('/:employeeId', casbinMiddleware, deleteEmployee)
 
 export default router;

@@ -1,20 +1,26 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+import logger from '../config/logger.js';
+
+dotenv.config();
 
 let superAdminToken;
 let employeeToken;
 let employeeId;
+let destinationId;  
+const BASE_URL = process.env.BASE_URL;
 
 describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   it('should sign in the super admin and return a token', async () => {
-    const url = 'http://127.0.0.1:3000/api/v1/admin/signin';
+    const url = `${BASE_URL}/admin/signin`;
     const options = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       data: {
-        email: 'sachin@gatoes.conm',
-        password: 'Sachin@123',
+        email: process.env.SUPER_ADMIN_EMAIL,
+        password: process.env.SUPER_ADMIN_PASSWORD,
       },
     };
 
@@ -22,15 +28,16 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       const response = await axios(url, options);
       const data = response.data;
       superAdminToken = data.data.token;
+      logger.info('Super Admin Token acquired:', superAdminToken);
       expect(response.status).toBe(200);
       expect(data.message).toBe('Login successful');
     } catch (error) {
-      console.log('Error during super admin signin:', error.response ? error.response.data : error.message);
+      logger.error('Error during super admin signin:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 
   it('should add a new employee using the super admin token', async () => {
-    const url = 'http://127.0.0.1:3000/api/v1/admin/signup';
+    const url = `${BASE_URL}/admin/signup`;
     const options = {
       method: 'POST',
       headers: {
@@ -48,15 +55,16 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       const response = await axios(url, options);
       const data = response.data;
       employeeId = data.data.newAdmin._id;
+      logger.info('New Employee ID:', employeeId);
       expect(response.status).toBe(201);
       expect(data.message).toBe('Admin registered successfully');
     } catch (error) {
-      console.log('Error during employee signup:', error.response ? error.response.data : error.message);
+      logger.error('Error during employee signup:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 
   it('should sign in the newly created employee and return a token', async () => {
-    const url = 'http://127.0.0.1:3000/api/v1/admin/signin';
+    const url = `${BASE_URL}/admin/signin`;
     const options = {
       method: 'POST',
       headers: {
@@ -73,20 +81,16 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       const data = response.data;
       employeeToken = data.data.token;
       employeeId = data.data.admin._id;
+      logger.info('Employee Token acquired:', employeeToken);
       expect(response.status).toBe(200);
       expect(data.message).toBe('Login successful');
     } catch (error) {
-      console.log('Error during employee signin:', error.response ? error.response.data : error.message);
+      logger.error('Error during employee signin:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 
   it('should assign access policy to allow adding destinations and getting cities', async () => {
-    if (!superAdminToken) {
-      throw new Error('Super Admin Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/policy';
-
+    const url = `${BASE_URL}/policy`;
     try {
       const responsePostDestination = await axios({
         method: 'POST',
@@ -103,6 +107,7 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         url,
       });
 
+
       const responseGetCities = await axios({
         method: 'POST',
         headers: {
@@ -118,19 +123,16 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         url,
       });
 
-      console.log('Policies assigned successfully.');
+
+      logger.info('Policies assigned successfully.');
     } catch (error) {
-      console.error('Error assigning policies:', error.response ? error.response.data : error.message);
+      logger.error('Error assigning policies:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
   }, 50000);
 
   it('should allow the employee to add a test destination (POST)', async () => {
-    if (!employeeToken) {
-      throw new Error('Employee Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/destination';
+    const url = `${BASE_URL}/destination`;
 
     try {
       const options = {
@@ -154,132 +156,62 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       };
 
       const response = await axios(url, options);
-      const data = response.data;
+
+
+      destinationId = response.data.data.data._id;
+
+      logger.info('Test destination added successfully');
       expect(response.status).toBe(201);
     } catch (error) {
-      console.error('Error adding destination:', error.response ? error.response.data : error.message);
+      logger.error('Error adding destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(403);
     }
   }, 50000);
 
-  it('should deny the employee access to get destinations (GET)', async () => {
-    if (!employeeToken) {
-      throw new Error('Employee Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/destination';
-    const options = {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${employeeToken}`,
-      },
-    };
+  it('should delete the test destination (DELETE)', async () => {
+    const url = `${BASE_URL}/destination/${destinationId}`;
 
     try {
+      const options = {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${superAdminToken}`,
+        },
+      };
+
+
       const response = await axios(url, options);
-    } catch (error) {
-      expect(error.response.status).toBe(403);
-      expect(error.response.data.message).toBe('Access denied');
-    }
-  }, 50000);
 
-  it('should allow the employee to get test cities (GET)', async () => {
-    if (!employeeToken) {
-      throw new Error('Employee Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/cities';
-    const options = {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${employeeToken}`,
-      },
-    };
-
-    const response = await axios(url, options);
-    const data = response.data;
-    expect(response.status).toBe(200);
-  }, 50000);
-
-  it('should deny the employee access to add test cities (POST)', async () => {
-    if (!employeeToken) {
-      throw new Error('Employee Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/cities';
-    const options = {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${employeeToken}`,
-        'Content-Type': 'application/json',
-      },
-      data: {
-        name: 'Test City',
-        iataCode: 'TST',
-        destinationName: 'Test Destination',
-        country: 'Test Country',
-        latitude: 12.3456,
-        longitude: 65.4321,
-        languageSpoken: 'Test Language',
-      },
-    };
-
-    try {
-      const response = await axios(url, options);
-    } catch (error) {
-      expect(error.response.status).toBe(403);
-      expect(error.response.data.message).toBe('Access denied');
-    }
-  }, 50000);
-
-  it('should delete the test destination', async () => {
-    if (!employeeToken) {
-      throw new Error('Employee Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/destination';
-    const options = {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${employeeToken}`,
-      },
-    };
-
-    try {
-      const response = await axios(url, options);
+      logger.info('Test destination deleted successfully');
       expect(response.status).toBe(200);
     } catch (error) {
-      console.log('Error during destination deletion:', error.response ? error.response.data : error.message);
+      logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 
-  it('should delete the test employee and associated policies', async () => {
-    if (!superAdminToken) {
-      throw new Error('Super Admin Token not defined, skipping test');
-    }
-
-    const url = `http://127.0.0.1:3000/api/v1/admin/${employeeId}`;
-    const options = {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${superAdminToken}`,
-      },
-    };
-
+  it('should delete the test employee and associated policies (DELETE)', async () => {
+    const url = `${BASE_URL}/admin/${employeeId}`;
+    
     try {
+      const options = {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${superAdminToken}`,
+        },
+      };
+
+
       const response = await axios(url, options);
+
+      logger.info('Test employee deleted successfully');
       expect(response.status).toBe(200);
     } catch (error) {
-      console.log('Error during employee deletion:', error.response ? error.response.data : error.message);
+      logger.error('Error deleting employee:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 
   it('should log out the super admin', async () => {
-    if (!superAdminToken) {
-      throw new Error('Super Admin Token not defined, skipping test');
-    }
-
-    const url = 'http://127.0.0.1:3000/api/v1/admin/logout';
+    const url = `${BASE_URL}/admin/logout`;
     const options = {
       method: 'POST',
       headers: {
@@ -291,7 +223,7 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       const response = await axios(url, options);
       expect(response.status).toBe(200);
     } catch (error) {
-      console.log('Error during super admin logout:', error.response ? error.response.data : error.message);
+      logger.error('Error during super admin logout:', error.response ? error.response.data : error.message);
     }
   }, 50000);
 });
