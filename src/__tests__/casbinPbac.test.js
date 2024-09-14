@@ -40,7 +40,7 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
 
-  // -------------------------------------SIGNIN UP TEST EMPLOYEE---------------------------------------------------------//
+  // -------------------------------------SIGNING UP TEST EMPLOYEE---------------------------------------------------------//
 
 
   it('should add a new employee using the super admin token', async () => {
@@ -70,7 +70,7 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
-// ---------------------------SIGNING IN TEST EMPLOYEE AND FETCH TOKEN---------------------------------------//
+  // ---------------------------SIGNING IN TEST EMPLOYEE AND FETCHING TOKEN---------------------------------------//
 
   it('should sign in the newly created employee and return a token', async () => {
     const url = `${BASE_URL}/admin/signin`;
@@ -98,10 +98,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+  // -----------------------ASSIGN POLICY TO TEST EMPLOYEE FOR ADDING DESTINATION AND GETTING CITIES ------------------------//
+
   it('should assign access policy to allow adding destinations and getting cities', async () => {
-
-    // -----------------------ASSIGN POLICY TO TEST EMPLOYEE FOR ADDING DESTINATION AND GETTING CITIES ------------------------//
-
     const url = `${BASE_URL}/policy`;
     try {
       const responsePostDestination = await axios({
@@ -119,7 +118,6 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         url,
       });
 
-
       const responseGetCities = await axios({
         method: 'POST',
         headers: {
@@ -135,7 +133,6 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         url,
       });
 
-
       logger.info('Policies assigned successfully.');
     } catch (error) {
       logger.error('Error assigning policies:', error.response ? error.response.data : error.message);
@@ -143,11 +140,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+  // -------------------------------------TEST FOR ADDING DESTINATION---------------------------------------------------------//
+
   it('should allow the employee to add a test destination (POST)', async () => {
-
-    // -------------------------------------TEST FOR ADDING DESTINATION---------------------------------------------------------//
-
-
     const url = `${BASE_URL}/destination`;
 
     try {
@@ -173,7 +168,6 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
 
       const response = await axios(url, options);
 
-
       destinationId = response.data.data.data._id;
 
       logger.info('Test destination added successfully');
@@ -184,10 +178,67 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+  // -------------------------------------TEST FOR GETTING CITIES (ACCESS GRANTED)---------------------------------------------------------//
+
+  it('should allow the employee to get cities (GET)', async () => {
+    const url = `${BASE_URL}/cities`;
+
+    try {
+      const options = {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${employeeToken}`,
+        },
+      };
+
+      const response = await axios(url, options);
+
+      logger.info('Employee was able to GET cities');
+      expect(response.status).toBe(200);
+    } catch (error) {
+      logger.error('Error retrieving cities:', error.response ? error.response.data : error.message);
+      expect(error.response.status).toBe(403);
+    }
+  }, 50000);
+
+  // -------------------------------------TEST FOR ADDING CITY (ACCESS DENIED)---------------------------------------------------------//
+
+  it('should deny the employee to add a test city (POST)', async () => {
+    const url = `${BASE_URL}/cities`;
+
+    try {
+      const options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${employeeToken}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Test City',
+          iataCode: 'TST',
+          destinationName: 'Test Destination',
+          country: 'Test Country',
+          latitude: 12.3456,
+          longitude: 65.4321,
+          languageSpoken: 'Test Language',
+        },
+      };
+
+      const response = await axios(url, options);
+
+      // If POST request is allowed, fail the test
+      logger.error('Employee was incorrectly allowed to add a city');
+      expect(response.status).toBe(403);
+    } catch (error) {
+      logger.info('Employee was denied permission to POST a city, as expected');
+      expect(error.response.status).toBe(403);
+      expect(error.response.data.message).toBe('Access denied');
+    }
+  }, 50000);
+
+  // -------------------------------------DELETE TEST DESTINATION--------------------------------------------------------//
+
   it('should delete the test destination (DELETE)', async () => {
-
-    // -------------------------------------DELETE TEST DESTINATION--------------------------------------------------------//
-
     const url = `${BASE_URL}/destination/${destinationId}`;
 
     try {
@@ -198,7 +249,6 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         },
       };
 
-
       const response = await axios(url, options);
 
       logger.info('Test destination deleted successfully');
@@ -208,11 +258,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+  // -------------------------------------DELETE TEST EMPLOYEE---------------------------------------------------------//
+
   it('should delete the test employee and associated policies (DELETE)', async () => {
-
-    // -------------------------------------DELETE TEST EMPLOYEE---------------------------------------------------------//
-
-
     const url = `${BASE_URL}/admin/${employeeId}`;
     
     try {
@@ -223,7 +271,6 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
         },
       };
 
-
       const response = await axios(url, options);
 
       logger.info('Test employee deleted successfully');
@@ -233,10 +280,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+  // -------------------------------------LOG OUT SUPER ADMIN---------------------------------------------------------//
+
   it('should log out the super admin', async () => {
-
-    // -------------------------------------LOG OUT SUPER ADMIN---------------------------------------------------------//
-
     const url = `${BASE_URL}/admin/logout`;
     const options = {
       method: 'POST',
@@ -253,3 +299,4 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 });
+
