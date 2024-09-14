@@ -66,7 +66,7 @@ export const cookieManager = async (req, res, next) => {
         let cookieId = cookies['userCookieId'];
 
         if (!cookieId) {
-            // No cookie found, generate a new one
+            // No cookie found in the browser, generate a new one
             cookieId = uuidv4();
 
             // Store the new cookie in the database
@@ -76,40 +76,44 @@ export const cookieManager = async (req, res, next) => {
                 user_id: null, 
             });
 
-            // Set the cookie in the user's browser with a 1-year expiration
+            // Set the new cookie in the response
             res.cookie('userCookieId', cookieId, { 
                 httpOnly: true, 
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
             });
         } else {
-            // Optionally, check if the cookie exists in the database
+            // Check if the cookie exists in the database
             const existingCookie = await UserCookie.findOne({ cookieId });
 
             if (!existingCookie) {
                 // If the cookie doesn't exist in the database, regenerate a new one
-                cookieId = uuidv4();
+                const newCookieId = uuidv4();
 
                 // Store the new cookie in the database
                 await UserCookie.create({
-                    cookieId: cookieId,
-                    cookieValue: cookieId,
+                    cookieId: newCookieId,
+                    cookieValue: newCookieId,
                     user_id: null
                 });
 
                 // Set the new cookie
-                res.cookie('userCookieId', cookieId, { 
+                res.cookie('userCookieId', newCookieId, { 
                     httpOnly: true, 
                     maxAge: 7 * 24 * 60 * 60 * 1000 
                 });
+
+                // Update the request object with the new cookieId
+                req.cookieId = newCookieId;
             } else {
+                // Cookie exists in the database, no need to regenerate
+                req.cookieId = existingCookie.cookieId;
+
                 // Optionally, update the updatedAt field in the database
                 existingCookie.updatedAt = new Date();
                 await existingCookie.save();
             }
         }
 
-        // Attach the cookieId to the request object for use in further middleware or routes
-        req.cookieId = cookieId;
         next();
     } catch (error) {
         logger.error('Error managing cookie:', error);
