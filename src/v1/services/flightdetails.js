@@ -10,7 +10,7 @@ const duffel = new Duffel({
 });
 
 // Replace with your actual currency conversion API endpoint
-const CONVERSION_API_URL = 'https://api.exchangerate-api.com/v4/latest/';
+const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
 
 async function convertToINR(amount, currency) {

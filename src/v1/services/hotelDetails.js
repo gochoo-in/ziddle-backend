@@ -6,8 +6,8 @@ import logger from '../../config/logger.js';
 dotenv.config();
 
 const API_KEY = process.env.API_KEY; 
-const HOTEL_API_URL = 'https://booking-com15.p.rapidapi.com/api/v1/hotels/searchHotelsByCoordinates';
-const CONVERSION_API_URL = 'https://api.exchangerate-api.com/v4/latest/';
+const HOTEL_API_URL = process.env.HOTEL_API_URL;
+const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
 
 async function convertToINR(amount, currency) {

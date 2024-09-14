@@ -2,14 +2,14 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import moment from 'moment';
 import https from 'https';
-import logger from '../../config/logger.js'; 
-import httpFormatter from '../../utils/formatter.js'; 
+import logger from '../../config/logger.js';
+import httpFormatter from '../../utils/formatter.js';
 
 dotenv.config();
 
-const API_KEY = process.env.API_KEY; 
-const REQUEST_LIMIT = 1000; 
-const RESET_INTERVAL = 3600000; 
+const API_KEY = process.env.API_KEY;
+const REQUEST_LIMIT = 1000;
+const RESET_INTERVAL = 3600000;
 
 let requestCount = 0;
 let resetTimestamp = Date.now();
@@ -17,12 +17,12 @@ let resetTimestamp = Date.now();
 async function rateLimitedFetch(options, retries = 3, delay = 1000) {
     return new Promise((resolve, reject) => {
         const now = Date.now();
-        
+
         if (now > resetTimestamp) {
             requestCount = 0;
             resetTimestamp = now + RESET_INTERVAL;
         }
-        
+
         if (requestCount >= REQUEST_LIMIT) {
             const timeUntilReset = resetTimestamp - now;
             logger.warn(`Rate limit reached. Waiting ${Math.ceil(timeUntilReset / 1000)} seconds...`);
@@ -34,7 +34,7 @@ async function rateLimitedFetch(options, retries = 3, delay = 1000) {
 
         const req = https.request(options, (res) => {
             let data = '';
-            
+
             res.on('data', (chunk) => {
                 data += chunk;
             });
@@ -89,7 +89,7 @@ async function searchLocation(query) {
 }
 
 const CONVERSION_API_URL = 'https://api.exchangerate-api.com/v4/latest/';
-const BASE_CURRENCY = 'INR';
+const BASE_CURRENCY = process.env.BASE_CURRENCY;
 
 async function convertToINR(amount, currency) {
     try {
