@@ -12,6 +12,7 @@ import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
 
+
 const allRoutes = Router()
 
 const defaultRoutes = [
@@ -63,6 +64,10 @@ const defaultRoutes = [
     {
         path: '/policy',
         route: policy
+    },
+    {
+        path: '/cities',
+        route: cityHotels
     }
 
 ]

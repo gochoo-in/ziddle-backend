@@ -9,7 +9,7 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
-import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; // Import hotel details service
+import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import logger from '../../../config/logger.js';
 
@@ -21,13 +21,11 @@ export const createItinerary = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing required fields in request body.', false));
     }
 
-    // Fetch country details
     const country = await Destination.findById(countryId);
     if (!country) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
     }
 
-    // Fetch city and activity details
     const cityDetails = await City.find({ '_id': { $in: cities } });
     const activityDetails = await Activity.find({ '_id': { $in: activities } });
 
@@ -38,16 +36,15 @@ export const createItinerary = async (req, res) => {
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
-      // Map over city details and link the corresponding activities for each city
       cities: cityDetails.map(city => ({
         name: city.name,
         iataCode: city.iataCode,
         activities: activityDetails
-          .filter(activity => activity.city.toString() === city._id.toString()) // Convert ObjectId to string for comparison
+          .filter(activity => activity.city.toString() === city._id.toString()) 
           .map(activity => ({
             name: activity.name,
             duration: activity.duration,
-            category: activity.category,  // Added category field
+            category: activity.category, 
             opensAt: activity.opensAt,
             closesAt: activity.closesAt
           }))
@@ -56,34 +53,25 @@ export const createItinerary = async (req, res) => {
     
     
 
-    // Extract title, subtitle, and itinerary from result
     const title = result.title;
     const subtitle = result.subtitle;
     const itinerary = result.itinerary;
 
-    // Include title and subtitle in the itinerary
     const itineraryWithTitles = {
       title,
       subtitle,
       itinerary
     };
 
-    // Add transfer activities and dates to the generated itinerary
     const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
     const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
     const transformItinerary = settransformItinerary(itineraryWithDates);
-
-    // Add flight details to the itinerary with dates
     const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityDetails);
-    
+
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
     const itineraryWithTaxi=await addTaxiDetailsToItinerary(itineraryWithFlights);
-    // if (itineraryWithTaxi.error) {
-    //   return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithTaxi.error, false));
-    // }
-    // Fetch hotel details and add to the itinerary
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
     
     return res.status(StatusCodes.OK).json(httpFormatter( { enrichedItinerary } , 'Create Itinerary Successful'));
