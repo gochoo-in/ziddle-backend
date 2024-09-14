@@ -4,6 +4,8 @@ import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import { createJWT } from '../../../utils/token.js';
 import { getCasbinEnforcer } from '../../../config/casbinEnforcer.js';
+import mongoose from 'mongoose';
+import logger from '../../../config/logger.js';
 
 export const adminSignup = async (req, res) => {
   try {
@@ -96,31 +98,31 @@ export const adminLogout = async (req, res) => {
 
 
 
+const CasbinPolicy = mongoose.connection.collection('casbinpolicies');
+
 export const deleteEmployee = async (req, res) => {
   try {
     const { employeeId } = req.params;
 
+    // Check if the employee exists
     const employee = await Employee.findById(employeeId);
-
     if (!employee) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Employee not found', false));
     }
 
+    // Delete the employee from the database
     await Employee.findByIdAndDelete(employeeId);
 
-    const enforcer = await getCasbinEnforcer();
+    // Directly remove policies associated with the employeeId (v0 field) from the "casbinpolicies" collection
+    const result = await CasbinPolicy.deleteMany({ v0: employeeId });
 
-    const removedPolicies = await enforcer.removeFilteredPolicy(0, employeeId);
+    // Log the number of policies removed
+    logger.info(`Deleted ${result.deletedCount} policies for employee ${employeeId}`);
 
-    if (removedPolicies) {
-      console.log(`Removed ${removedPolicies} policies for employee ${employeeId}`);
-    }
-
-    await enforcer.savePolicy();
-
+    // Send success response
     res.status(StatusCodes.OK).json(httpFormatter({}, 'Employee and associated policies deleted successfully', true));
   } catch (error) {
-    console.error('Error deleting employee or policies:', error.message);
+    logger.error('Error deleting employee or policies:', error.message);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
