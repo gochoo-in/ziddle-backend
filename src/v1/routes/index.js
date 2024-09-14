@@ -7,11 +7,11 @@ import activities from '../modules/activities/activities.routes.js'
 import contactUs from '../modules/contactUs/contactUs.routes.js'
 import profile from '../modules/profiles/profiles.routes.js'
 import cityHotels from '../modules/hotels/hotels.routes.js'
+import cityFlight from '../modules/flights/flights.routes.js'
 import callbackRequest from '../modules/callbackRequest/callbackRequest.routes.js'
 import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
-
 
 const allRoutes = Router()
 
@@ -68,6 +68,10 @@ const defaultRoutes = [
     {
         path: '/cities',
         route: cityHotels
+    },
+    {
+        path: '/cities',
+        route: cityFlight
     }
 
 ]
