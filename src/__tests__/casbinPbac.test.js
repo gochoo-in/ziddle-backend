@@ -11,6 +11,9 @@ let destinationId;
 const BASE_URL = process.env.BASE_URL;
 
 describe('Super Admin Signin and API Access with Casbin Middleware', () => {
+
+  // -------------------------------------SIGNING IN SUPER ADMIN---------------------------------------------------------//
+
   it('should sign in the super admin and return a token', async () => {
     const url = `${BASE_URL}/admin/signin`;
     const options = {
@@ -35,6 +38,10 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
       logger.error('Error during super admin signin:', error.response ? error.response.data : error.message);
     }
   }, 50000);
+
+
+  // -------------------------------------SIGNIN UP TEST EMPLOYEE---------------------------------------------------------//
+
 
   it('should add a new employee using the super admin token', async () => {
     const url = `${BASE_URL}/admin/signup`;
@@ -63,6 +70,8 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
     }
   }, 50000);
 
+// ---------------------------SIGNING IN TEST EMPLOYEE AND FETCH TOKEN---------------------------------------//
+
   it('should sign in the newly created employee and return a token', async () => {
     const url = `${BASE_URL}/admin/signin`;
     const options = {
@@ -90,6 +99,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
   it('should assign access policy to allow adding destinations and getting cities', async () => {
+
+    // -----------------------ASSIGN POLICY TO TEST EMPLOYEE FOR ADDING DESTINATION AND GETTING CITIES ------------------------//
+
     const url = `${BASE_URL}/policy`;
     try {
       const responsePostDestination = await axios({
@@ -132,6 +144,10 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
   it('should allow the employee to add a test destination (POST)', async () => {
+
+    // -------------------------------------TEST FOR ADDING DESTINATION---------------------------------------------------------//
+
+
     const url = `${BASE_URL}/destination`;
 
     try {
@@ -169,6 +185,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
   it('should delete the test destination (DELETE)', async () => {
+
+    // -------------------------------------DELETE TEST DESTINATION--------------------------------------------------------//
+
     const url = `${BASE_URL}/destination/${destinationId}`;
 
     try {
@@ -190,6 +209,10 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
   it('should delete the test employee and associated policies (DELETE)', async () => {
+
+    // -------------------------------------DELETE TEST EMPLOYEE---------------------------------------------------------//
+
+
     const url = `${BASE_URL}/admin/${employeeId}`;
     
     try {
@@ -211,6 +234,9 @@ describe('Super Admin Signin and API Access with Casbin Middleware', () => {
   }, 50000);
 
   it('should log out the super admin', async () => {
+
+    // -------------------------------------LOG OUT SUPER ADMIN---------------------------------------------------------//
+
     const url = `${BASE_URL}/admin/logout`;
     const options = {
       method: 'POST',
