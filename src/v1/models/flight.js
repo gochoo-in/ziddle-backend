@@ -12,13 +12,12 @@ const flightSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     currency: { type: String, required: true },
     airline: { type: String, required: true },
+    departureDate: { type: Date }, 
     flightSegments: [{
         departureTime: { type: Date, required: true },
         arrivalTime: { type: Date, required: true },
         flightNumber: { type: Number, required: true }
-    }],
-    class: { type: String },
-    refundable: { type: Boolean, required: true }
+    }]
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('Flight', flightSchema);

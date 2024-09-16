@@ -1,6 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import City from '../models/city.js';
+import Hotel from '../models/hotel.js'; 
 import logger from '../../config/logger.js'; 
 
 dotenv.config();
@@ -124,7 +125,14 @@ export async function addHotelDetailsToItinerary(data) {
 
             const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults);
 
-            itinerary[i].hotelDetails = currentCityHotel || 'No hotels found for the specified dates in current city.';
+            if (currentCityHotel) {
+                const newHotel = new Hotel(currentCityHotel);
+                const savedHotel = await newHotel.save();
+
+                itinerary[i].hotelDetails = savedHotel._id;
+            } else {
+                itinerary[i].hotelDetails = 'No hotels found for the specified dates in current city.';
+            }
         }
 
         return {
