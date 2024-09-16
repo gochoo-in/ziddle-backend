@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import City from "./city.js";
 import Activity from "./activity.js";
-import Mode from "./mode.js";
+import Transport from "./transportation.js";
 import Destination from "./destination.js";
 import User from './employee.js'
 
@@ -61,7 +61,7 @@ const adminPackageSchema = new mongoose.Schema({
     }],
     transportationIds: [{ 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Mode', 
+        ref: 'Transport', 
         required: true 
     }],
     isCustomizable: { 
