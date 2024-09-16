@@ -1,12 +1,12 @@
 import mongoose, { Mongoose } from "mongoose";
-import Mode from './mode.js'
+import Transport from './transportation.js'
 
 const transferSchema = new mongoose.Schema({
     pickupLocation: { type: String, required: true },
     dropoffLocation: { type: String, required: true },
     departureTime: { type: Date, required: true },
     arrivalTime: { type: Date, required: true },
-    mode: { type: mongoose.Schema.Types.ObjectId, ref: 'Mode', required: true },
+    mode: { type: mongoose.Schema.Types.ObjectId, ref: 'Transport', required: true },
     passengerCount: { type: Number, required: true },
     luggageAllowed: { type: Number, required: true },
     price: { type: Number, required: true },
