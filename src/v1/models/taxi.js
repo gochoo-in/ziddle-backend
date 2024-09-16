@@ -10,7 +10,7 @@ const taxiSchema = new mongoose.Schema({
   vehicleType: { type: String },
   passengerCount: { type: Number },
   luggageAllowed: { type: Number },
-  price: { type: Number, required: true },
+  price: { type: String, required: true },
   currency: { type: String, required: true },
   sharedTransfer: { type: Boolean }
 }, { timestamps: true, versionKey: false });

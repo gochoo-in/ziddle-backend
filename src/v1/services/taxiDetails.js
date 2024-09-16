@@ -116,7 +116,7 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         };
 
         const response = await rateLimitedFetch(options);
-        const data = JSON.parse(JSON.stringify(JSON.parse(response)));
+        const data = JSON.parse(response);
 
         if (data && data.data && Array.isArray(data.data.results)) {
             return data.data.results.map(result => {
@@ -135,7 +135,7 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
                     vehicleType: result.vehicleType || 'Unknown',
                     passengerCount: result.passengerCapacity || 0,
                     luggageAllowed: result.bags || 0,
-                    price: parseFloat(result.price.amount) || 0,
+                    price: result.price.amount ? result.price.amount.toString() : "0", // Convert to string
                     currency: result.price.currencyCode || 'Unknown',
                     sharedTransfer: false
                 };
@@ -175,12 +175,15 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
 
                     if (taxis.length > 0) {
                         const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
-                        const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
+                        let priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
+
+                        // Ensure the price is a valid string
+                        priceInINR = isNaN(priceInINR) ? "0" : priceInINR.toFixed(2).toString(); // Ensure it's a string
 
                         const newTaxi = new Taxi({
                             ...cheapestTaxi,
-                            price: priceInINR.toFixed(2),
-                            currency: 'INR' 
+                            price: priceInINR, // Stored as a string
+                            currency: 'INR' // Store price in INR
                         });
 
                         const savedTaxi = await newTaxi.save();
