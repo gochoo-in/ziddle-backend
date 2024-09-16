@@ -12,6 +12,7 @@ import callbackRequest from '../modules/callbackRequest/callbackRequest.routes.j
 import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
+import adminPackages from '../modules/adminPackages/adminpackages.routes.js'
 
 const allRoutes = Router()
 
@@ -72,6 +73,10 @@ const defaultRoutes = [
     {
         path: '/cities',
         route: cityFlight
+    },
+    {
+        path: '/admin',
+        route: adminPackages
     }
 
 ]
