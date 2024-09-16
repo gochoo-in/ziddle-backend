@@ -13,7 +13,7 @@ const adminPackageSchema = new mongoose.Schema({
     },
     employeeId: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Employee',  // Assuming there is an Employee model
+        ref: 'Employee', 
         required: true 
     },
     templateName: { 
@@ -25,12 +25,12 @@ const adminPackageSchema = new mongoose.Schema({
         type: { 
             type: String, 
             required: true, 
-            enum: ['thumbnail', 'banner', 'gallery'] // Assuming there are defined types
+            enum: ['thumbnail', 'banner', 'gallery'] // Image type
         },
         url: { 
             type: String, 
             required: true, 
-            trim: true // Ensure no extra spaces in URLs
+            trim: true // Clean URL strings
         }
     }],
     duration: { 
@@ -41,13 +41,13 @@ const adminPackageSchema = new mongoose.Schema({
     basePrice: { 
         type: Number, 
         required: true, 
-        min: 0 // Ensuring price is not negative
+        min: 0 // Non-negative price per person
     },
     hotelRating: { 
         type: Number, 
         required: true, 
         min: 1, 
-        max: 5 // Assuming hotel rating is between 1 and 5 stars
+        max: 5 // Hotel rating between 1 and 5 stars
     },
     cityIds: [{ 
         type: mongoose.Schema.Types.ObjectId, 
@@ -61,7 +61,7 @@ const adminPackageSchema = new mongoose.Schema({
     }],
     transportationIds: [{ 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Transport', 
+        ref: 'Mode', 
         required: true 
     }],
     isCustomizable: { 
@@ -69,10 +69,29 @@ const adminPackageSchema = new mongoose.Schema({
         required: true, 
         default: false 
     },
+    packageType: {
+        type: String, 
+        enum: ['India', 'International'],  // Package type can be either India or International
+        required: true
+    },
+    travelCompanion: {
+        type: [String],
+        enum: ['Friends', 'Family', 'Couple', 'Solo'],  // Enum for travel companions
+        required: true
+    },
+    budgetRange: { 
+        min: { type: Number,}, 
+        max: { type: Number,}  
+    },
+    tripDuration: { 
+        type: String, 
+        required: true  // Make sure this field is required in your schema
+    }
 }, { 
     timestamps: true, 
-    versionKey: false // Remove the __v field for versioning
+    versionKey: false // No __v versioning key
 });
+
 
 export default mongoose.model('AdminPackage', adminPackageSchema);
 
