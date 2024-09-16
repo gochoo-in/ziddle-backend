@@ -50,8 +50,6 @@ export const createItinerary = async (req, res) => {
           }))
       }))
     });
-    
-    
 
     const title = result.title;
     const subtitle = result.subtitle;
@@ -71,10 +69,11 @@ export const createItinerary = async (req, res) => {
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
-    const itineraryWithTaxi=await addTaxiDetailsToItinerary(itineraryWithFlights);
+
+    const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
-    
-    return res.status(StatusCodes.OK).json(httpFormatter( { enrichedItinerary } , 'Create Itinerary Successful'));
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'Create Itinerary Successful'));
 
   } catch (error) {
     logger.error('Error creating itinerary:', error);

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import moment from 'moment';
 import https from 'https';
 import logger from '../../config/logger.js';
+import Taxi from '../models/taxi.js'; 
 import httpFormatter from '../../utils/formatter.js';
 
 dotenv.config();
@@ -117,7 +118,6 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         const response = await rateLimitedFetch(options);
         const data = JSON.parse(JSON.stringify(JSON.parse(response)));
 
-        // Check if data exists and if results is an array
         if (data && data.data && Array.isArray(data.data.results)) {
             return data.data.results.map(result => {
                 const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
@@ -177,10 +177,15 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
                         const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
                         const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
 
-                        itinerary[i].transport.modeDetails = {
+                        const newTaxi = new Taxi({
                             ...cheapestTaxi,
-                            priceInINR: priceInINR.toFixed(2)
-                        };
+                            price: priceInINR.toFixed(2),
+                            currency: 'INR' 
+                        });
+
+                        const savedTaxi = await newTaxi.save();
+
+                        itinerary[i].transport.modeDetails = savedTaxi._id;
                     } else {
                         itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
                     }
