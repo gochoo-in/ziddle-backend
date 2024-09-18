@@ -184,3 +184,29 @@ export const deleteCityById = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+// get activities for multiple cities
+export const getActivitiesForMultipleCities = async (req, res) => {
+    try {
+        let { cityIds } = req.query;
+
+        if (!cityIds) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'cityIds query parameter is required', false));
+        }
+        if (!Array.isArray(cityIds)) {
+            cityIds = [cityIds];  
+        }
+
+        const activities = await Activity.find({ city: { $in: cityIds } });
+
+        if (activities.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activities found for the specified cities', false));
+        }
+
+        return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
+    } catch (error) {
+        logger.error('Error retrieving activities for multiple cities:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+

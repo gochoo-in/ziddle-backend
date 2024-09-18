@@ -66,6 +66,10 @@ const destinationSchema = new mongoose.Schema({
     tripDuration: {
         type: [String], 
         required: true
+    },
+    recommended: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true, versionKey: false });
 
