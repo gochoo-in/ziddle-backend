@@ -16,7 +16,7 @@ import GptActivity from '../../models/gptactivity.js';
 
 export const createItinerary = async (req, res) => {
   try {
-    const { startDate, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
+    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
     if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges ) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
     }
@@ -89,7 +89,7 @@ export const createItinerary = async (req, res) => {
     }
 
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
-    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
+    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi,adults,childrenAges,rooms);
 
     return res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'Create Itinerary Successful'));
 
