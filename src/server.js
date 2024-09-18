@@ -10,6 +10,7 @@ import cookieParser from 'cookie-parser';
 import { cookieManager } from "./utils/middleware.js";
 import cors from 'cors';
 import expressListEndpoints from 'express-list-endpoints';
+import { routeDescriptions } from "./utils/routeDescriptions.js";
 
 dotenv.config();
 const { port } = Config;
@@ -53,9 +54,28 @@ app.get('/health/mongo', async (req, res) => {
 
 
 app.get('/endpoints', (req, res) => {
-  const endpoints = expressListEndpoints(app);  
-  res.status(StatusCodes.OK).json({ endpoints });
+  const endpoints = expressListEndpoints(app); 
+
+  const enrichedEndpoints = [];
+
+  endpoints.forEach((endpoint) => {
+    const hasDescriptions = routeDescriptions[endpoint.path] || {};
+
+    endpoint.methods.forEach((method) => {
+      enrichedEndpoints.push({
+        path: endpoint.path,
+        method, 
+        middlewares: endpoint.middlewares.length > 0 ? endpoint.middlewares : 'None',
+        description: hasDescriptions[method] || 'No description available'
+      });
+    });
+  });
+
+  res.status(200).json({ endpoints: enrichedEndpoints });
 });
+
+
+
 app.use('/api/v1', allV1Routes);
 
 

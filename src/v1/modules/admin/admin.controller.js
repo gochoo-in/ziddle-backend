@@ -138,3 +138,25 @@ export const deleteEmployee = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
+
+export const getAllEmployees = async (req, res) => {
+  try {
+    const employees = await Employee.find({});
+
+    if (employees.length === 0) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'No employees found', false));
+    }
+
+    return res
+      .status(StatusCodes.OK)
+      .json(httpFormatter({ employees }, 'Employees retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving employees:', error);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal server error', false));
+  }
+};
