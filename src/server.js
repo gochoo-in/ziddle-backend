@@ -5,15 +5,11 @@ import Config from "./config/index.js";
 import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
 import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
-import { generateItinerary } from './v1/services/gpt.js'; // Import your existing generateItinerary function
-import { addDatesToItinerary } from './utils/dateUtils.js'; // Import the date adding function
 import dotenv from 'dotenv';
-import { settransformItinerary } from "./utils/transformItinerary.js";
-import { addFlightDetailsToItinerary } from "./v1/services/flightdetails.js";
-import { trackUserActivity } from "./utils/middleware.js";
 import cookieParser from 'cookie-parser';
 import { cookieManager } from "./utils/middleware.js";
-
+import cors from 'cors';
+import expressListEndpoints from 'express-list-endpoints';
 
 dotenv.config();
 const { port } = Config;
@@ -26,7 +22,11 @@ app.use(cookieParser());
 app.use(cookieManager);
 // app.use(trackUserActivity);
 
-
+app.use(cors({
+  origin: 'http://localhost:5173', 
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  credentials: true, 
+}));
 
 
 app.get('/', (req, res) => {
@@ -51,6 +51,11 @@ app.get('/health/mongo', async (req, res) => {
   }
 });
 
+
+app.get('/endpoints', (req, res) => {
+  const endpoints = expressListEndpoints(app);  
+  res.status(StatusCodes.OK).json({ endpoints });
+});
 app.use('/api/v1', allV1Routes);
 
 

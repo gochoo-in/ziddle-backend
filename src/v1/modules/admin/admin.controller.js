@@ -12,27 +12,39 @@ export const adminSignup = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All fields are required', false));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'All fields are required', false));
     }
 
     const existingAdmin = await Employee.findOne({ email });
 
     if (existingAdmin) {
-      return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Admin with this email already exists', false));
+      return res
+        .status(StatusCodes.CONFLICT)
+        .json(httpFormatter({}, 'Admin with this email already exists', false));
     }
 
     const newAdmin = await Employee.create({
       name,
       email,
       password,
-      isLoggedIn: false, 
+      isLoggedIn: false,
     });
 
-    res.status(StatusCodes.CREATED).json(httpFormatter({ newAdmin }, 'Admin registered successfully', true));
+    console.log('Admin created successfully:', newAdmin);
+
+    return res
+      .status(StatusCodes.CREATED)
+      .json(httpFormatter({ newAdmin }, 'Admin registered successfully', true));
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    console.error('Error during admin signup:', error); // Log the detailed error
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
 
 export const adminSignin = async (req, res) => {
   try {
