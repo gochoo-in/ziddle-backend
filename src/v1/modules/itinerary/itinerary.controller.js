@@ -12,6 +12,7 @@ import Itinerary from '../../models/itinerary.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import logger from '../../../config/logger.js';
+import GptActivity from '../../models/gptactivity.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -40,11 +41,11 @@ export const createItinerary = async (req, res) => {
         name: city.name,
         iataCode: city.iataCode,
         activities: activityDetails
-          .filter(activity => activity.city.toString() === city._id.toString()) 
+          .filter(activity => activity.city.toString() === city._id.toString())
           .map(activity => ({
             name: activity.name,
             duration: activity.duration,
-            category: activity.category, 
+            category: activity.category,
             opensAt: activity.opensAt,
             closesAt: activity.closesAt
           }))
@@ -68,6 +69,26 @@ export const createItinerary = async (req, res) => {
 
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+    }
+
+    for (const city of itineraryWithFlights.itinerary) {
+      for (const day of city.days) {
+        const activityIds = [];
+        for (const activity of day.activities) {
+          const newActivity = await GptActivity.create({
+            name: activity.name,
+            startTime: activity.startTime,
+            endTime: activity.endTime,
+            duration: activity.duration,
+            timeStamp: activity.timeStamp,
+            category: activity.category,
+            cityId: cityDetails.find(c => c.name === city.currentCity)._id,
+          });
+
+          activityIds.push(newActivity._id); 
+        }
+        day.activities = activityIds; 
+      }
     }
 
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
