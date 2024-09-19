@@ -153,7 +153,6 @@ export const signin = async (req, res) => {
 
 export const logout = async (req, res) => {
     try {
-        verifyToken(req, res, async () => {
             const userId = req.user.userId;
             const cookieId = req.cookies['userCookieId']; 
 
@@ -175,7 +174,6 @@ export const logout = async (req, res) => {
             );
 
             res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
-        });
     } catch (error) {
         logger.error('Error in logout:', { message: error.message });
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

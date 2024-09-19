@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import GptActivity from './gptactivity.js';
 import Hotel from './hotel.js';
+import User from './user.js'
 
 const activitySchema = new mongoose.Schema({
   day: { type: Number, required: true },
@@ -46,6 +47,7 @@ const enrichedItinerarySchema = new mongoose.Schema({
 }, { _id: false });
 
 const itinerarySchema = new mongoose.Schema({
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   enrichedItinerary: { type: enrichedItinerarySchema, required: true }
 }, { timestamps: true, versionKey: false });
 
