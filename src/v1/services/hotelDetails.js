@@ -25,8 +25,11 @@ async function convertToINR(amount, currency) {
     }
 }
 
-export default async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults) {
+export default async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges,roomQty=1) {
     try {
+        // Check if childrenAges is an array and join ages with commas if there are any children
+        const childrenAgesString = Array.isArray(childrenAges) && childrenAges.length > 0 ? childrenAges.join(',') : '0';
+        
         const options = {
             method: 'GET',
             url: HOTEL_API_URL,
@@ -37,7 +40,7 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
                 departure_date: departureDate,
                 radius: '10',
                 adults: adults,
-                children_age: '0',
+                children_age: childrenAgesString, // Pass the children ages here
                 room_qty: '1',
                 units: 'metric',
                 page_number: '1',
@@ -94,7 +97,7 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
     }
 }
 
-export async function addHotelDetailsToItinerary(data) {
+export async function addHotelDetailsToItinerary(data,adults,childrenAges,rooms) {
     try {
         const { itinerary } = data;
 
@@ -109,8 +112,7 @@ export async function addHotelDetailsToItinerary(data) {
             }
 
             const { latitude, longitude } = city;
-
-            const adults = itinerary.adults;
+            const roomQty=rooms;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
             const departureDate = days.length > 0 ? days[days.length - 1].date : null;
@@ -123,7 +125,7 @@ export async function addHotelDetailsToItinerary(data) {
                 continue;
             }
 
-            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults);
+            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults,childrenAges,roomQty);
 
             if (currentCityHotel) {
                 const newHotel = new Hotel(currentCityHotel);

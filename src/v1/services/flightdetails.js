@@ -24,8 +24,9 @@ async function convertToINR(amount, currency) {
     }
 }
 
-async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, cityIATACodes) {
+async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
     try {
+        // Find IATA codes for the provided cities
         const fromCityData = cityIATACodes.find(city => city.name.toLowerCase() === fromCity.toLowerCase());
         const toCityData = cityIATACodes.find(city => city.name.toLowerCase() === toCity.toLowerCase());
 
@@ -44,17 +45,20 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
             }
         ];
 
+        // Construct passengers array with adults and children (only include age for children, and type for adults)
         const passengers = [
-            ...Array(adults).fill({ type: "adult" }),
-            ...Array(children).fill({ type: "child" })
+            ...Array(adults).fill({ type: "adult" }), // Add adults with type
+            ...childrenAges.map(age => ({ age })) // Add children with their ages, no type
         ];
 
+        // Call Duffel API to fetch flight details
         const response = await duffel.offerRequests.create({
             slices,
             passengers,
-            cabin_class: 'economy' 
+            cabin_class: 'economy' // Can be customized as needed
         });
 
+        // Map the response to include the necessary flight details
         return response.data.offers.map(offer => ({
             fromCity,
             toCity,
@@ -73,17 +77,20 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
             }))
         }));
     } catch (error) {
-        logger.error(`Error fetching flight details from ${fromCity} to ${toCity}:`, error.message);
+        logger.error(`Error fetching flight details from ${fromCity} to ${toCity}:`, error);
         return [];
     }
 }
+
+
+
 
 function isFlightAfterLastActivity(flight, lastActivityEndTime) {
     const flightDepartureTime = moment(flight.flightSegments[0].departureTime);
     return flightDepartureTime.isAfter(lastActivityEndTime.add(4, 'hours'));
 }
 
-export async function addFlightDetailsToItinerary(data, adults, children, cityIATACodes) {
+export async function addFlightDetailsToItinerary(data, adults, children,childrenAges, cityIATACodes) {
     try {
         const { itinerary } = data;
 
@@ -95,7 +102,7 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
                 const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
 
                 const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
-                const flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults, children, cityIATACodes);
+                const flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults,children, childrenAges, cityIATACodes);
 
                 if (flights.length > 0) {
                     const cheapestFlight = flights.reduce((prev, current) => {

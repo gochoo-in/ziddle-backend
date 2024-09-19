@@ -16,10 +16,9 @@ import GptActivity from '../../models/gptactivity.js';
 
 export const createItinerary = async (req, res) => {
   try {
-    const { startDate, adults, children, countryId, cities, activities } = req.body;
-
-    if (!startDate || !countryId) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing required fields in request body.', false));
+    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
+    if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges ) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
     }
 
     const country = await Destination.findById(countryId);
@@ -52,25 +51,24 @@ export const createItinerary = async (req, res) => {
       }))
     });
 
-    const title = result.title;
-    const subtitle = result.subtitle;
-    const itinerary = result.itinerary;
-
     const itineraryWithTitles = {
-      title,
-      subtitle,
-      itinerary
+      title: result.title,
+      subtitle: result.subtitle,
+      itinerary: result.itinerary
     };
 
     const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
     const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
     const transformItinerary = settransformItinerary(itineraryWithDates);
-    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, cityDetails);
+
+    // Include childrenAges, departureCity, and arrivalCity in the flight details
+    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
 
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
 
+    // Further processing for activities and other details
     for (const city of itineraryWithFlights.itinerary) {
       for (const day of city.days) {
         const activityIds = [];
@@ -84,14 +82,14 @@ export const createItinerary = async (req, res) => {
             category: activity.category,
             cityId: cityDetails.find(c => c.name === city.currentCity)._id,
           });
-
-          activityIds.push(newActivity._id); 
+          activityIds.push(newActivity._id);
         }
-        day.activities = activityIds; 
+        day.activities = activityIds;
       }
     }
 
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
+
 
     for (const city of itineraryWithTaxi.itinerary) {
       if (city.transport) {
@@ -111,7 +109,8 @@ export const createItinerary = async (req, res) => {
       }
     }
 
-    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
+    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi,adults,childrenAges,rooms);
+
 
     const newItinerary = new Itinerary({
       enrichedItinerary: enrichedItinerary
