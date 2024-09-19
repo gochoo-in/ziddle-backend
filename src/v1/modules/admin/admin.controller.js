@@ -7,22 +7,21 @@ import { getCasbinEnforcer } from '../../../config/casbinEnforcer.js';
 import mongoose from 'mongoose';
 import logger from '../../../config/logger.js';
 
+const CasbinPolicy = mongoose.connection.collection('casbinpolicies');
+
+// Admin Signup
 export const adminSignup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     if (!email || !password || !name) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(httpFormatter({}, 'All fields are required', false));
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All fields are required', false));
     }
 
     const existingAdmin = await Employee.findOne({ email });
 
     if (existingAdmin) {
-      return res
-        .status(StatusCodes.CONFLICT)
-        .json(httpFormatter({}, 'Admin with this email already exists', false));
+      return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Admin with this email already exists', false));
     }
 
     const newAdmin = await Employee.create({
@@ -32,20 +31,16 @@ export const adminSignup = async (req, res) => {
       isLoggedIn: false,
     });
 
-    console.log('Admin created successfully:', newAdmin);
+    logger.info('Admin created successfully:', newAdmin);
 
-    return res
-      .status(StatusCodes.CREATED)
-      .json(httpFormatter({ newAdmin }, 'Admin registered successfully', true));
+    return res.status(StatusCodes.CREATED).json(httpFormatter({ newAdmin }, 'Admin registered successfully', true));
   } catch (error) {
-    console.error('Error during admin signup:', error); // Log the detailed error
-    return res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json(httpFormatter({}, 'Internal server error', false));
+    logger.error('Error during admin signup:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
-
+// Admin Signin
 export const adminSignin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -81,12 +76,14 @@ export const adminSignin = async (req, res) => {
     admin.isLoggedIn = true;
     await admin.save();
 
-    res.status(StatusCodes.OK).json(httpFormatter({ token, admin }, 'Login successful', true));
+    return res.status(StatusCodes.OK).json(httpFormatter({ token, admin }, 'Login successful', true));
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    logger.error('Error during admin signin:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
+// Admin Logout
 export const adminLogout = async (req, res) => {
   try {
     const admin = await Employee.findById(req.user.userId);
@@ -102,19 +99,21 @@ export const adminLogout = async (req, res) => {
     admin.isLoggedIn = false;
     await admin.save();
 
-    res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
+    return res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    logger.error('Error during logout:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
-
-
-
-const CasbinPolicy = mongoose.connection.collection('casbinpolicies');
 
 export const deleteEmployee = async (req, res) => {
   try {
     const { employeeId } = req.params;
+
+    // Validate the employee ID
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid employee ID', false));
+    }
 
     // Check if the employee exists
     const employee = await Employee.findById(employeeId);
@@ -132,31 +131,25 @@ export const deleteEmployee = async (req, res) => {
     logger.info(`Deleted ${result.deletedCount} policies for employee ${employeeId}`);
 
     // Send success response
-    res.status(StatusCodes.OK).json(httpFormatter({}, 'Employee and associated policies deleted successfully', true));
+    return res.status(StatusCodes.OK).json(httpFormatter({}, 'Employee and associated policies deleted successfully', true));
   } catch (error) {
     logger.error('Error deleting employee or policies:', error.message);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
-
+// Get All Employees
 export const getAllEmployees = async (req, res) => {
   try {
     const employees = await Employee.find({});
 
     if (employees.length === 0) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json(httpFormatter({}, 'No employees found', false));
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No employees found', false));
     }
 
-    return res
-      .status(StatusCodes.OK)
-      .json(httpFormatter({ employees }, 'Employees retrieved successfully', true));
+    return res.status(StatusCodes.OK).json(httpFormatter({ employees }, 'Employees retrieved successfully', true));
   } catch (error) {
-    console.error('Error retrieving employees:', error);
-    return res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json(httpFormatter({}, 'Internal server error', false));
+    logger.error('Error retrieving employees:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
