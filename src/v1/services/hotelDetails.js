@@ -104,7 +104,7 @@ export async function addHotelDetailsToItinerary(data) {
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
                 logger.warn(`City ${currentCityName} not found in the database.`);
-                itinerary[i].hotelDetails = 'City not found in the database.';
+                itinerary[i].hotelDetails = null;
                 continue;
             }
 
@@ -131,7 +131,7 @@ export async function addHotelDetailsToItinerary(data) {
 
                 itinerary[i].hotelDetails = savedHotel._id;
             } else {
-                itinerary[i].hotelDetails = 'No hotels found for the specified dates in current city.';
+                itinerary[i].hotelDetails = null;
             }
         }
 

@@ -1,18 +1,54 @@
 import mongoose from 'mongoose';
-import Activity from './activity.js';
-import City from './city.js';
-import Flight from './flight.js';
-// import Mode from './mode.js';
-import Transfer from './transfer.js';
+import GptActivity from './gptactivity.js';
+import Hotel from './hotel.js';
+
+const activitySchema = new mongoose.Schema({
+  day: { type: Number, required: true },
+  date: { type: Date, required: true },
+  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'GptActivity', required: true }]
+}, { _id: false });
+
+const transportSchema = new mongoose.Schema({
+  mode: { 
+    type: String, 
+    required: true, 
+    enum: ['Flight', 'Car'] 
+  },
+  modeDetails: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'transport.modeDetailsModel',
+    default: null
+  },
+  modeDetailsModel: {
+    type: String,
+    required: true,
+    enum: ['Flight', 'Taxi'] 
+  }
+}, { _id: false });
+
+const itineraryDaySchema = new mongoose.Schema({
+  currentCity: { type: String, required: true },
+  nextCity: { type: String, default: null },
+  stayDays: { type: Number, required: true },
+  transport: { type: transportSchema, default: null },
+  transferCostPerPersonINR: { type: Number, default: null },
+  transferDuration: { type: String, default: null },
+  days: [activitySchema],
+  hotelDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', default: null }
+}, { _id: false });
+
+const enrichedItinerarySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  subtitle: { type: String, required: true },
+  itinerary: [itineraryDaySchema],
+  totalDays: { type: Number, required: true },
+  totalNights: { type: Number, required: true }
+}, { _id: false });
 
 const itinerarySchema = new mongoose.Schema({
-  cities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'City' }],
-  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
-  flights: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Flight' }],
-  // modes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mode' }],
-  transfers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transfer' }],
-  totalCost: { type: Number },
-  totalDuration: { type: String }
+  enrichedItinerary: { type: enrichedItinerarySchema, required: true }
 }, { timestamps: true, versionKey: false });
 
-export default mongoose.model('Itinerary', itinerarySchema);
+const Itinerary = mongoose.model('Itinerary', itinerarySchema);
+
+export default Itinerary;

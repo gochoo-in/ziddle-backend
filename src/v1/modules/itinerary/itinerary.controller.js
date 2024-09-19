@@ -92,7 +92,32 @@ export const createItinerary = async (req, res) => {
     }
 
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
+
+    for (const city of itineraryWithTaxi.itinerary) {
+      if (city.transport) {
+        if (city.transport.mode === "Flight") {
+          city.transport.modeDetailsModel = "Flight";
+        } else if (city.transport.mode === "Car") {
+          city.transport.modeDetailsModel = "Taxi";
+        }
+
+        if (typeof city.transport.modeDetails === 'string' || !city.transport.modeDetails) {
+          city.transport.modeDetails = null;
+        }
+
+        if (!city.transport.modeDetailsModel) {
+          city.transport.modeDetailsModel = city.transport.mode === "Flight" ? "Flight" : "Taxi";
+        }
+      }
+    }
+
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi);
+
+    const newItinerary = new Itinerary({
+      enrichedItinerary: enrichedItinerary
+    });
+
+    await newItinerary.save();
 
     return res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'Create Itinerary Successful'));
 

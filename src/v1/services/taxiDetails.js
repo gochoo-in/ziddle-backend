@@ -167,7 +167,7 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
                     const dropOffPlaceId = await searchLocation(nextCity);
 
                     if (!pickUpPlaceId || !dropOffPlaceId) {
-                        itinerary[i].transport.modeDetails = 'Unable to find location details.';
+                        itinerary[i].transport.modeDetails = null;
                         continue;
                     }
 
@@ -190,11 +190,11 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
 
                         itinerary[i].transport.modeDetails = savedTaxi._id;
                     } else {
-                        itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
+                        itinerary[i].transport.modeDetails = null;
                     }
                 } catch (innerError) {
                     logger.error(`Error processing taxi details for leg ${i}:`, { error: innerError.message });
-                    itinerary[i].transport.modeDetails = 'Error fetching taxi details.';
+                    itinerary[i].transport.modeDetails = null;
                 }
             }
         }

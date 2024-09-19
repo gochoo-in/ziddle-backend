@@ -129,7 +129,7 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
 
                     itinerary[i].transport.modeDetails = savedFlight._id;
                 } else {
-                    itinerary[i].transport.modeDetails = 'No flights found for the next day after the last activity.';
+                    itinerary[i].transport.modeDetails = null;
                 }
             }
         }
