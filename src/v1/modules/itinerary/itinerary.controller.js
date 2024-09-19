@@ -36,8 +36,8 @@ export const createItinerary = async (req, res) => {
       const cityDetails = await City.find({ '_id': { $in: cities } });
       const activityDetails = await Activity.find({ '_id': { $in: activities } });
 
-      if (!cityDetails.length || !activityDetails.length) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more city or activity IDs are invalid.', false));
+      if (!cityDetails.length ) {
+        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more city are invalid.', false));
       }
 
       const result = await generateItinerary({

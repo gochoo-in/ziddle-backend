@@ -23,10 +23,10 @@ const fcm = new FCM(FCM_KEY);
 
 export const signup = async (req, res) => {
     try {
-        const { phoneNumber, otp } = req.body;
+        const { phoneNumber, otp, firstName, lastName, email } = req.body;  
 
-        if (!phoneNumber) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
+        if (!phoneNumber || !firstName || !lastName || !email) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number, first name, last name, and email are required', false));
         }
 
         otpLimiter(req, res, async () => {
@@ -40,6 +40,9 @@ export const signup = async (req, res) => {
                 if (!user) {
                     user = await User.create({
                         phoneNumber,
+                        firstName,  
+                        lastName,   
+                        email,
                         otp: generateOTP(),
                         otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
@@ -80,6 +83,7 @@ export const signup = async (req, res) => {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 export const signin = async (req, res) => {
     try {
@@ -137,7 +141,7 @@ export const signin = async (req, res) => {
                     { cookieId: req.cookieId },
                     { $set: { userId: user._id } }
                 );
-
+                
                 res.status(StatusCodes.OK).json({
                     status: 'success',
                     token,
