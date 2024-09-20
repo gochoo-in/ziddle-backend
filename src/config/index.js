@@ -17,7 +17,7 @@ const envVarsSchema = Joi.object()
     MONGO_DB : Joi.string(),
     // CORS_ORIGIN: Joi.string().valid('*').required(),
     // APP_NAME: Joi.string().default(null).description('Application Name.'),
-    PORT: Joi.number().default(3000).description('Application port'),
+    PORT: Joi.number().default(5000).description('Application port'),
     COMMON_JWT_KEY: Joi.string().required().description(' JWT secret key'),
     // AWS_REGION: Joi.string().required().description('AWS region'),
     // AWS_BUCKET_NAME: Joi.string().required().description('AWS S3 bucket name'),

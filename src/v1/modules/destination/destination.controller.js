@@ -78,13 +78,29 @@ export const addDestination = async (req, res) => {
 // Get all destinations (countries)
 export const getAllDestinations = async (req, res) => {
     try {
-        const data = await Destination.find();
-        return res.status(StatusCodes.OK).json(httpFormatter({ data }, 'Destinations retrieved successfully', true));
+      // Fetch all destinations
+      const destinations = await Destination.find();
+  
+      // For each destination, fetch the number of associated cities
+      const destinationData = await Promise.all(
+        destinations.map(async (destination) => {
+          const totalCities = await City.countDocuments({ destination: destination._id }); // Count cities by destination ID
+  
+          return {
+            ...destination._doc, // Spread the destination document data
+            totalCities,  // Add the totalCities field
+          };
+        })
+      );
+  
+      // Return the destination data including the city count
+      return res.status(StatusCodes.OK).json(httpFormatter({ data: destinationData }, 'Destinations retrieved successfully', true));
     } catch (error) {
-        logger.error('Error retrieving destinations:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+      logger.error('Error retrieving destinations:', error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
-};
+  };
+  
 
 // Get all activities for a specific destination
 export const getActivitiesByDestination = async (req, res) => {
