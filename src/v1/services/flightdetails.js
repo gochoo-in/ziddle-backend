@@ -93,7 +93,6 @@ function isFlightAfterLastActivity(flight, lastActivityEndTime) {
 export async function addFlightDetailsToItinerary(data, adults, children,childrenAges, cityIATACodes) {
     try {
         const { itinerary } = data;
-
         for (let i = 0; i < itinerary.length - 1; i++) {
             const currentCity = itinerary[i].currentCity;
             const nextCity = itinerary[i + 1].currentCity;
