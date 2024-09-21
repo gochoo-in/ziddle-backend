@@ -3,7 +3,9 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
+import mongoose from 'mongoose';
 import logger from '../../../config/logger.js';
+
 // Create a new destination
 export const addDestination = async (req, res) => {
     try {
@@ -78,34 +80,38 @@ export const addDestination = async (req, res) => {
 // Get all destinations (countries)
 export const getAllDestinations = async (req, res) => {
     try {
-      // Fetch all destinations
-      const destinations = await Destination.find();
+        // Fetch all destinations
+        const destinations = await Destination.find();
   
-      // For each destination, fetch the number of associated cities
-      const destinationData = await Promise.all(
-        destinations.map(async (destination) => {
-          const totalCities = await City.countDocuments({ destination: destination._id }); // Count cities by destination ID
+        // For each destination, fetch the number of associated cities
+        const destinationData = await Promise.all(
+            destinations.map(async (destination) => {
+                const totalCities = await City.countDocuments({ destination: destination._id }); // Count cities by destination ID
   
-          return {
-            ...destination._doc, // Spread the destination document data
-            totalCities,  // Add the totalCities field
-          };
-        })
-      );
+                return {
+                    ...destination._doc, // Spread the destination document data
+                    totalCities,  // Add the totalCities field
+                };
+            })
+        );
   
-      // Return the destination data including the city count
-      return res.status(StatusCodes.OK).json(httpFormatter({ data: destinationData }, 'Destinations retrieved successfully', true));
+        // Return the destination data including the city count
+        return res.status(StatusCodes.OK).json(httpFormatter({ data: destinationData }, 'Destinations retrieved successfully', true));
     } catch (error) {
-      logger.error('Error retrieving destinations:', error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+        logger.error('Error retrieving destinations:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
-  };
-  
+};
 
 // Get all activities for a specific destination
 export const getActivitiesByDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
 
         const destination = await Destination.findById(destinationId);
         if (!destination) {
@@ -134,6 +140,11 @@ export const getCitiesByDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
 
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
+
         const destination = await Destination.findById(destinationId);
         if (!destination) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
@@ -156,6 +167,12 @@ export const getCitiesByDestination = async (req, res) => {
 export const updateDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
+
         const {
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
@@ -212,7 +229,6 @@ export const updateDestination = async (req, res) => {
                 if (typeof image !== 'object' || !image.type || !image.url) {
                     return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be an object with type and URL fields', false));
                 }
-                // Check URL format
                 try {
                     new URL(image.url); // Validate URL
                 } catch (e) {
@@ -242,6 +258,11 @@ export const deleteDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
 
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
+
         const destination = await Destination.findById(destinationId);
         if (!destination) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
@@ -268,6 +289,11 @@ export const deleteDestination = async (req, res) => {
 export const getDestinationById = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
 
         const destination = await Destination.findById(destinationId);
         if (!destination) {
