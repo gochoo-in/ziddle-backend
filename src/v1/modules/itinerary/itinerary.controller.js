@@ -341,9 +341,146 @@ export const deleteDaysFromCity = async (req, res) => {
     // Save the updated itinerary with new details
     await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
 
-    // Send back the cleaned enrichedItinerary field
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
 
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+
+export const addCityToItinerary = async (req, res) => {
+  const { itineraryId } = req.params;
+  const { newCity, stayDays, transportMode, travelActivity } = req.body;
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Check if the new city already exists in the itinerary (optional)
+    const cityExists = itinerary.enrichedItinerary.itinerary.some(city => city.currentCity === newCity);
+    if (cityExists) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City already exists in the itinerary', false));
+    }
+
+    // Get the last city in the itinerary (to update its nextCity and transport details)
+    const lastCityIndex = itinerary.enrichedItinerary.itinerary.length - 1;
+    const lastCity = itinerary.enrichedItinerary.itinerary[lastCityIndex];
+
+    // Update last city's transport mode to reflect travel to the new city
+    lastCity.transport = {
+      mode: transportMode || 'Transfer',
+      modeDetails: null
+    };
+    const cityData = await City.findOne({ name: newCity });
+    if (!cityData) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, `City '${newCity}' not found in the database`, false));
+    }
+    const cityId = cityData._id;
+    // Save the travel activity in the GptActivity collection
+    const travelActivityDoc = await GptActivity.create({
+      name: travelActivity || `Travel to ${newCity}`,
+      type: 'Transfer',
+      startTime: '09:00', // Default time for the activity
+      endTime: '10:00',
+      description: `Travel to ${newCity}`,
+      cityId: cityId, 
+      timeStamp: new Date().toISOString()
+    });
+
+    // Create the new city object with the activity ID saved in the 'days' array
+    const cityToAdd = {
+      currentCity: newCity,
+      nextCity: null, // This is the last city, so nextCity is null
+      stayDays: stayDays || 1, // Default stay is 1 day if not provided
+      transport: {
+        mode: null, // No transport yet for the new city
+        modeDetails: null
+      },
+      transferCostPerPersonINR: null,
+      transferDuration: null,
+      days: [
+        {
+          day: 1, // Always start with day 1 for the new city
+          date: new Date().toISOString().split('T')[0], // Assign today's date by default (you can modify this as needed)
+          activities: [travelActivityDoc._id] // Save the activity ID in the itinerary
+        }
+      ],
+      hotelDetails: null // No hotel by default
+    };
+
+    // Add the new city to the itinerary before the last city
+    itinerary.enrichedItinerary.itinerary.splice(lastCityIndex + 1, 0, cityToAdd);
+
+    // Update dates for the entire itinerary
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
+    const updatedItinerary = itinerary.enrichedItinerary;
+    const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
+  
+    // Refetch flight, transfer, and hotel details
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails({ enrichedItinerary: finalItinerary }, req.body);
+
+    // Save the updated itinerary to the database
+    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'City added successfully', true));
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+export const deleteCityFromItinerary = async (req, res) => {
+  const { itineraryId, cityIndex } = req.params; // Get itinerary ID and city index from the params
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Store the original start date before making changes
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date); 
+    
+    // Check if the cityIndex is valid
+    if (parseInt(cityIndex) >= itinerary.enrichedItinerary.itinerary.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
+
+    // Remove the city to be deleted
+    const cityToDelete = itinerary.enrichedItinerary.itinerary.splice(cityIndex, 1)[0];
+
+    // Update the nextCity of the previous city, if applicable
+    if (parseInt(cityIndex) > 0) {
+      const previousCity = itinerary.enrichedItinerary.itinerary[cityIndex - 1];
+      if (cityIndex < itinerary.enrichedItinerary.itinerary.length) {
+        previousCity.nextCity = itinerary.enrichedItinerary.itinerary[cityIndex].currentCity;
+      } else {
+        previousCity.nextCity = null; // If the deleted city was the last one
+      }
+
+      // If the deleted city is now the last city, set transport mode to null
+      if (cityIndex === itinerary.enrichedItinerary.itinerary.length) {
+        previousCity.transport = {
+          mode: null,
+          modeDetails: null
+        };
+      }
+    }
+
+    // Refetch flight, taxi, and hotel details after deleting the city
+    const updatedItinerary = itinerary.enrichedItinerary;
+    const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
+
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails({ enrichedItinerary: finalItinerary }, req.body);
+
+    // Save the updated itinerary with new details
+    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'City deleted successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
