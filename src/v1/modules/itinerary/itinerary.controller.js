@@ -17,6 +17,8 @@ import GptActivity from '../../models/gptactivity.js';
 import Flight from '../../models/flight.js';
 import Hotel from '../../models/hotel.js';
 import Taxi from '../../models/taxi.js'
+import {addDaysToCityService} from '../../services/itineraryService.js'
+import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../services/itineraryService.js';
 export const createItinerary = async (req, res) => {
   try {
     // Verify the user token
@@ -67,7 +69,7 @@ export const createItinerary = async (req, res) => {
       const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
       const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
       const transformItinerary = settransformItinerary(itineraryWithDates);
-
+      
       const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
 
       if (itineraryWithFlights.error) {
@@ -155,8 +157,6 @@ export const getFlightsInItinerary = async (req, res) => {
         : []; // Return an empty array if not a flight
     })
     .filter(id => id !== null); // Filter out any null values
-
-      console.log(flightIds);
     // Fetch flight details from the Flight collection
     const flights = await Flight.find({ _id: { $in: flightIds } });
     
@@ -206,7 +206,7 @@ export const getTransferDetails = async (req, res) => {
     const transfers = itinerary.enrichedItinerary.itinerary
       .flatMap(city => {
         const transport = city.transport;
-        if (transport && (transport.mode === "Taxi" || transport.mode === "Ferry")) {
+        if (transport && (transport.mode === "Car" || transport.mode === "Ferry")) {
           return {
             city: city.currentCity,
             mode: transport.mode,
@@ -219,7 +219,7 @@ export const getTransferDetails = async (req, res) => {
 
     // Fetching details from Taxi and Ferry collections
     const taxiIds = transfers
-      .filter(transfer => transfer.mode === "Taxi")
+      .filter(transfer => transfer.mode === "Car")
       .map(transfer => transfer.modeDetails);
 
     const ferryIds = transfers
@@ -234,7 +234,7 @@ export const getTransferDetails = async (req, res) => {
     // Prepare the response with direct details
     const transferDetails = transfers.map(transfer => {
       let details = null;
-      if (transfer.mode === "Taxi") {
+      if (transfer.mode === "Car") {
         details = taxis.find(taxi => taxi._id.toString() === transfer.modeDetails.toString());
       } else if (transfer.mode === "Ferry") {
         details = ferries.find(ferry => ferry._id.toString() === transfer.modeDetails.toString());
@@ -253,3 +253,99 @@ export const getTransferDetails = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
+
+
+export const getAllActivities = async (req, res) => {
+  try {
+    const { itineraryId } = req.params;
+
+    // Find the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Extract all activity IDs from the itinerary
+    const activityIds = itinerary.enrichedItinerary.itinerary
+      .flatMap(city => city.days) // Flatten the days array
+      .flatMap(day => day.activities) // Access the activities array
+      .filter(activityId => activityId !== null); // Filter out any null values
+
+    // Fetch all activity details from the Activity collection
+    const activities = await GptActivity.find({ _id: { $in: activityIds } });
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving activities from itinerary:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+
+export const addDaysToCity = async (req, res) => {
+  const { itineraryId, cityIndex } = req.params;
+  const { additionalDays } = req.body;
+
+  try {
+    // Fetch the itinerary from the database
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Add new days to the city in the itinerary
+    const updatedItinerary = await addDaysToCityService(itinerary, cityIndex, additionalDays);
+
+    // Ensure enrichedItinerary exists before refetching details
+    if (!updatedItinerary.enrichedItinerary) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Failed to update itinerary.', false));
+    }
+
+    // Refetch flight, taxi, and hotel details after adding days
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
+    // Save the updated itinerary to the database
+    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+
+    // Send back the cleaned enrichedItinerary field
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days added successfully', true));
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+export const deleteDaysFromCity = async (req, res) => {
+  const { itineraryId, cityIndex } = req.params;
+  const { daysToDelete } = req.body;
+
+  try {
+    // Fetch the itinerary from the database
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Remove days from the city in the itinerary
+    const updatedItinerary = await deleteDaysFromCityService(itinerary, cityIndex, daysToDelete);
+
+    // Ensure enrichedItinerary exists before refetching details
+    if (!updatedItinerary.enrichedItinerary) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Failed to update itinerary.', false));
+    }
+
+    // Refetch flight, taxi, and hotel details after deleting days
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
+    console.log(JSON.stringify(itineraryWithNewDetails.itinerary));
+    // Save the updated itinerary with new details
+    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+
+    // Send back the cleaned enrichedItinerary field
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
+
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
