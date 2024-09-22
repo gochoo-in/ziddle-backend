@@ -77,6 +77,37 @@ export const addDestination = async (req, res) => {
     }
 };
 
+
+
+
+
+
+export const toggleDestinationActiveStatus = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find the destination by ID
+    const destination = await Destination.findById(id);
+
+    if (!destination) {
+      return res.status(404).json({ message: 'Destination not found' });
+    }
+
+    // Toggle the active status
+    destination.active = !destination.active;
+    await destination.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Destination ${destination.active ? 'activated' : 'deactivated'} successfully`,
+      active: destination.active,
+    });
+  } catch (error) {
+    console.error('Error toggling destination status:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // Get all destinations (countries)
 export const getAllDestinations = async (req, res) => {
     try {
