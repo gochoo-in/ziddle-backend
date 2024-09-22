@@ -119,7 +119,7 @@ export const deleteDaysFromCityService = async (itinerary, cityIndex, daysToDele
   const cityItinerary = itinerary.enrichedItinerary.itinerary[cityIndex];
 
   // Ensure there are enough days to delete
-  if (cityItinerary.days.length < daysToDelete) {
+  if (cityItinerary.days.length < daysToDelete-1) {
     throw new Error('Not enough days to delete');
   }
 

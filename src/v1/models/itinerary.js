@@ -22,7 +22,6 @@ const transportSchema = new mongoose.Schema({
   },
   modeDetailsModel: {
     type: String,
-    required: true,
     enum: ['Flight', 'Taxi'] 
   }
 }, { _id: false });
