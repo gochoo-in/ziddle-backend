@@ -1,5 +1,4 @@
 import StatusCodes from 'http-status-codes';
-import { verifyToken } from '../../../utils/token.js'; // Import your token verification utility
 import { generateItinerary } from '../../services/gpt.js';
 import { addDatesToItinerary } from '../../../utils/dateUtils.js';
 import { settransformItinerary } from '../../../utils/transformItinerary.js';
@@ -63,6 +62,7 @@ export const createItinerary = async (req, res) => {
       const itineraryWithTitles = {
         title: result.title,
         subtitle: result.subtitle,
+        destination: country.name,
         itinerary: result.itinerary
       };
 
@@ -113,7 +113,7 @@ export const createItinerary = async (req, res) => {
 
       await newItinerary.save();
 
-      return res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'Create Itinerary Successful'));
+      return res.status(StatusCodes.OK).json(httpFormatter({ newItinerary }, 'Create Itinerary Successful'));
   } catch (error) {
     logger.error('Error creating itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
@@ -261,27 +261,46 @@ export const getAllActivities = async (req, res) => {
   try {
     const { itineraryId } = req.params;
 
-    // Find the itinerary by ID
-    const itinerary = await Itinerary.findById(itineraryId);
+    // Find the itinerary by ID and extract all activity IDs
+    const itinerary = await Itinerary.findById(itineraryId).select('enrichedItinerary.itinerary.days.activities');
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Extract all activity IDs from the itinerary
-    const activityIds = itinerary.enrichedItinerary.itinerary
-      .flatMap(city => city.days) // Flatten the days array
-      .flatMap(day => day.activities) // Access the activities array
-      .filter(activityId => activityId !== null); // Filter out any null values
+    // Extract all GPT activity IDs from the itinerary
+    const gptActivityIds = itinerary.enrichedItinerary.itinerary
+      .flatMap(city => city.days)
+      .flatMap(day => day.activities)
+      .filter(Boolean); // Remove null or undefined activity IDs
 
-    // Fetch all activity details from the Activity collection
-    const activities = await GptActivity.find({ _id: { $in: activityIds } });
+    // Fetch GPT activities and match with Activity table based on the name
+    const gptActivities = await GptActivity.find({ _id: { $in: gptActivityIds } });
 
-    return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
+    // Prepare all activity names to be fetched from the Activity table
+    const activityNames = gptActivities.map(gptActivity => gptActivity.name);
+
+    // Fetch all corresponding detailed activities from the Activity table in one query
+    const activityDetails = await Activity.find({ name: { $in: activityNames } });
+
+    // Create a map for faster lookups by name
+    const activityDetailsMap = activityDetails.reduce((acc, activity) => {
+      acc[activity.name] = activity;
+      return acc;
+    }, {});
+
+    // Construct the final activities array
+    const detailedActivities = gptActivities.map(gptActivity => ({
+      gptActivity,
+      detailedActivity: activityDetailsMap[gptActivity.name] || null, // Match by name or return null if not found
+    }));
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ activities: detailedActivities }, 'Activities retrieved successfully', true));
   } catch (error) {
     console.error('Error retrieving activities from itinerary:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 
@@ -486,3 +505,186 @@ export const deleteCityFromItinerary = async (req, res) => {
   }
 };
 
+
+export const replaceActivityInItinerary = async (req, res) => {
+  const { itineraryId, oldActivityId } = req.params;
+  const { newActivityId } = req.body;
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Fetch the new activity from the Activity table
+    const newActivity = await Activity.findById(newActivityId);
+    if (!newActivity) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'New activity not found' });
+    }
+
+    // Create the new activity in the GptActivity table
+    const newGptActivity = await GptActivity.create({
+      name: newActivity.name,
+      startTime: newActivity.opensAt,
+      endTime: newActivity.closesAt,
+      duration: newActivity.duration,
+      category: newActivity.category || 'General',
+      cityId: newActivity.city,
+      timeStamp: new Date().toISOString(),
+      activityId: newActivityId, // Reference to the Activity table
+    });
+
+    // Replace the old activity in the itinerary with the new GptActivity ID
+    let activityReplaced = false; // To track if the activity was replaced
+    itinerary.enrichedItinerary.itinerary.forEach(city => {
+      city.days.forEach(day => {
+        const activityIndex = day.activities.indexOf(oldActivityId);
+        if (activityIndex !== -1) {
+          // Replace the old activity with the new GptActivity ID
+          day.activities[activityIndex] = newGptActivity._id;
+          activityReplaced = true;
+        }
+      });
+    });
+
+    if (!activityReplaced) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
+    }
+
+    // Delete the old activity from GptActivity
+    await GptActivity.findByIdAndDelete(oldActivityId);
+
+    // Save the updated itinerary
+    await itinerary.save();
+
+    res.status(StatusCodes.OK).json({ message: 'Activity replaced successfully', data: itinerary });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+
+export const replaceFlightInItinerary = async (req, res) => {
+  const { itineraryId, modeDetailsId } = req.params; // Get itinerary and flight ID (oldFlightId)
+  const { selectedFlight } = req.body; // New flight details from the frontend
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Prepare baggageIncluded based on the presence of baggage details
+    const baggageIncluded = selectedFlight.flightSegments.some(segment => segment.baggage && segment.baggage.length > 0);
+
+    // Convert the baggage details to fit the schema structure
+    const baggageDetails = {
+      cabinBag: selectedFlight.flightSegments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
+      checkedBag: selectedFlight.flightSegments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0,
+    };
+
+    // Create the new flight
+    const newFlight = new Flight({
+      departureCityId: selectedFlight.fromCityId,
+      arrivalCityId: selectedFlight.toCityId,
+      baggageIncluded: baggageIncluded,
+      baggageDetails: baggageDetails,
+      price: parseFloat(selectedFlight.priceInINR),
+      currency: 'INR',
+      airline: selectedFlight.airline,
+      departureDate: new Date(selectedFlight.departureDate),
+      flightSegments: selectedFlight.flightSegments.map(segment => ({
+        departureTime: new Date(segment.departureTime),
+        arrivalTime: new Date(segment.arrivalTime),
+        flightNumber: segment.flightNumber, // Keep it as a string
+      })),
+    });
+
+    // Save the new flight to the DB
+    const savedFlight = await newFlight.save();
+
+    // Replace the old flight in the itinerary with the new one
+    let flightReplaced = false; // To track if the flight was replaced
+    itinerary.enrichedItinerary.itinerary.forEach(city => {
+      console.log(city.transport?city.transport.modeDetails:0,modeDetailsId)
+      if (city.transport && city.transport.modeDetails.toString() === modeDetailsId) {
+        city.transport.modeDetails = savedFlight._id;
+        flightReplaced = true;
+      }
+    });
+
+    if (!flightReplaced) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old flight not found in itinerary', success: false });
+    }
+
+    // Delete the old flight from the Flight table
+    await Flight.findByIdAndDelete(modeDetailsId);
+
+    // Save the updated itinerary
+    await itinerary.save();
+
+    res.status(StatusCodes.OK).json({ message: 'Flight replaced successfully', data: itinerary });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+
+
+
+
+export const replaceHotelInItinerary = async (req, res) => {
+  const { itineraryId, hotelDetailsId } = req.params; // Get itinerary and old hotel ID (modeDetailsId)
+  const { selectedHotel } = req.body; // Selected hotel details from the frontend
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Create the new hotel
+    const newHotel = new Hotel({
+      name: selectedHotel.name,
+      address: selectedHotel.address,
+      rating: selectedHotel.rating,
+      price: parseFloat(selectedHotel.priceInINR), // Assuming price is converted to INR
+      currency: 'INR',
+      image: selectedHotel.image,
+      cancellation: selectedHotel.cancellation,
+      checkin: selectedHotel.checkin,
+      checkout: selectedHotel.checkout,
+      roomType: selectedHotel.roomType,
+      refundable: selectedHotel.refundable
+    });
+
+    // Save the new hotel to the DB
+    const savedHotel = await newHotel.save();
+
+    // Replace the old hotel in the itinerary with the new one
+    let hotelReplaced = false; // To track if the hotel was replaced
+    itinerary.enrichedItinerary.itinerary.forEach(city => {
+      if (city.hotelDetails && city.hotelDetails.toString() === hotelDetailsId) {
+        city.hotelDetails = savedHotel._id; // Replace with the new hotel's ID
+        hotelReplaced = true;
+      }
+    });
+
+    if (!hotelReplaced) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old hotel not found in itinerary', success: false });
+    }
+
+    // Delete the old hotel from the DB
+    await Hotel.findByIdAndDelete(hotelDetailsId);
+
+    // Save the updated itinerary
+    await itinerary.save();
+
+    res.status(StatusCodes.OK).json({ message: 'Hotel replaced successfully', data: itinerary });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+  }
+};
