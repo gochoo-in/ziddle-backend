@@ -13,7 +13,8 @@ const CitySchema = new mongoose.Schema({
   pointsOfInterest: [{ type: String }],
   climate: { type: String },
   languageSpoken: { type: String, required: true },
-  travelTimeFromHub: { type: Number }
+  travelTimeFromHub: { type: Number },
+  isActive: { type: Boolean, default: false },
 }, { versionKey: false });
 
 export default mongoose.model('City', CitySchema);

@@ -16,6 +16,14 @@ const employeeSchema = new mongoose.Schema({
     trim: true,
     match: /^\S+@\S+\.\S+$/,
   },
+  phone: {
+    type: String,
+    required: true,
+    trim: true,
+    minlength: 10,
+    maxlength: 15,
+    match: /^[0-9]+$/,  // This ensures the phone number contains only digits
+  },
   password: {
     type: String,
     required: true,

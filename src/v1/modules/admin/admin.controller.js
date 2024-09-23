@@ -12,7 +12,7 @@ const CasbinPolicy = mongoose.connection.collection('casbinpolicies');
 // Admin Signup
 export const adminSignup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phone,password } = req.body;
 
     if (!email || !password || !name) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All fields are required', false));
@@ -27,6 +27,7 @@ export const adminSignup = async (req, res) => {
     const newAdmin = await Employee.create({
       name,
       email,
+      phone,
       password,
       isLoggedIn: false,
     });
