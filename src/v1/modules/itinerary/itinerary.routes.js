@@ -1,9 +1,11 @@
 import express from 'express';
-import { createItinerary, getFlightsInItinerary,getItineraryDetails,getHotelsInItinerary, getTransferDetails, getAllActivities,addDaysToCity,deleteDaysFromCity,addCityToItinerary, deleteCityFromItinerary,replaceActivityInItinerary,replaceFlightInItinerary,replaceHotelInItinerary  } from './itinerary.controller.js';
+import { createItinerary, getFlightsInItinerary,getItineraryDetails, getItinerariesByUserId, getTotalTripsByUsers, getHotelsInItinerary, getTransferDetails, getAllActivities,addDaysToCity,deleteDaysFromCity,addCityToItinerary, deleteCityFromItinerary,replaceActivityInItinerary,replaceFlightInItinerary,replaceHotelInItinerary  } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 const router = express.Router();
 
 router.post('/',verifyToken, createItinerary);
+router.get('/user/:userId', verifyToken, getItinerariesByUserId);
+router.get('/total-trips', verifyToken, getTotalTripsByUsers);
 router.get('/:itineraryId',getItineraryDetails);
 router.get('/:itineraryId/flights',getFlightsInItinerary);
 router.get('/:itineraryId/hotels',getHotelsInItinerary);
