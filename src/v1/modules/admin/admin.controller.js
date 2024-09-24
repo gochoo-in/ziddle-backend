@@ -179,3 +179,36 @@ export const getEmployeeById = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
+// Update Employee Details
+export const updateEmployee = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { name, email, phone } = req.body;
+
+    // Validate the employee ID
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid employee ID', false));
+    }
+
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+
+    if (!employee) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Employee not found', false));
+    }
+
+    // Update employee details
+    if (name) employee.name = name;
+    if (email) employee.email = email;
+    if (phone) employee.phone = phone;
+
+    // Save the updated employee
+    await employee.save();
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ employee }, 'Employee details updated successfully', true));
+  } catch (error) {
+    logger.error('Error updating employee details:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};
