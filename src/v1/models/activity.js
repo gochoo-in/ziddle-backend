@@ -20,7 +20,8 @@ const ActivitySchema = new mongoose.Schema({
     exclusions: { type: [String] },
     sharedActivity: { type: Boolean },
     refundable: { type: Boolean, required: true },
-    price: { type: String, required: true }
+    price: { type: String, required: true },
+    isActive: { type: Boolean, default: false }
 }, { versionKey: false });
 
 export default mongoose.model('Activity', ActivitySchema);

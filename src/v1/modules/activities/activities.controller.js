@@ -70,6 +70,34 @@ export const addActivity = async (req, res) => {
     }
 };
 
+
+export const toggleActivityActiveStatus = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      // Find the city by ID
+      const activity = await Activity.findById(id);
+  
+      if (!activity) {
+        return res.status(404).json({ message: 'Activity not found' });
+      }
+  
+      // Toggle the isActive status
+      activity.isActive = !activity.isActive;
+      await activity.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: `Activity ${activity.isActive ? 'activated' : 'deactivated'} successfully`,
+        isActive: activity.isActive,
+      });
+    } catch (error) {
+      console.error('Error updating activity status:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  };
+
+
 // Get an activity by ID
 export const getActivity = async (req, res) => {
     try {

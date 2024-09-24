@@ -155,6 +155,52 @@ export const signin = async (req, res) => {
     }
 };
 
+export const getAllUsers = async (req, res) => {
+    try {
+        // Fetch all users from the User collection
+        const users = await User.find();
+
+        // If no users are found, return a 404 status
+        if (users.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No users found', false));
+        }
+
+        // Return the list of users
+        return res.status(StatusCodes.OK).json(httpFormatter({ users }, 'Users retrieved successfully', true));
+    } catch (error) {
+        // Log the error and return a 500 status code
+        logger.error('Error retrieving users:', { message: error.message });
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+export const toggleUserBlockedStatus = async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      // Find the user by ID
+      const user = await User.findById(id);
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Toggle the blocked status
+      user.blocked = !user.blocked;
+      await user.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: `User ${user.blocked ? 'unblocked' : 'blocked'} successfully`,
+        blocked: user.blocked,
+      });
+    } catch (error) {
+      console.error('Error updating blocked status:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  };
+
+
 export const logout = async (req, res) => {
     try {
             const userId = req.user.userId;

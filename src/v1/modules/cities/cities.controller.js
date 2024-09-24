@@ -117,6 +117,35 @@ export const getCityById = async (req, res) => {
     }
 };
 
+
+export const toggleCityActiveStatus = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      // Find the city by ID
+      const city = await City.findById(id);
+  
+      if (!city) {
+        return res.status(404).json({ message: 'City not found' });
+      }
+  
+      // Toggle the isActive status
+      city.isActive = !city.isActive;
+      await city.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: `City ${city.isActive ? 'activated' : 'deactivated'} successfully`,
+        isActive: city.isActive,
+      });
+    } catch (error) {
+      console.error('Error updating city status:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  };
+  
+
+
 // Update a city by ID
 export const updateCityById = async (req, res) => {
     try {

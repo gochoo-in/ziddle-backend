@@ -688,3 +688,52 @@ export const replaceHotelInItinerary = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+export const getTotalTripsByUsers = async (req, res) => {
+  try {
+    console.log("Fetching total trips for users..."); 
+
+    const itinerariesCount = await Itinerary.aggregate([
+      {
+        $group: {
+          _id: "$createdBy", 
+          totalTrips: { $sum: 1 } 
+        }
+      }
+    ]);
+
+    console.log("Aggregated itineraries count:", itinerariesCount); 
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ itinerariesCount }, 'Total trips counted successfully', true));
+  } catch (error) {
+    console.error('Error counting itineraries by user:', error); 
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+export const getItinerariesByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find itineraries by createdBy field (userId)
+    const itineraries = await Itinerary.find({ createdBy: userId });
+
+    if (!itineraries.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No itineraries found for this user', false));
+    }
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ itineraries }, 'Itineraries retrieved successfully', true));
+  } catch (error) {
+    console.error('Error fetching itineraries for user:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+
+
+
+
+
+
