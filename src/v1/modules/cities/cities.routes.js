@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/', validate(cityValidation), casbinMiddleware,  addCity); 
 router.get('/', getAllCities); 
 router.get('/activities', getActivitiesForMultipleCities); 
-router.get('/:cityName/activities', getCityWithActivities);
+router.get('/:cityId/activities', getCityWithActivities);
 router.get('/:cityId', getCityById);
 router.patch('/:cityId', casbinMiddleware,  updateCityById)
 router.delete('/:cityId', casbinMiddleware,  deleteCityById)

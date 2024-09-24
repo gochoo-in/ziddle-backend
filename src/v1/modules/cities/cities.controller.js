@@ -66,12 +66,17 @@ export const getAllCities = async (req, res) => {
 };
 
 // Get a city with its activities using aggregation
+import mongoose from 'mongoose';
+
 export const getCityWithActivities = async (req, res) => {
     try {
-        const { cityName } = req.params;
+        const { cityId } = req.params;
+
+        // Ensure cityId is converted to ObjectId
+        const objectIdCity = new mongoose.Types.ObjectId(cityId);
 
         const city = await City.aggregate([
-            { $match: { name: cityName } },
+            { $match: { _id: objectIdCity } },  // Match by cityId as ObjectId
             {
                 $lookup: {
                     from: 'activities',
@@ -86,12 +91,14 @@ export const getCityWithActivities = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        return res.status(StatusCodes.OK).json(httpFormatter({ city: city[0] }, 'City with activities retrieved successfully', true));
+        return res.status(StatusCodes.OK).json(httpFormatter({ data: city[0].activities }, 'City with activities retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving city with activities:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+
 
 // Get a city by ID
 export const getCityById = async (req, res) => {
