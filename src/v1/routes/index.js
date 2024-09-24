@@ -13,6 +13,7 @@ import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
 import adminPackages from '../modules/adminPackages/adminpackages.routes.js'
+import leads from '../modules/leads/leads.routes.js'
 
 const allRoutes = Router()
 
@@ -77,6 +78,10 @@ const defaultRoutes = [
     {
         path: '/admin',
         route: adminPackages
+    },
+    {
+        path: '/leads',
+        route: leads
     }
 
 ]

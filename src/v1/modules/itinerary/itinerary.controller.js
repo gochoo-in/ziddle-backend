@@ -18,105 +18,114 @@ import Hotel from '../../models/hotel.js';
 import Taxi from '../../models/taxi.js'
 import {addDaysToCityService} from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../services/itineraryService.js';
+import Lead from '../../models/lead.js';  
+
 export const createItinerary = async (req, res) => {
   try {
-    // Verify the user token
-      const userId = req.user.userId; // Extract user ID from the token
+    const userId = req.user.userId; 
 
-      const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
+    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
 
-      if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
-      }
+    if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
+    }
 
-      const country = await Destination.findById(countryId);
-      if (!country) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
-      }
+    const country = await Destination.findById(countryId);
+    if (!country) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
+    }
 
-      const cityDetails = await City.find({ '_id': { $in: cities } });
-      const activityDetails = await Activity.find({ '_id': { $in: activities } });
+    const cityDetails = await City.find({ '_id': { $in: cities } });
+    const activityDetails = await Activity.find({ '_id': { $in: activities } });
 
-      if (!cityDetails.length ) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more city are invalid.', false));
-      }
+    if (!cityDetails.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more cities are invalid.', false));
+    }
 
-      const result = await generateItinerary({
-        ...req.body,
-        country: country.name,
-        cities: cityDetails.map(city => ({
-          name: city.name,
-          iataCode: city.iataCode,
-          activities: activityDetails
-            .filter(activity => activity.city.toString() === city._id.toString())
-            .map(activity => ({
-              name: activity.name,
-              duration: activity.duration,
-              category: activity.category,
-              opensAt: activity.opensAt,
-              closesAt: activity.closesAt
-            }))
-        }))
-      });
+    const result = await generateItinerary({
+      ...req.body,
+      country: country.name,
+      cities: cityDetails.map(city => ({
+        name: city.name,
+        iataCode: city.iataCode,
+        activities: activityDetails
+          .filter(activity => activity.city.toString() === city._id.toString())
+          .map(activity => ({
+            name: activity.name,
+            duration: activity.duration,
+            category: activity.category,
+            opensAt: activity.opensAt,
+            closesAt: activity.closesAt
+          }))
+      }))
+    });
 
-      const itineraryWithTitles = {
-        title: result.title,
-        subtitle: result.subtitle,
-        destination: country.name,
-        itinerary: result.itinerary
-      };
+    const itineraryWithTitles = {
+      title: result.title,
+      subtitle: result.subtitle,
+      destination: country.name,
+      itinerary: result.itinerary
+    };
 
-      const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
-      const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
-      const transformItinerary = settransformItinerary(itineraryWithDates);
-      
-      const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
+    const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
+    const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
+    const transformItinerary = settransformItinerary(itineraryWithDates);
 
-      if (itineraryWithFlights.error) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
-      }
+    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
 
-      for (const city of itineraryWithFlights.itinerary) {
-        for (const day of city.days) {
-          const activityIds = [];
-          for (const activity of day.activities) {
-            const newActivity = await GptActivity.create({
-              name: activity.name,
-              startTime: activity.startTime,
-              endTime: activity.endTime,
-              duration: activity.duration,
-              timeStamp: activity.timeStamp,
-              category: activity.category,
-              cityId: cityDetails.find(c => c.name === city.currentCity)._id,
-            });
-            activityIds.push(newActivity._id);
-          }
-          day.activities = activityIds;
+    if (itineraryWithFlights.error) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+    }
+
+    for (const city of itineraryWithFlights.itinerary) {
+      for (const day of city.days) {
+        const activityIds = [];
+        for (const activity of day.activities) {
+          const newActivity = await GptActivity.create({
+            name: activity.name,
+            startTime: activity.startTime,
+            endTime: activity.endTime,
+            duration: activity.duration,
+            timeStamp: activity.timeStamp,
+            category: activity.category,
+            cityId: cityDetails.find(c => c.name === city.currentCity)._id,
+          });
+          activityIds.push(newActivity._id);
         }
+        day.activities = activityIds;
       }
+    }
 
-      const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
+    const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
 
-      for (const city of itineraryWithTaxi.itinerary) {
-        if (city.transport) {
-          city.transport.modeDetailsModel = city.transport.mode === "Flight" ? "Flight" : "Taxi";
-        }
+    for (const city of itineraryWithTaxi.itinerary) {
+      if (city.transport) {
+        city.transport.modeDetailsModel = city.transport.mode === "Flight" ? "Flight" : "Taxi";
       }
+    }
 
-      const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
+    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
 
-      // Create new itinerary document
-      const newItinerary = new Itinerary({
-        createdBy: userId, // Add createdBy field
-        enrichedItinerary: enrichedItinerary
-      });
+    const newItinerary = new Itinerary({
+      createdBy: userId, 
+      enrichedItinerary: enrichedItinerary
+    });
 
-      await newItinerary.save();
+    await newItinerary.save();
 
-      return res.status(StatusCodes.OK).json(httpFormatter({ newItinerary }, 'Create Itinerary Successful'));
+    const newLead = new Lead({
+      createdBy: userId,  
+      itineraryId: newItinerary._id,  
+      status: 'ML', 
+      comments: []  
+    });
+
+    await newLead.save();
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ newItinerary, newLead }, 'Create Itinerary and Lead Successful'));
   } catch (error) {
-    logger.error('Error creating itinerary:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+    logger.error('Error creating itinerary or lead:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
 
