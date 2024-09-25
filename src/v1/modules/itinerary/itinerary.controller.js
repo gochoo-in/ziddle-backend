@@ -19,6 +19,8 @@ import Taxi from '../../models/taxi.js'
 import {addDaysToCityService} from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../services/itineraryService.js';
 import Lead from '../../models/lead.js';  
+import Notification from '../../models/notification.js'; 
+import { getAdminsWithAccess } from '../../../utils/casbinService.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -26,15 +28,18 @@ export const createItinerary = async (req, res) => {
 
     const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
 
+    // Check for required fields
     if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
     }
 
+    // Find the country
     const country = await Destination.findById(countryId);
     if (!country) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
     }
 
+    // Find city and activity details
     const cityDetails = await City.find({ '_id': { $in: cities } });
     const activityDetails = await Activity.find({ '_id': { $in: activities } });
 
@@ -42,6 +47,7 @@ export const createItinerary = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more cities are invalid.', false));
     }
 
+    // Generate itinerary
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
@@ -60,23 +66,24 @@ export const createItinerary = async (req, res) => {
       }))
     });
 
+    // Process itinerary details with travel and dates
     const itineraryWithTitles = {
       title: result.title,
       subtitle: result.subtitle,
       destination: country.name,
       itinerary: result.itinerary
     };
-
     const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
     const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
     const transformItinerary = settransformItinerary(itineraryWithDates);
 
+    // Add flight details
     const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
-
     if (itineraryWithFlights.error) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
     }
 
+    // Handle activities and GptActivity creation
     for (const city of itineraryWithFlights.itinerary) {
       for (const day of city.days) {
         const activityIds = [];
@@ -96,38 +103,54 @@ export const createItinerary = async (req, res) => {
       }
     }
 
+    // Add taxi details
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
 
+    // Process transport mode (Flight/Taxi)
     for (const city of itineraryWithTaxi.itinerary) {
       if (city.transport) {
         city.transport.modeDetailsModel = city.transport.mode === "Flight" ? "Flight" : "Taxi";
       }
     }
 
+    // Add hotel details
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
 
+    // Save the new itinerary
     const newItinerary = new Itinerary({
       createdBy: userId, 
       enrichedItinerary: enrichedItinerary
     });
-
     await newItinerary.save();
 
+    // Create the new lead
     const newLead = new Lead({
       createdBy: userId,  
       itineraryId: newItinerary._id,  
       status: 'ML', 
       comments: []  
     });
-
     await newLead.save();
 
+  
+    const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
+
+    for (const employee of employeesWithAccess) {
+      await Notification.create({
+        employeeId: employee._id,
+        leadId: newLead._id,
+        message: `New lead generated !!`,
+      });
+    }
+
+    // Return response
     return res.status(StatusCodes.OK).json(httpFormatter({ newItinerary, newLead }, 'Create Itinerary and Lead Successful'));
   } catch (error) {
     logger.error('Error creating itinerary or lead:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 export const getItineraryDetails = async (req, res) => {
