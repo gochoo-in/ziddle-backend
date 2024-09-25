@@ -11,12 +11,12 @@ router.get('/:itineraryId/flights',getFlightsInItinerary);
 router.get('/:itineraryId/hotels',getHotelsInItinerary);
 router.get('/:itineraryId/transfer',getTransferDetails);
 router.get('/:itineraryId/activities', getAllActivities);
-router.patch('/:itineraryId/cities/:cityIndex/delete-days', deleteDaysFromCity);
-router.patch('/:itineraryId/cities/:cityIndex/add-days', addDaysToCity);
-router.patch('/:itineraryId/cities/add-city', addCityToItinerary);
-router.patch('/:itineraryId/cities/:cityIndex/delete-city',deleteCityFromItinerary)
-router.patch('/:itineraryId/activity/:oldActivityId/replace', replaceActivityInItinerary);
-router.patch('/:itineraryId/flight/:modeDetailsId/replace', replaceFlightInItinerary);
-router.patch('/:itineraryId/hotel/:hotelDetailsId/replace',replaceHotelInItinerary)
+router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, deleteDaysFromCity);
+router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addDaysToCity);
+router.patch('/:itineraryId/cities/add-city', verifyToken, addCityToItinerary);
+router.patch('/:itineraryId/cities/:cityIndex/delete-city', verifyToken,deleteCityFromItinerary)
+router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, replaceActivityInItinerary);
+router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, replaceFlightInItinerary);
+router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, replaceHotelInItinerary)
 
 export default router;   

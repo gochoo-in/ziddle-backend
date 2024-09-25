@@ -20,7 +20,7 @@ import {addDaysToCityService} from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../services/itineraryService.js';
 import Lead from '../../models/lead.js';  
 import Notification from '../../models/notification.js'; 
-import { getAdminsWithAccess } from '../../../utils/casbinService.js';
+import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -347,6 +347,13 @@ export const addDaysToCity = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
+    // Check if the user has ownership or admin access
+    console.log(req.user)
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
+    }
+
     // Add new days to the city in the itinerary
     const updatedItinerary = await addDaysToCityService(itinerary, cityIndex, additionalDays);
 
@@ -367,6 +374,7 @@ export const addDaysToCity = async (req, res) => {
   }
 };
 
+
 export const deleteDaysFromCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
   const { daysToDelete } = req.body;
@@ -376,6 +384,13 @@ export const deleteDaysFromCity = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId).lean();
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Check if the user has ownership or admin access
+    console.log(req.user)
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
     // Remove days from the city in the itinerary
@@ -388,16 +403,15 @@ export const deleteDaysFromCity = async (req, res) => {
 
     // Refetch flight, taxi, and hotel details after deleting days
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
-    console.log(JSON.stringify(itineraryWithNewDetails.itinerary));
     // Save the updated itinerary with new details
     await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
 
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
-
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
+
 
 
 export const addCityToItinerary = async (req, res) => {
@@ -409,6 +423,12 @@ export const addCityToItinerary = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId).lean();
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
     // Check if the new city already exists in the itinerary (optional)
@@ -426,11 +446,14 @@ export const addCityToItinerary = async (req, res) => {
       mode: transportMode || 'Transfer',
       modeDetails: null
     };
+
     const cityData = await City.findOne({ name: newCity });
     if (!cityData) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, `City '${newCity}' not found in the database`, false));
     }
+
     const cityId = cityData._id;
+
     // Save the travel activity in the GptActivity collection
     const travelActivityDoc = await GptActivity.create({
       name: travelActivity || `Travel to ${newCity}`,
@@ -483,6 +506,9 @@ export const addCityToItinerary = async (req, res) => {
   }
 };
 
+
+
+
 export const deleteCityFromItinerary = async (req, res) => {
   const { itineraryId, cityIndex } = req.params; // Get itinerary ID and city index from the params
 
@@ -491,6 +517,12 @@ export const deleteCityFromItinerary = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId).lean();
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
     // Store the original start date before making changes
@@ -538,6 +570,8 @@ export const deleteCityFromItinerary = async (req, res) => {
 };
 
 
+
+
 export const replaceActivityInItinerary = async (req, res) => {
   const { itineraryId, oldActivityId } = req.params;
   const { newActivityId } = req.body;
@@ -547,6 +581,12 @@ export const replaceActivityInItinerary = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
     // Fetch the new activity from the Activity table
@@ -597,6 +637,8 @@ export const replaceActivityInItinerary = async (req, res) => {
 };
 
 
+
+
 export const replaceFlightInItinerary = async (req, res) => {
   const { itineraryId, modeDetailsId } = req.params; // Get itinerary and flight ID (oldFlightId)
   const { selectedFlight } = req.body; // New flight details from the frontend
@@ -606,6 +648,12 @@ export const replaceFlightInItinerary = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
     // Prepare baggageIncluded based on the presence of baggage details
@@ -640,7 +688,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Replace the old flight in the itinerary with the new one
     let flightReplaced = false; // To track if the flight was replaced
     itinerary.enrichedItinerary.itinerary.forEach(city => {
-      console.log(city.transport?city.transport.modeDetails:0,modeDetailsId)
+      console.log(city.transport ? city.transport.modeDetails : 0, modeDetailsId);
       if (city.transport && city.transport.modeDetails.toString() === modeDetailsId) {
         city.transport.modeDetails = savedFlight._id;
         flightReplaced = true;
@@ -667,6 +715,9 @@ export const replaceFlightInItinerary = async (req, res) => {
 
 
 
+
+
+
 export const replaceHotelInItinerary = async (req, res) => {
   const { itineraryId, hotelDetailsId } = req.params; // Get itinerary and old hotel ID (modeDetailsId)
   const { selectedHotel } = req.body; // Selected hotel details from the frontend
@@ -676,6 +727,12 @@ export const replaceHotelInItinerary = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
     // Create the new hotel
@@ -720,6 +777,8 @@ export const replaceHotelInItinerary = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+
 
 export const getTotalTripsByUsers = async (req, res) => {
   try {
