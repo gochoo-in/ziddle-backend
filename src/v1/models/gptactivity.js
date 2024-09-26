@@ -10,4 +10,4 @@ const gptActivitySchema = new mongoose.Schema({
   cityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
 }, { timestamps: true, versionKey: false });
 
-export default mongoose.model('GptActivity', gptActivitySchema);
+export default mongoose.models.GptActivity || mongoose.model('GptActivity', gptActivitySchema);
