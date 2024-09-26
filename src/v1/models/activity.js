@@ -4,6 +4,19 @@ const ActivitySchema = new mongoose.Schema({
     name: { type: String, required: true },
     duration: { type: String, required: true },
     description: { type: String },
+    imageUrls: {
+        type: [{
+            type: {
+                type: String,
+                required: true
+            },
+            url: {
+                type: String,
+                required: true
+            }
+        }],
+        default: []
+    },
     opensAt: { type: String, required: true },
     closesAt: { type: String, required: true },
     city: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
