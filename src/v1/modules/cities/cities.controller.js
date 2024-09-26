@@ -11,7 +11,7 @@ export const addCity = async (req, res) => {
         const {
             name,
             iataCode,
-            destinationName,
+            destinationId,
             country,
             latitude,
             longitude,
@@ -23,20 +23,20 @@ export const addCity = async (req, res) => {
             travelTimeFromHub
         } = req.body;
 
-        if (!name || !iataCode || !destinationName || !country || latitude === undefined || longitude === undefined || !languageSpoken) {
+        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
-        const destination = await Destination.findOne({ name: destinationName });
+        const destination = await Destination.findById(destinationId);
         if (!destination) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationName} not found`, false));
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationId} not found`, false));
         }
 
         const city = await City.create({
             name,
             iataCode,
             destination: destination._id,
-            country,
+            country:destination.name,
             latitude,
             longitude,
             bestTimeToVisit,

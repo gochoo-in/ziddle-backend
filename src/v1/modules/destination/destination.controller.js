@@ -183,9 +183,7 @@ export const getCitiesByDestination = async (req, res) => {
 
         const cities = await City.find({ destination: destination._id });
 
-        if (cities.length === 0) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `No cities found for ${destination.name}`, false));
-        }
+
 
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, `Cities for ${destination.name} retrieved successfully`, true));
     } catch (error) {
