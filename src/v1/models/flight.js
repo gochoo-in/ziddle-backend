@@ -14,6 +14,7 @@ const flightSchema = new mongoose.Schema({
     airline: { type: String, required: true },
     departureDate: { type: Date }, 
     flightSegments: [{
+        img: { type : String, },
         departureTime: { type: Date, required: true },
         arrivalTime: { type: Date, required: true },
         flightNumber: { type: Number, required: true }

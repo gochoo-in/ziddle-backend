@@ -60,6 +60,7 @@ async function fetchFlightDetails(fromCityId, toCityId, departureDate, adults, c
             currency: offer.total_currency,
             airline: offer.slices[0].segments[0].marketing_carrier.name,
             flightSegments: offer.slices[0].segments.map(segment => ({
+                img:segment.operating_carrier.logo_symbol_url,
                 departure: segment.origin.iataCode,
                 arrival: segment.destination.iataCode,
                 departureTime: segment.departing_at,

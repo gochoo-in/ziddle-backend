@@ -67,6 +67,7 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
             currency: offer.total_currency,
             airline: offer.slices[0].segments[0].marketing_carrier.name,
             flightSegments: offer.slices[0].segments.map(segment => ({
+                img:segment.operating_carrier.logo_symbol_url,
                 departure: segment.origin.iataCode,
                 arrival: segment.destination.iataCode,
                 departureTime: segment.departing_at,
@@ -120,11 +121,13 @@ export async function addFlightDetailsToItinerary(data, adults, children,childre
                             cabinBag: cheapestFlight.flightSegments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
                             checkedBag: cheapestFlight.flightSegments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0
                         },
+                        
                         price: priceInINR,
                         currency: 'INR', 
                         airline: cheapestFlight.airline,
                         departureDate: departureDate,
                         flightSegments: cheapestFlight.flightSegments.map(segment => ({
+                            img:segment.img,
                             departureTime: segment.departureTime,
                             arrivalTime: segment.arrivalTime,
                             flightNumber: segment.flightNumber
