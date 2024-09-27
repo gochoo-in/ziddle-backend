@@ -15,6 +15,7 @@ import policy from '../modules/policy/policy.routes.js'
 import adminPackages from '../modules/adminPackages/adminpackages.routes.js'
 import leads from '../modules/leads/leads.routes.js'
 import notifications from '../modules/notifications/notifications.routes.js'
+import indianCity from '../models/indianCity.js'
 
 const allRoutes = Router()
 
@@ -87,6 +88,10 @@ const defaultRoutes = [
     {
         path: '/lead-notifications',
         route: notifications
+    },
+    {
+        path:'/indianCities',
+        route: indianCity
     }
 
 ]

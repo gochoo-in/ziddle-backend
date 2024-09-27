@@ -20,7 +20,7 @@ const cityValidation = {
         'string.length': 'IATA code must be exactly 3 characters long',
         'any.required': 'IATA code is required',
       }),
-    destinationName: Joi.string()
+    destinationId: Joi.string()
       .required()
       .messages({
         'string.base': 'Destination name must be a string',

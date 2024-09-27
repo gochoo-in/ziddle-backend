@@ -11,6 +11,7 @@ import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
+import { addFerryDetailsToItinerary } from '../../../utils/dummyData.js'
 import logger from '../../../config/logger.js';
 import GptActivity from '../../models/gptActivity.js';
 import Flight from '../../models/flight.js';
@@ -105,7 +106,7 @@ export const createItinerary = async (req, res) => {
 
     // Add taxi details
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
-
+  
     // Process transport mode (Flight/Taxi)
     for (const city of itineraryWithTaxi.itinerary) {
       if (city.transport) {
@@ -115,7 +116,7 @@ export const createItinerary = async (req, res) => {
 
     // Add hotel details
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
-
+    const itineraryWithferry = await addFerryDetailsToItinerary(itineraryWithTaxi);
     // Save the new itinerary
     const newItinerary = new Itinerary({
       createdBy: userId, 
