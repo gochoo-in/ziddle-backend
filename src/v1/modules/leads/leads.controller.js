@@ -3,7 +3,9 @@ import moment from 'moment';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
 import logger from '../../../config/logger.js';
-import GptActivity from '../../models/gptActivity.js'; 
+import GptActivity from '../../models/gptactivity.js'; 
+import { getAdminsWithAccess } from '../../../utils/casbinService.js';
+import Employee from '../../models/employee.js';  
 
 // Get all leads
 export const getAllLeads = async (req, res) => {
@@ -362,5 +364,48 @@ export const getTopActivities = async (req, res) => {
   } catch (error) {
     logger.error('Error retrieving top activities:', error.message);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};
+
+
+export const getEmployeesWithUpdateAccess = async (req, res) => {
+  try {
+    const employeesWithAccess = await getAdminsWithAccess('UPDATE', '/api/v1/leads');
+    if (!employeesWithAccess.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No employees with update access found', false));
+    }
+    return res.status(StatusCodes.OK).json(httpFormatter({ employeesWithAccess }, 'Employees with update access retrieved successfully', true));
+  } catch (error) {
+    logger.error('Error retrieving employees with update access:', error.message);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};
+
+export const assignLeadToEmployee = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const { employeeId } = req.body;
+
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Find the lead by ID
+    const lead = await Lead.findById(leadId);
+    if (!lead) {
+      return res.status(404).json({ message: 'Lead not found' });
+    }
+
+    // Assign the employee name to the lead
+    lead.assignedTo = employee.name;  // Assigning the employee's name here
+    lead.assignedAt = new Date(); 
+    await lead.save();
+
+    return res.status(200).json({ message: 'Employee assigned to lead successfully', lead });
+  } catch (error) {
+    logger.error('Error assigning employee to lead:', error.message);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };

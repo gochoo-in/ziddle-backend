@@ -12,7 +12,7 @@ import Itinerary from '../../models/itinerary.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import logger from '../../../config/logger.js';
-import GptActivity from '../../models/gptactivity.js';
+import GptActivity from '../../models/gptActivity.js';
 import Flight from '../../models/flight.js';
 import Hotel from '../../models/hotel.js';
 import Taxi from '../../models/taxi.js'
