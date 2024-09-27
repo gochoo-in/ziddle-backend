@@ -111,6 +111,10 @@ const destinationValidation = {
         'array.base': 'Trip duration must be an array of strings',
         'any.required': 'Trip duration is required',
       }),
+      recommended: Joi.boolean(),
+
+      active: Joi.boolean()
+     
   }),
 };
 

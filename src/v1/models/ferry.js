@@ -18,7 +18,7 @@ const ferrySchema = new mongoose.Schema({
         required: true,
     },
     duration: {
-        type: Number, // Duration in minutes
+        type: String, 
         required: true,
     },
     arrivalTime: {
@@ -50,7 +50,7 @@ const ferrySchema = new mongoose.Schema({
         type: Boolean,
         default: false, // Default value is false (not shared)
     },
-}, { timestamps: true });
+}, { versionKey:false,timestamps: true });
 
 const Ferry = mongoose.model('Ferry', ferrySchema);
 

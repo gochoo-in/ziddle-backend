@@ -22,6 +22,7 @@ import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../se
 import Lead from '../../models/lead.js';  
 import Notification from '../../models/notification.js'; 
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
+import Ferry from '../../models/ferry.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -107,10 +108,15 @@ export const createItinerary = async (req, res) => {
     // Add taxi details
     const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
   
-    // Process transport mode (Flight/Taxi)
     for (const city of itineraryWithTaxi.itinerary) {
       if (city.transport) {
-        city.transport.modeDetailsModel = city.transport.mode === "Flight" ? "Flight" : "Taxi";
+        if (city.transport.mode === "Flight") {
+          city.transport.modeDetailsModel = "Flight";
+        } else if (city.transport.mode === "Ferry") {
+          city.transport.modeDetailsModel = "Ferry";
+        } else {
+          city.transport.modeDetailsModel = "Taxi";  // Default to Taxi for all other cases
+        }
       }
     }
 
@@ -120,7 +126,7 @@ export const createItinerary = async (req, res) => {
     // Save the new itinerary
     const newItinerary = new Itinerary({
       createdBy: userId, 
-      enrichedItinerary: enrichedItinerary
+      enrichedItinerary: itineraryWithferry
     });
     await newItinerary.save();
 
@@ -261,7 +267,7 @@ export const getTransferDetails = async (req, res) => {
 
     const [taxis, ferries] = await Promise.all([
       Taxi.find({ _id: { $in: taxiIds } }),
-      // Ferry.find({ _id: { $in: ferryIds } }),
+      Ferry.find({ _id: { $in: ferryIds } }),
     ]);
 
     // Prepare the response with direct details
@@ -827,5 +833,59 @@ export const getItinerariesByUserId = async (req, res) => {
 
 
 
+export const deleteItinerary = async (req, res) => {
+  const { itineraryId } = req.params;
 
+  try {
+    // Find the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
 
+    // Extract all GptActivity IDs from the itinerary
+    const gptActivityIds = itinerary.enrichedItinerary.itinerary
+      .flatMap(city => city.days)
+      .flatMap(day => day.activities)
+      .filter(Boolean);
+
+    // Extract all Flight, Taxi, and Ferry IDs from the itinerary
+    const flightIds = itinerary.enrichedItinerary.itinerary
+    .flatMap(city => {
+      return city.transport && city.transport.mode === "Flight"
+        ? [city.transport.modeDetails] // Return flight ID if transport is a flight
+        : []; // Return an empty array if not a flight
+    })
+    .filter(id => id !== null);
+
+    const taxiIds = itinerary.enrichedItinerary.itinerary
+    .flatMap(city => {
+      return city.transport && city.transport.mode === "Car"
+        ? [city.transport.modeDetails] 
+        : []; 
+    })
+    .filter(id => id !== null);
+
+    const ferryIds = itinerary.enrichedItinerary.itinerary
+    .flatMap(city => {
+      return city.transport && city.transport.mode === "Ferry"
+        ? [city.transport.modeDetails] 
+        : []; 
+    })
+    .filter(id => id !== null);
+
+    // Delete all associated GptActivities, Flights, Taxis, and Ferries
+    await GptActivity.deleteMany({ _id: { $in: gptActivityIds } });
+    await Flight.deleteMany({ _id: { $in: flightIds } });
+    await Taxi.deleteMany({ _id: { $in: taxiIds } });
+    await Ferry.deleteMany({ _id: { $in: ferryIds } });
+
+    // Delete the itinerary
+    await Itinerary.findByIdAndDelete(itineraryId);
+
+    return res.status(StatusCodes.OK).json(httpFormatter({}, 'Itinerary and associated data deleted successfully', true));
+  } catch (error) {
+    console.error('Error deleting itinerary and associated data:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};

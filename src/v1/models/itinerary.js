@@ -13,7 +13,7 @@ const transportSchema = new mongoose.Schema({
   mode: { 
     type: String, 
     required: true, 
-    enum: ['Flight', 'Car'] 
+    enum: ['Flight', 'Car','Ferry'] 
   },
   modeDetails: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,7 +22,7 @@ const transportSchema = new mongoose.Schema({
   },
   modeDetailsModel: {
     type: String,
-    enum: ['Flight', 'Taxi'] 
+    enum: ['Flight', 'Taxi','Ferry'] 
   }
 }, { _id: false });
 

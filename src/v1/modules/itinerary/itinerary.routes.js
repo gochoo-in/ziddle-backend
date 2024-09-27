@@ -1,5 +1,5 @@
 import express from 'express';
-import { createItinerary, getFlightsInItinerary,getItineraryDetails, getItinerariesByUserId, getTotalTripsByUsers, getHotelsInItinerary, getTransferDetails, getAllActivities,addDaysToCity,deleteDaysFromCity,addCityToItinerary, deleteCityFromItinerary,replaceActivityInItinerary,replaceFlightInItinerary,replaceHotelInItinerary  } from './itinerary.controller.js';
+import { createItinerary, getFlightsInItinerary,getItineraryDetails, getItinerariesByUserId, getTotalTripsByUsers, getHotelsInItinerary, getTransferDetails, getAllActivities,addDaysToCity,deleteDaysFromCity,addCityToItinerary, deleteCityFromItinerary,replaceActivityInItinerary,replaceFlightInItinerary,replaceHotelInItinerary,deleteItinerary  } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 const router = express.Router();
 
@@ -18,5 +18,6 @@ router.patch('/:itineraryId/cities/:cityIndex/delete-city', verifyToken,deleteCi
 router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, replaceActivityInItinerary);
 router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, replaceFlightInItinerary);
 router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, replaceHotelInItinerary)
+router.delete('/:itineraryId', deleteItinerary);
 
 export default router;   

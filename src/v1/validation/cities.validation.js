@@ -23,14 +23,38 @@ const cityValidation = {
     destinationId: Joi.string()
       .required()
       .messages({
-        'string.base': 'Destination name must be a string',
-        'any.required': 'Destination name is required',
+        'string.base': 'Destination Id must be a string',
+        'any.required': 'Destination Id is required',
       }),
     country: Joi.string()
       .required()
       .messages({
         'string.base': 'Country must be a string',
         'any.required': 'Country is required',
+      }),
+      imageUrls: Joi.array()
+      .items(
+        Joi.object({
+          type: Joi.string()
+            .required()
+            .messages({
+              'string.base': 'Image type must be a string',
+              'any.required': 'Image type is required',
+            }),
+          url: Joi.string()
+            .uri()
+            .required()
+            .messages({
+              'string.base': 'Image URL must be a string',
+              'string.uri': 'Each image URL must be a valid URI',
+              'any.required': 'Image URL is required',
+            }),
+        })
+      )
+      .default([])
+      .messages({
+        'array.base': 'Image URLs must be an array of objects',
+        'object.base': 'Each item in image URLs must be an object',
       }),
     latitude: Joi.number()
       .required()
@@ -60,8 +84,10 @@ const cityValidation = {
         'any.required': 'Language spoken is required',
       }),
     travelTimeFromHub: Joi.number()
-      .optional()
+      .optional(),
+    isActive: Joi.boolean()
   }),
+
 };
 
 export default cityValidation;
