@@ -108,31 +108,30 @@ export const toggleDestinationActiveStatus = async (req, res) => {
   }
 };
 
-// Get all destinations (countries)
+
+
+// Get all destinations
 export const getAllDestinations = async (req, res) => {
-    try {
-        // Fetch all destinations
-        const destinations = await Destination.find();
-  
-        // For each destination, fetch the number of associated cities
-        const destinationData = await Promise.all(
-            destinations.map(async (destination) => {
-                const totalCities = await City.countDocuments({ destination: destination._id }); // Count cities by destination ID
-  
-                return {
-                    ...destination._doc, // Spread the destination document data
-                    totalCities,  // Add the totalCities field
-                };
-            })
-        );
-  
-        // Return the destination data including the city count
-        return res.status(StatusCodes.OK).json(httpFormatter({ data: destinationData }, 'Destinations retrieved successfully', true));
-    } catch (error) {
-        logger.error('Error retrieving destinations:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
+  try {
+    const isActive = req.query.active === 'true';
+    const query = isActive ? { active: true } : {};
+
+    const destinations = await Destination.find(query);
+
+    return res.status(StatusCodes.OK).json({
+      data: {
+        data: destinations,
+      },
+      message: 'Destinations retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error retrieving destinations:', error);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: 'Internal server error' });
+  }
 };
+
 
 // Get all activities for a specific destination
 export const getActivitiesByDestination = async (req, res) => {
