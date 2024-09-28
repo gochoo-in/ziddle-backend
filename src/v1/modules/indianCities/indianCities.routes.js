@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllIndianCities, addIndianCity, updateIndianCity, deleteIndianCity } from '../controllers/indianCityController.js';
+import { getAllIndianCities, addIndianCity, updateIndianCity, deleteIndianCity } from './indianCities.controller.js';
 
 const router = express.Router();
 

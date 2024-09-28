@@ -1,4 +1,4 @@
-import IndianCity from '../models/indianCity.js';
+import IndianCity from '../../models/indianCity.js';
 
 // Get all Indian Cities
 export const getAllIndianCities = async (req, res) => {
@@ -12,9 +12,13 @@ export const getAllIndianCities = async (req, res) => {
 
 // Add a new Indian City
 export const addIndianCity = async (req, res) => {
-  const { name, imageUrl, isMajorHub } = req.body;
+  const { name, imageUrl } = req.body;
+  if(!name){
+    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Indian city name is required', false));
+  }
+
   try {
-    const newCity = new IndianCity({ name, imageUrl, isMajorHub });
+    const newCity = new IndianCity({ name, imageUrl });
     await newCity.save();
     res.status(201).json(newCity);
   } catch (error) {
