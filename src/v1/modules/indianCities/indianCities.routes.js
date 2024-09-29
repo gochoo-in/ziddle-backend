@@ -1,5 +1,6 @@
 import express from 'express';
 import { getAllIndianCities, addIndianCity, updateIndianCity, deleteIndianCity } from './indianCities.controller.js';
+import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
 
 const router = express.Router();
 
@@ -7,12 +8,12 @@ const router = express.Router();
 router.get('/', getAllIndianCities);
 
 // POST a new Indian city
-router.post('/', addIndianCity);
+router.post('/', casbinMiddleware, addIndianCity);
 
 // PATCH to update an Indian city
-router.patch('/:id', updateIndianCity);
+router.patch('/:id', casbinMiddleware, updateIndianCity);
 
 // DELETE an Indian city
-router.delete('/:id', deleteIndianCity);
+router.delete('/:id', casbinMiddleware, deleteIndianCity);
 
 export default router;
