@@ -8,7 +8,7 @@ const commentSchema = new mongoose.Schema({
 const leadSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   itineraryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Itinerary', required: true },
-  status: { type: String, enum: ['ML', 'SL', 'HCL', 'Closed', 'Booked', 'Refund'], default: 'ML' },
+  status: { type: String, enum: ['ML', 'SL', 'HCL', 'Closed', 'Booked', 'Refund', 'Cancelled'], default: 'ML' },
   assignedTo: { type: String },
   assignedAt: { type: Date },
   comments: [commentSchema],

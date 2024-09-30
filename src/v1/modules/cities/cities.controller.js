@@ -59,13 +59,18 @@ export const addCity = async (req, res) => {
 // Get all cities
 export const getAllCities = async (req, res) => {
     try {
-        const cities = await City.find();
+        const isActive = req.query.active === 'true';
+        const query = isActive ? { isActive: true } : {};
+
+        const cities = await City.find(query);
+
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, 'Cities retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving cities:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 
 export const getCityWithActivities = async (req, res) => {
