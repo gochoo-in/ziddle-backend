@@ -190,6 +190,44 @@ export async function generateItinerary(itineraryData) {
             throw new Error("Response is missing required fields.");
         }
 
+        // Forcefully add missing activities
+        itineraryData.cities.forEach(originalCity => {
+            const generatedCity = parsedResponse.itinerary.find(leg => leg.currentCity === originalCity.name);
+            if (generatedCity) {
+                originalCity.activities.forEach(activity => {
+                    let activityIncluded = false;
+                    generatedCity.days.forEach(day => {
+                        if (day.activities.some(a => a.name === activity.name)) {
+                            activityIncluded = true;
+                        }
+                    });
+
+                    // If activity is not included, add it manually
+                    if (!activityIncluded) {
+                        // Find the latest day and add a new day with the activity
+                        const lastDay = generatedCity.days[generatedCity.days.length - 1];
+                        const newDayNumber = lastDay ? lastDay.day + 1 : 1;
+                        const newDate = lastDay ? new Date(new Date(lastDay.date).setDate(new Date(lastDay.date).getDate() + 1)).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+                        generatedCity.days.push({
+                            day: newDayNumber,
+                            date: newDate,
+                            activities: [
+                                {
+                                    name: activity.name,
+                                    startTime: "10:00 AM",
+                                    endTime: "12:00 AM",
+                                    duration: activity.duration,
+                                    timeStamp: "Morning",
+                                    category: activity.category || "General"
+                                }
+                            ]
+                        });
+                    }
+                });
+            }
+        });
+
         // Reintroduce the filtering logic
         const validActivityNames = new Set(
             itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
