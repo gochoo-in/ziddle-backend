@@ -23,10 +23,11 @@ import Lead from '../../models/lead.js';
 import Notification from '../../models/notification.js'; 
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
+import mongoose from 'mongoose'
 
 export const createItinerary = async (req, res) => {
   try {
-    const userId = req.user.userId; 
+    const userId = req.user.userId;
 
     const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
 
@@ -41,8 +42,11 @@ export const createItinerary = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
     }
 
+    // Ensure `cities` is always an array
+    const cityIds = Array.isArray(cities) ? cities : [cities];
+
     // Find city and activity details
-    const cityDetails = await City.find({ '_id': { $in: cities } });
+    const cityDetails = await City.find({ '_id': { $in: cityIds } });
     const activityDetails = await Activity.find({ '_id': { $in: activities } });
 
     if (!cityDetails.length) {
@@ -57,7 +61,7 @@ export const createItinerary = async (req, res) => {
         name: city.name,
         iataCode: city.iataCode,
         activities: activityDetails
-          .filter(activity => activity.city.toString() === city._id.toString())
+          .filter(activity => activity.city?.toString() === city._id?.toString())
           .map(activity => ({
             name: activity.name,
             duration: activity.duration,
@@ -69,79 +73,95 @@ export const createItinerary = async (req, res) => {
     });
 
     // Process itinerary details with travel and dates
-    const itineraryWithTitles = {
+    let itineraryWithTitles = {
       title: result.title,
       subtitle: result.subtitle,
       destination: country.name,
       itinerary: result.itinerary
     };
-    const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
-    const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
-    const transformItinerary = settransformItinerary(itineraryWithDates);
 
-    // Add flight details
-    const itineraryWithFlights = await addFlightDetailsToItinerary(transformItinerary, adults, children, childrenAges, cityDetails);
-    if (itineraryWithFlights.error) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+    // If there's more than one city, add transfer activities and flight details
+    if (cityDetails.length > 1) {
+      const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
+      const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
+      itineraryWithTitles = settransformItinerary(itineraryWithDates);
+
+      // Add flight details only if there are multiple cities
+      const itineraryWithFlights = await addFlightDetailsToItinerary(itineraryWithTitles, adults, children, childrenAges, cityDetails);
+      if (itineraryWithFlights.error) {
+        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+      }
+      itineraryWithTitles = itineraryWithFlights;
+    } else {
+      // Add dates directly if only one city
+      itineraryWithTitles = addDatesToItinerary(itineraryWithTitles, startDate);
+
+      // Set arrival and departure dates for the single city
+      itineraryWithTitles.itinerary[0].arrivalDate = startDate;
+      itineraryWithTitles.itinerary[0].departureDate = startDate;
     }
 
     // Handle activities and GptActivity creation
-    for (const city of itineraryWithFlights.itinerary) {
+    for (const city of itineraryWithTitles.itinerary) {
       for (const day of city.days) {
         const activityIds = [];
         for (const activity of day.activities) {
-          const newActivity = await GptActivity.create({
-            name: activity.name,
-            startTime: activity.startTime,
-            endTime: activity.endTime,
-            duration: activity.duration,
-            timeStamp: activity.timeStamp,
-            category: activity.category,
-            cityId: cityDetails.find(c => c.name === city.currentCity)._id,
-          });
-          activityIds.push(newActivity._id);
+          const cityId = cityDetails.find(c => c.name === city.currentCity)?._id;
+          if (cityId) {
+            const newActivity = await GptActivity.create({
+              name: activity.name,
+              startTime: activity.startTime,
+              endTime: activity.endTime,
+              duration: activity.duration,
+              timeStamp: activity.timeStamp,
+              category: activity.category,
+              cityId: cityId,
+            });
+            activityIds.push(newActivity._id);
+          }
         }
         day.activities = activityIds;
       }
     }
 
-    // Add taxi details
-    const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
-  
-    for (const city of itineraryWithTaxi.itinerary) {
-      if (city.transport) {
-        if (city.transport.mode === "Flight") {
-          city.transport.modeDetailsModel = "Flight";
-        } else if (city.transport.mode === "Ferry") {
-          city.transport.modeDetailsModel = "Ferry";
-        } else {
-          city.transport.modeDetailsModel = "Taxi";  // Default to Taxi for all other cases
-        }
-      }
+    // Add taxi details only if there are multiple cities
+    let itineraryWithTaxi = itineraryWithTitles;
+    if (cityDetails.length > 1) {
+      itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithTitles);
     }
 
-    // Add hotel details
+    // Add hotel details (even if it's a single city)
     const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
-    const itineraryWithferry = await addFerryDetailsToItinerary(itineraryWithTaxi);
+
+    // Remove any invalid transport or hotel details
+    enrichedItinerary.itinerary.forEach(city => {
+      if (!city.transport || typeof city.transport !== 'object') {
+        city.transport = null; // Ensure transport is either an object or null
+      }
+
+      if (!city.hotelDetails || !mongoose.isValidObjectId(city.hotelDetails)) {
+        city.hotelDetails = null; // Ensure hotelDetails is either a valid ObjectId or null
+      }
+    });
+
     // Save the new itinerary
     const newItinerary = new Itinerary({
-      createdBy: userId, 
-      enrichedItinerary: itineraryWithferry
+      createdBy: userId,
+      enrichedItinerary: enrichedItinerary
     });
     await newItinerary.save();
 
     // Create the new lead
     const newLead = new Lead({
-      createdBy: userId,  
-      itineraryId: newItinerary._id,  
-      status: 'ML', 
-      comments: []  
+      createdBy: userId,
+      itineraryId: newItinerary._id,
+      status: 'ML',
+      comments: []
     });
     await newLead.save();
 
-  
+    // Send notifications to admins with access
     const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
-
     for (const employee of employeesWithAccess) {
       await Notification.create({
         employeeId: employee._id,
@@ -157,6 +177,9 @@ export const createItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
+
 
 
 
