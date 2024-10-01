@@ -196,43 +196,54 @@ export async function generateItinerary(itineraryData) {
           itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
       );
 
-      // Remove any extra cities not in the original input
-      parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => validCityNames.has(leg.currentCity));
+      // Track added cities to avoid duplicates
+      const addedCities = new Set();
+      parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => {
+          if (validCityNames.has(leg.currentCity) && !addedCities.has(leg.currentCity)) {
+              addedCities.add(leg.currentCity);
+              return true;
+          }
+          return false;
+      });
 
       parsedResponse.itinerary.forEach(leg => {
-          // Remove activities not in the original input
+          // Track added activities to avoid duplicates across days
+          const addedActivities = new Set();
+
           leg.days = leg.days
               .map(day => {
-                  day.activities = day.activities.filter(activity => validActivityNames.has(activity.name));
+                  day.activities = day.activities.filter(activity => {
+                      if (validActivityNames.has(activity.name) && !addedActivities.has(activity.name)) {
+                          addedActivities.add(activity.name);
+                          return true;
+                      }
+                      return false;
+                  });
                   return day;
               })
               .filter(day => day.activities.length > 0);
-          
+
           // Ensure all activities are covered in the itinerary
           const remainingActivities = itineraryData.cities
               .find(city => city.name === leg.currentCity)
-              .activities.filter(activity => !leg.days.some(day =>
-                  day.activities.some(a => a.name === activity.name)
-              ));
-          
+              .activities.filter(activity => !addedActivities.has(activity.name));
+
           // Add the remaining activities to the last day or create new days as needed
           remainingActivities.forEach(activity => {
-                  
-                  leg.days.push({
-                      day: leg.days.length + 1,
-                      date: `2024-09-${leg.days.length + 1}`,
-                      activities: [
-                        {
-                            ...activity,
-                            startTime: '10:00 AM',
-                            endTime: '4:00 PM',
-                            timeStamp: 'Morning',
-                            category: activity.category,
-                        },
-                    ],
-
-                  });
-              
+              leg.days.push({
+                  day: leg.days.length + 1,
+                  date: `2024-09-${leg.days.length + 1}`,
+                  activities: [
+                      {
+                          ...activity,
+                          startTime: '10:00 AM',
+                          endTime: '4:00 PM',
+                          timeStamp: 'Morning',
+                          category: activity.category,
+                      },
+                  ],
+              });
+              addedActivities.add(activity.name);
           });
       });
 
