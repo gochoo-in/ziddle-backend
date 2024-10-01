@@ -5,10 +5,10 @@ export const createLeisureActivityIfNotExist = async (cityId) => {
   
     const leisureActivity = await GptActivity.create({
       name: 'Leisure Activity',
-      startTime: '00:00',
-      endTime: '23:59',
+      startTime: '10:00 AM',
+      endTime: '5:00 PM',
       duration: 'Full day',
-      timeStamp: new Date().toISOString(),
+      timeStamp: 'All day',
       category: 'Leisure',
       cityId: cityId,
     });

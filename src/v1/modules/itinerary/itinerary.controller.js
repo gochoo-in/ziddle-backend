@@ -4,6 +4,7 @@ import { addDatesToItinerary } from '../../../utils/dateUtils.js';
 import { settransformItinerary } from '../../../utils/transformItinerary.js';
 import { addFlightDetailsToItinerary } from '../../services/flightdetails.js';
 import { addTransferActivity } from '../../../utils/travelItinerary.js';
+import { createLeisureActivityIfNotExist } from '../../../utils/activityUtils.js';
 import httpFormatter from '../../../utils/formatter.js';
 import Destination from '../../models/destination.js'; 
 import City from '../../models/city.js';
@@ -29,7 +30,7 @@ export const createItinerary = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities } = req.body;
+    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities, tripDuration } = req.body;
 
     // Check for required fields
     if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges) {
@@ -124,6 +125,38 @@ export const createItinerary = async (req, res) => {
       }
     }
 
+    // Add leisure activities if needed based on trip duration
+    const [minTripDuration] = tripDuration.split('-').map(Number);
+    let totalPlannedDays = itineraryWithTitles.itinerary.reduce((acc, city) => acc + city.days.length, 0);
+    let remainingDays = minTripDuration - totalPlannedDays;
+
+    if (remainingDays > 0) {
+      // Distribute the remaining days across cities
+      const citiesCount = itineraryWithTitles.itinerary.length;
+      let cityIndex = 0;
+
+      while (remainingDays > 0) {
+        const currentCity = itineraryWithTitles.itinerary[cityIndex];
+        const cityId = cityDetails.find(c => c.name === currentCity.currentCity)?._id;
+
+        if (cityId) {
+          const leisureActivityId = await createLeisureActivityIfNotExist(cityId);
+          const newDayIndex = currentCity.days.length + 1;
+
+          currentCity.days.push({
+            day: newDayIndex,
+            date: new Date(new Date(startDate).setDate(new Date(startDate).getDate() + totalPlannedDays)).toISOString().split('T')[0],
+            activities: [leisureActivityId]
+          });
+
+          totalPlannedDays++;
+          remainingDays--;
+        }
+
+        cityIndex = (cityIndex + 1) % citiesCount; // Rotate between cities
+      }
+    }
+
     // Add taxi details only if there are multiple cities
     let itineraryWithTaxi = itineraryWithTitles;
     if (cityDetails.length > 1) {
@@ -177,6 +210,8 @@ export const createItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
 
 
 
