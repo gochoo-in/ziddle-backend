@@ -460,7 +460,8 @@ export const addDaysToCity = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Directly use req.user.userId without additional checks
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -510,7 +511,8 @@ export const deleteDaysFromCity = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Directly use req.user.userId without additional checks
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -616,7 +618,8 @@ export const addCityToItinerary = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Record the user who made the change
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -688,7 +691,8 @@ export const deleteCityFromItinerary = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Directly use req.user.userId without additional checks
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -762,7 +766,8 @@ export const replaceActivityInItinerary = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -844,7 +849,8 @@ export const replaceFlightInItinerary = async (req, res) => {
         lean: true,
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
-        }
+        },
+        comment: req.comment 
       }
     );
 
@@ -915,6 +921,7 @@ export const replaceHotelInItinerary = async (req, res) => {
         changedBy: {
           userId: req.user.userId, // Use req.user.userId directly for tracking the change
         },
+        comment: req.comment 
       }
     );
 

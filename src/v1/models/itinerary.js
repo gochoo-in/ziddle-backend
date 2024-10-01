@@ -16,7 +16,7 @@ const transportSchema = new mongoose.Schema({
   },
   modeDetailsModel: {
     type: String,
-    enum: ['Flight', 'Taxi', 'Ferry'] 
+    enum: ['Flight', 'Taxi', 'Ferry']
   }
 }, { _id: false });
 
@@ -47,8 +47,6 @@ const itinerarySchema = new mongoose.Schema({
 
 itinerarySchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {
   try {
-    console.log('Pre-update hook triggered'); // Debugging: Check if this is called
-
     const query = this;
     const itineraryId = query.getQuery()._id || query.getQuery().itineraryId;
 
@@ -59,12 +57,10 @@ itinerarySchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], async function (n
     // Fetch the original itinerary document before making the update
     const original = await Itinerary.findById(itineraryId).lean();
     if (original) {
-      const { changedBy } = query.options;
-      
-      // Verify if 'changedBy' is actually passed
-      if (!changedBy) {
-        console.error('Error: changedBy information not provided in update options');
-      }
+      const { changedBy, comment } = query.options;
+
+      // Ensure that `changedBy` is properly formatted and only extracts the userId
+      const userId = changedBy && typeof changedBy === 'object' && changedBy.userId ? changedBy.userId : null;
 
       // Determine the current version number
       const latestVersion = await ItineraryVersion.findOne({ itineraryId }).sort({ version: -1 });
@@ -75,18 +71,20 @@ itinerarySchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], async function (n
         itineraryId,
         version: newVersionNumber,
         enrichedItinerary: original.enrichedItinerary, // Save the current state before any changes
-        changedBy: changedBy || {}, // Provide a fallback to avoid issues
+        changedBy: {
+          userId: userId || null, // Assign userId if present
+        },
+        comment: comment || '', // Store the comment separately
         createdAt: new Date()
       });
     }
 
     next();
   } catch (error) {
-    console.error('Error in pre-update hook:', error); // Improved logging for errors
+    console.error('Error in pre-update hook:', error);
     next(error);
   }
 });
-
 
 const Itinerary = mongoose.model('Itinerary', itinerarySchema);
 
