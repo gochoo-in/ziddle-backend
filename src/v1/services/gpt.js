@@ -167,85 +167,79 @@ export async function generateItinerary(itineraryData) {
     ];
 
     try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: messages,
-            temperature: 0.2,
-            top_p: 0.8,
-        });
+      const response = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: messages,
+          temperature: 0.2,
+          top_p: 0.8,
+      });
 
-        const rawResponse = response.choices[0].message.content;
+      const rawResponse = response.choices[0].message.content;
 
-        // Ensure the response is in JSON format
-        let parsedResponse;
-        try {
-            parsedResponse = JSON.parse(rawResponse);
-        } catch (error) {
-            logger.error("Failed to parse response:", error);
-            throw new Error("Failed to parse response from OpenAI.");
-        }
+      // Ensure the response is in JSON format
+      let parsedResponse;
+      try {
+          parsedResponse = JSON.parse(rawResponse);
+      } catch (error) {
+          logger.error("Failed to parse response:", error);
+          throw new Error("Failed to parse response from OpenAI.");
+      }
 
-        // Validate the parsed response
-        if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
-            throw new Error("Response is missing required fields.");
-        }
+      // Validate the parsed response
+      if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
+          throw new Error("Response is missing required fields.");
+      }
 
-        // Forcefully add missing activities
-        itineraryData.cities.forEach(originalCity => {
-            const generatedCity = parsedResponse.itinerary.find(leg => leg.currentCity === originalCity.name);
-            if (generatedCity) {
-                originalCity.activities.forEach(activity => {
-                    let activityIncluded = false;
-                    generatedCity.days.forEach(day => {
-                        if (day.activities.some(a => a.name === activity.name)) {
-                            activityIncluded = true;
-                        }
-                    });
+      // Reintroduce the filtering logic
+      const validCityNames = new Set(itineraryData.cities.map(city => city.name));
+      const validActivityNames = new Set(
+          itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
+      );
 
-                    // If activity is not included, add it manually
-                    if (!activityIncluded) {
-                        // Find the latest day and add a new day with the activity
-                        const lastDay = generatedCity.days[generatedCity.days.length - 1];
-                        const newDayNumber = lastDay ? lastDay.day + 1 : 1;
-                        const newDate = lastDay ? new Date(new Date(lastDay.date).setDate(new Date(lastDay.date).getDate() + 1)).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      // Remove any extra cities not in the original input
+      parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => validCityNames.has(leg.currentCity));
 
-                        generatedCity.days.push({
-                            day: newDayNumber,
-                            date: newDate,
-                            activities: [
-                                {
-                                    name: activity.name,
-                                    startTime: "10:00 AM",
-                                    endTime: "12:00 AM",
-                                    duration: activity.duration,
-                                    timeStamp: "Morning",
-                                    category: activity.category || "General"
-                                }
-                            ]
-                        });
-                    }
-                });
-            }
-        });
+      parsedResponse.itinerary.forEach(leg => {
+          // Remove activities not in the original input
+          leg.days = leg.days
+              .map(day => {
+                  day.activities = day.activities.filter(activity => validActivityNames.has(activity.name));
+                  return day;
+              })
+              .filter(day => day.activities.length > 0);
+          
+          // Ensure all activities are covered in the itinerary
+          const remainingActivities = itineraryData.cities
+              .find(city => city.name === leg.currentCity)
+              .activities.filter(activity => !leg.days.some(day =>
+                  day.activities.some(a => a.name === activity.name)
+              ));
+          
+          // Add the remaining activities to the last day or create new days as needed
+          remainingActivities.forEach(activity => {
+                  
+                  leg.days.push({
+                      day: leg.days.length + 1,
+                      date: `2024-09-${leg.days.length + 1}`,
+                      activities: [
+                        {
+                            ...activity,
+                            startTime: '10:00 AM',
+                            endTime: '4:00 PM',
+                            timeStamp: 'Morning',
+                            category: activity.category,
+                        },
+                    ],
 
-        // Reintroduce the filtering logic
-        const validActivityNames = new Set(
-            itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
-        );
+                  });
+              
+          });
+      });
 
-        parsedResponse.itinerary.forEach(leg => {
-            leg.days = leg.days
-                .map(day => {
-                    day.activities = day.activities.filter(activity => validActivityNames.has(activity.name));
-                    return day;
-                })
-                .filter(day => day.activities.length > 0);
-        });
+      return parsedResponse;
 
-        return parsedResponse;
-
-    } catch (error) {
-        logger.error("Error generating itinerary:", error);
-        throw new Error("Failed to generate itinerary.");
-    }
+  } catch (error) {
+      logger.error("Error generating itinerary:", error);
+      throw new Error("Failed to generate itinerary.");
+  }
 }
