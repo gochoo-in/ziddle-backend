@@ -167,90 +167,104 @@ export async function generateItinerary(itineraryData) {
     ];
 
     try {
-      const response = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: messages,
-          temperature: 0.2,
-          top_p: 0.8,
-      });
+        const response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: messages,
+            temperature: 0.2,
+            top_p: 0.8,
+        });
 
-      const rawResponse = response.choices[0].message.content;
+        const rawResponse = response.choices[0].message.content;
 
-      // Ensure the response is in JSON format
-      let parsedResponse;
-      try {
-          parsedResponse = JSON.parse(rawResponse);
-      } catch (error) {
-          logger.error("Failed to parse response:", error);
-          throw new Error("Failed to parse response from OpenAI.");
-      }
+        // Ensure the response is in JSON format
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(rawResponse);
+        } catch (error) {
+            logger.error("Failed to parse response:", error);
+            throw new Error("Failed to parse response from OpenAI.");
+        }
 
-      // Validate the parsed response
-      if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
-          throw new Error("Response is missing required fields.");
-      }
+        // Validate the parsed response
+        if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
+            throw new Error("Response is missing required fields.");
+        }
 
-      // Reintroduce the filtering logic
-      const validCityNames = new Set(itineraryData.cities.map(city => city.name));
-      const validActivityNames = new Set(
-          itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
-      );
+        // Reintroduce the filtering logic
+        const validCityNames = new Set(itineraryData.cities.map(city => city.name));
+        const validActivityNames = new Set(
+            itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
+        );
 
-      // Track added cities to avoid duplicates
-      const addedCities = new Set();
-      parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => {
-          if (validCityNames.has(leg.currentCity) && !addedCities.has(leg.currentCity)) {
-              addedCities.add(leg.currentCity);
-              return true;
-          }
-          return false;
-      });
+        // Track added cities to avoid duplicates
+        const addedCities = new Set();
+        parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => {
+            if (validCityNames.has(leg.currentCity) && !addedCities.has(leg.currentCity)) {
+                addedCities.add(leg.currentCity);
+                return true;
+            }
+            return false;
+        });
 
-      parsedResponse.itinerary.forEach(leg => {
-          // Track added activities to avoid duplicates across days
-          const addedActivities = new Set();
+        parsedResponse.itinerary.forEach(leg => {
+            // Track added activities to avoid duplicates across days within each city
+            const addedActivities = new Set();
 
-          leg.days = leg.days
-              .map(day => {
-                  day.activities = day.activities.filter(activity => {
-                      if (validActivityNames.has(activity.name) && !addedActivities.has(activity.name)) {
-                          addedActivities.add(activity.name);
-                          return true;
-                      }
-                      return false;
-                  });
-                  return day;
-              })
-              .filter(day => day.activities.length > 0);
+            leg.days = leg.days
+                .map(day => {
+                    day.activities = day.activities.filter(activity => {
+                        if (validActivityNames.has(activity.name) && !addedActivities.has(activity.name)) {
+                            addedActivities.add(activity.name);
+                            return true;
+                        }
+                        return false;
+                    });
+                    return day;
+                })
+                .filter(day => day.activities.length > 0);
 
-          // Ensure all activities are covered in the itinerary
-          const remainingActivities = itineraryData.cities
-              .find(city => city.name === leg.currentCity)
-              .activities.filter(activity => !addedActivities.has(activity.name));
+            // Ensure all activities are covered in the itinerary
+            const remainingActivities = itineraryData.cities
+                .find(city => city.name === leg.currentCity)
+                .activities.filter(activity => !addedActivities.has(activity.name));
 
-          // Add the remaining activities to the last day or create new days as needed
-          remainingActivities.forEach(activity => {
-              leg.days.push({
-                  day: leg.days.length + 1,
-                  date: `2024-09-${leg.days.length + 1}`,
-                  activities: [
-                      {
-                          ...activity,
-                          startTime: '10:00 AM',
-                          endTime: '4:00 PM',
-                          timeStamp: 'Morning',
-                          category: activity.category,
-                      },
-                  ],
-              });
-              addedActivities.add(activity.name);
-          });
-      });
+            // Add the remaining activities to the last day or create new days as needed
+            remainingActivities.forEach(activity => {
+                leg.days.push({
+                    day: leg.days.length + 1,
+                    date: `2024-09-${leg.days.length + 1}`,
+                    activities: [
+                        {
+                            ...activity,
+                            startTime: '10:00 AM',
+                            endTime: '4:00 PM',
+                            timeStamp: 'Morning',
+                            category: activity.category,
+                        },
+                    ],
+                });
+                addedActivities.add(activity.name);
+            });
+        });
 
-      return parsedResponse;
+        // Remove duplicate activities across the entire itinerary
+        const allAddedActivities = new Set();
+        parsedResponse.itinerary.forEach(leg => {
+            leg.days.forEach(day => {
+                day.activities = day.activities.filter(activity => {
+                    if (!allAddedActivities.has(activity.name)) {
+                        allAddedActivities.add(activity.name);
+                        return true;
+                    }
+                    return false;
+                });
+            });
+        });
 
-  } catch (error) {
-      logger.error("Error generating itinerary:", error);
-      throw new Error("Failed to generate itinerary.");
-  }
+        return parsedResponse;
+
+    } catch (error) {
+        logger.error("Error generating itinerary:", error);
+        throw new Error("Failed to generate itinerary.");
+    }
 }

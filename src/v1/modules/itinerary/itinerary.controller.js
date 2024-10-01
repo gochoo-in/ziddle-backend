@@ -102,7 +102,7 @@ export const createItinerary = async (req, res) => {
 
         if (cityId) {
           const leisureActivity = await GptActivity.create({
-            name: 'Leisure Activity',
+            name: 'Leisure',
             startTime: '10:00 AM',
             endTime: '5:00 PM',
             duration: 'Full day',
