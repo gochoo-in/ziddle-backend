@@ -80,49 +80,10 @@ export const createItinerary = async (req, res) => {
       destination: country.name,
       itinerary: result.itinerary
     };
-
-    // If there's more than one city, add transfer activities and flight details
+    console.log(itineraryWithTitles);
+    // If there's more than one city, add transfer activities
     if (cityDetails.length > 1) {
-      const itineraryWithTravel = addTransferActivity(itineraryWithTitles);
-      const itineraryWithDates = addDatesToItinerary(itineraryWithTravel, startDate);
-      itineraryWithTitles = settransformItinerary(itineraryWithDates);
-
-      // Add flight details only if there are multiple cities
-      const itineraryWithFlights = await addFlightDetailsToItinerary(itineraryWithTitles, adults, children, childrenAges, cityDetails);
-      if (itineraryWithFlights.error) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
-      }
-      itineraryWithTitles = itineraryWithFlights;
-    } else {
-      // Add dates directly if only one city
-      itineraryWithTitles = addDatesToItinerary(itineraryWithTitles, startDate);
-
-      // Set arrival and departure dates for the single city
-      itineraryWithTitles.itinerary[0].arrivalDate = startDate;
-      itineraryWithTitles.itinerary[0].departureDate = startDate;
-    }
-
-    // Handle activities and GptActivity creation
-    for (const city of itineraryWithTitles.itinerary) {
-      for (const day of city.days) {
-        const activityIds = [];
-        for (const activity of day.activities) {
-          const cityId = cityDetails.find(c => c.name === city.currentCity)?._id;
-          if (cityId) {
-            const newActivity = await GptActivity.create({
-              name: activity.name,
-              startTime: activity.startTime,
-              endTime: activity.endTime,
-              duration: activity.duration,
-              timeStamp: activity.timeStamp,
-              category: activity.category,
-              cityId: cityId,
-            });
-            activityIds.push(newActivity._id);
-          }
-        }
-        day.activities = activityIds;
-      }
+      itineraryWithTitles = addTransferActivity(itineraryWithTitles);
     }
 
     // Add leisure activities if needed based on trip duration
@@ -140,13 +101,21 @@ export const createItinerary = async (req, res) => {
         const cityId = cityDetails.find(c => c.name === currentCity.currentCity)?._id;
 
         if (cityId) {
-          const leisureActivityId = await createLeisureActivityIfNotExist(cityId);
+          const leisureActivity = await GptActivity.create({
+            name: 'Leisure Activity',
+            startTime: '10:00 AM',
+            endTime: '5:00 PM',
+            duration: 'Full day',
+            timeStamp: 'All day',
+            category: 'Leisure',
+            cityId: cityId,
+          });
           const newDayIndex = currentCity.days.length + 1;
 
           currentCity.days.push({
             day: newDayIndex,
-            date: new Date(new Date(startDate).setDate(new Date(startDate).getDate() + totalPlannedDays)).toISOString().split('T')[0],
-            activities: [leisureActivityId]
+            date: '', // Date will be set later
+            activities: [leisureActivity]
           });
 
           totalPlannedDays++;
@@ -157,10 +126,62 @@ export const createItinerary = async (req, res) => {
       }
     }
 
-    // Add taxi details only if there are multiple cities
-    let itineraryWithTaxi = itineraryWithTitles;
+    // Add dates to itinerary after all activities have been added
+    itineraryWithTitles = addDatesToItinerary(itineraryWithTitles, startDate);
+    itineraryWithTitles = settransformItinerary(itineraryWithTitles);
+    // Set arrival and departure dates for the single city, if applicable
+    if (cityDetails.length === 1) {
+      itineraryWithTitles.itinerary[0].arrivalDate = startDate;
+      itineraryWithTitles.itinerary[0].departureDate = startDate;
+    }
+
+    // Handle activities and GptActivity creation
+    for (const city of itineraryWithTitles.itinerary) {
+      for (const day of city.days) {
+        const activityIds = [];
+        for (const activity of day.activities) {
+          const cityId = cityDetails.find(c => c.name === city.currentCity)?._id;
+    
+          // Add a check to see if the activity has a name property
+          if (!activity.name) {
+            logger.error(`Missing name in activity: ${JSON.stringify(activity)}`);
+            continue; // Skip this activity if name is missing
+          }
+    
+          if (cityId) {
+            try {
+              const newActivity = await GptActivity.create({
+                name: activity.name,
+                startTime: activity.startTime || '00:00',
+                endTime: activity.endTime || '23:59',
+                duration: activity.duration || 'Full day',
+                timeStamp: activity.timeStamp || new Date().toISOString(),
+                category: activity.category || 'General',
+                cityId: cityId,
+              });
+              activityIds.push(newActivity._id);
+            } catch (error) {
+              logger.error(`Error creating GptActivity for city ${city.currentCity}:`, error);
+            }
+          }
+        }
+        day.activities = activityIds;
+      }
+    }
+    // Add flight details if there are multiple cities
+    
+    let itineraryWithFlights = itineraryWithTitles;
     if (cityDetails.length > 1) {
-      itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithTitles);
+      itineraryWithFlights = await addFlightDetailsToItinerary(itineraryWithTitles, adults, children, childrenAges, cityDetails);
+      if (itineraryWithFlights.error) {
+        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+      }
+    }
+
+    // Add taxi details if there are multiple cities
+    let itineraryWithTaxi = itineraryWithFlights;
+    if (cityDetails.length > 1) {
+      itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
     }
 
     // Add hotel details (even if it's a single city)
@@ -210,6 +231,7 @@ export const createItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 
