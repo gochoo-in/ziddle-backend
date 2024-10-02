@@ -10,6 +10,7 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
+import ItineraryVersion from '../../models/itineraryVersion.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import { addFerryDetailsToItinerary } from '../../../utils/dummyData.js'
@@ -25,6 +26,8 @@ import Notification from '../../models/notification.js';
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
 import mongoose from 'mongoose'
+import Employee from '../../models/employee.js';
+import User from '../../models/user.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -1033,3 +1036,88 @@ export const deleteItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
+export const getFullItineraryWithHistories = async (req, res) => {
+  const { itineraryId } = req.params;
+
+  try {
+    // Fetch the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Fetch all versions related to the specific itinerary ID
+    const versions = await ItineraryVersion.find({ itineraryId }).sort({ version: -1 });
+
+    // Combine itinerary and its versions
+    const response = {
+      itinerary,
+      histories: versions
+    };
+
+    return res.status(StatusCodes.OK).json(httpFormatter(response, 'Itinerary and its histories retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving full itinerary with histories:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+export const getItineraryHistories = async (req, res) => {
+  const { itineraryId } = req.params;
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Fetch the associated histories
+    const histories = await ItineraryVersion.find({ itineraryId }).lean();
+
+    // Map through histories to fetch user names
+    const historiesWithUsernames = await Promise.all(histories.map(async (history) => {
+      const userId = history.changedBy?.userId; // Use optional chaining to safely access userId
+      let userName = 'Unknown';
+
+      if (userId) {
+        const user = await User.findById(userId).select('name').lean();
+        if (user) {
+          userName = user.name; // User found, get the name
+        } else {
+          const employee = await Employee.findById(userId).select('name').lean();
+          if (employee) {
+            userName = employee.name; // Employee found, get the name
+          }
+        }
+      }
+      
+      return {
+        comment: history.comment,
+        createdAt: history.createdAt,
+        changedBy: userName // Return the username
+      };
+    }));
+
+    // Return the itinerary and the modified histories
+    return res.status(StatusCodes.OK).json({
+      message: 'Itinerary and its histories retrieved successfully',
+      data: {
+        histories: historiesWithUsernames
+      }
+    });
+  } catch (error) {
+    console.error('Error retrieving itinerary histories:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+
+
+
+
+

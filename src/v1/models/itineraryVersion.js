@@ -12,6 +12,7 @@ const itineraryVersionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now } // Timestamp of when the version was created
 }, { versionKey: false, timestamps: true });
 
+
 const ItineraryVersion = mongoose.model('ItineraryVersion', itineraryVersionSchema);
 
 export default ItineraryVersion;

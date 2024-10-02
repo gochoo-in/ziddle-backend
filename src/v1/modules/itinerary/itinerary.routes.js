@@ -16,6 +16,8 @@ import {
   replaceFlightInItinerary,
   replaceHotelInItinerary,
   deleteItinerary,
+  getItineraryHistories,
+  getFullItineraryWithHistories
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -24,6 +26,7 @@ import Hotel from '../../models/hotel.js';
 import httpFormatter from '../../../utils/formatter.js';
 import GptActivity from '../../models/gptactivity.js';
 import Activity from '../../models/activity.js';
+import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
 
 const router = express.Router();
 
@@ -74,11 +77,9 @@ const addUpdateComment = async (req, res, next) => {
     console.error(error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
+
 };
 
-  
-  
-  
 
 router.post('/', verifyToken, createItinerary);
 router.get('/user/:userId', verifyToken, getItinerariesByUserId);
@@ -96,6 +97,8 @@ router.patch('/:itineraryId/cities/:cityIndex/delete-city', verifyToken, addUpda
 router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, addUpdateComment, replaceActivityInItinerary);
 router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, addUpdateComment, replaceFlightInItinerary);
 router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, addUpdateComment, replaceHotelInItinerary);
+router.get('/:itineraryId/full-histories', casbinMiddleware, getFullItineraryWithHistories);
+router.get('/:itineraryId/histories', casbinMiddleware, getItineraryHistories);
 
 router.delete('/:itineraryId', deleteItinerary);
 
