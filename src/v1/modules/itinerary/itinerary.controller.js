@@ -10,6 +10,7 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
+import ItineraryVersion from '../../models/itineraryVersion.js';
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import { addFerryDetailsToItinerary } from '../../../utils/dummyData.js'
@@ -25,6 +26,8 @@ import Notification from '../../models/notification.js';
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
 import mongoose from 'mongoose'
+import Employee from '../../models/employee.js';
+import User from '../../models/user.js';
 
 export const createItinerary = async (req, res) => {
   try {
@@ -435,7 +438,6 @@ export const addDaysToCity = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    console.log(req.user)
     const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
@@ -451,8 +453,20 @@ export const addDaysToCity = async (req, res) => {
 
     // Refetch flight, taxi, and hotel details after adding days
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
-    // Save the updated itinerary to the database
-    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+    
+    // Save the updated itinerary to the database, including 'changedBy'
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itineraryWithNewDetails },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Directly use req.user.userId without additional checks
+        },
+        comment: req.comment 
+      }
+    );
 
     // Send back the cleaned enrichedItinerary field
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days added successfully', true));
@@ -460,6 +474,7 @@ export const addDaysToCity = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
+
 
 
 export const deleteDaysFromCity = async (req, res) => {
@@ -474,7 +489,6 @@ export const deleteDaysFromCity = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    console.log(req.user)
     const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
@@ -490,15 +504,26 @@ export const deleteDaysFromCity = async (req, res) => {
 
     // Refetch flight, taxi, and hotel details after deleting days
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
-    // Save the updated itinerary with new details
-    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+
+    // Save the updated itinerary to the database, including 'changedBy'
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itineraryWithNewDetails },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Directly use req.user.userId without additional checks
+        },
+        comment: req.comment 
+      }
+    );
 
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
-
 
 
 export const addCityToItinerary = async (req, res) => {
@@ -518,22 +543,26 @@ export const addCityToItinerary = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
-    // Check if the new city already exists in the itinerary (optional)
+    // Check if the new city already exists in the itinerary
     const cityExists = itinerary.enrichedItinerary.itinerary.some(city => city.currentCity === newCity);
     if (cityExists) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City already exists in the itinerary', false));
     }
 
-    // Get the last city in the itinerary (to update its nextCity and transport details)
+    // Get the last city in the itinerary to update its nextCity and transport details
     const lastCityIndex = itinerary.enrichedItinerary.itinerary.length - 1;
     const lastCity = itinerary.enrichedItinerary.itinerary[lastCityIndex];
 
-    // Update last city's transport mode to reflect travel to the new city
-    lastCity.transport = {
-      mode: transportMode || 'Transfer',
-      modeDetails: null
-    };
+    if (lastCity) {
+      // Update last city's transport mode to reflect travel to the new city
+      lastCity.nextCity = newCity;
+      lastCity.transport = {
+        mode: transportMode || 'Transfer',
+        modeDetails: null
+      };
+    }
 
+    // Find the city data to add
     const cityData = await City.findOne({ name: newCity });
     if (!cityData) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, `City '${newCity}' not found in the database`, false));
@@ -548,11 +577,11 @@ export const addCityToItinerary = async (req, res) => {
       startTime: '09:00', // Default time for the activity
       endTime: '10:00',
       description: `Travel to ${newCity}`,
-      cityId: cityId, 
+      cityId: cityId,
       timeStamp: new Date().toISOString()
     });
 
-    // Create the new city object with the activity ID saved in the 'days' array
+    // Create the new city object
     const cityToAdd = {
       currentCity: newCity,
       nextCity: null, // This is the last city, so nextCity is null
@@ -566,33 +595,43 @@ export const addCityToItinerary = async (req, res) => {
       days: [
         {
           day: 1, // Always start with day 1 for the new city
-          date: new Date().toISOString().split('T')[0], // Assign today's date by default (you can modify this as needed)
+          date: new Date().toISOString().split('T')[0], // Assign today's date by default
           activities: [travelActivityDoc._id] // Save the activity ID in the itinerary
         }
       ],
       hotelDetails: null // No hotel by default
     };
 
-    // Add the new city to the itinerary before the last city
-    itinerary.enrichedItinerary.itinerary.splice(lastCityIndex + 1, 0, cityToAdd);
+    // Add the new city to the itinerary
+    itinerary.enrichedItinerary.itinerary.push(cityToAdd);
 
     // Update dates for the entire itinerary
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
-    const updatedItinerary = itinerary.enrichedItinerary;
-    const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
-  
-    // Refetch flight, transfer, and hotel details
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+
+    // Refetch flight, transfer, and hotel details if needed
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails({ enrichedItinerary: finalItinerary }, req.body);
 
-    // Save the updated itinerary to the database
-    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+    // Save the updated itinerary to the database, including 'changedBy' information
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itineraryWithNewDetails },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Record the user who made the change
+        },
+        comment: req.comment 
+      }
+    );
 
+    // Return the updated enriched itinerary
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'City added successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
-
 
 
 
@@ -613,8 +652,8 @@ export const deleteCityFromItinerary = async (req, res) => {
     }
 
     // Store the original start date before making changes
-    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date); 
-    
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
+
     // Check if the cityIndex is valid
     if (parseInt(cityIndex) >= itinerary.enrichedItinerary.itinerary.length) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
@@ -644,20 +683,27 @@ export const deleteCityFromItinerary = async (req, res) => {
     // Refetch flight, taxi, and hotel details after deleting the city
     const updatedItinerary = itinerary.enrichedItinerary;
     const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
-
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails({ enrichedItinerary: finalItinerary }, req.body);
 
-    // Save the updated itinerary with new details
-    await Itinerary.findByIdAndUpdate(itineraryId, { enrichedItinerary: itineraryWithNewDetails }, { new: true });
+    // Save the updated itinerary to the database, including 'changedBy'
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itineraryWithNewDetails },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Directly use req.user.userId without additional checks
+        },
+        comment: req.comment 
+      }
+    );
 
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'City deleted successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
-
-
-
 
 export const replaceActivityInItinerary = async (req, res) => {
   const { itineraryId, oldActivityId } = req.params;
@@ -714,16 +760,25 @@ export const replaceActivityInItinerary = async (req, res) => {
     // Delete the old activity from GptActivity
     await GptActivity.findByIdAndDelete(oldActivityId);
 
-    // Save the updated itinerary
-    await itinerary.save();
+    // Save the updated itinerary, including 'changedBy' for tracking purposes
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Use req.user.userId directly for tracking the change
+        },
+        comment: req.comment 
+      }
+    );
 
     res.status(StatusCodes.OK).json({ message: 'Activity replaced successfully', data: itinerary });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
-
-
 
 
 export const replaceFlightInItinerary = async (req, res) => {
@@ -775,7 +830,6 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Replace the old flight in the itinerary with the new one
     let flightReplaced = false; // To track if the flight was replaced
     itinerary.enrichedItinerary.itinerary.forEach(city => {
-      console.log(city.transport ? city.transport.modeDetails : 0, modeDetailsId);
       if (city.transport && city.transport.modeDetails.toString() === modeDetailsId) {
         city.transport.modeDetails = savedFlight._id;
         flightReplaced = true;
@@ -789,21 +843,25 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Delete the old flight from the Flight table
     await Flight.findByIdAndDelete(modeDetailsId);
 
-    // Save the updated itinerary
-    await itinerary.save();
+    // Save the updated itinerary, including 'changedBy' for tracking purposes
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Use req.user.userId directly for tracking the change
+        },
+        comment: req.comment 
+      }
+    );
 
     res.status(StatusCodes.OK).json({ message: 'Flight replaced successfully', data: itinerary });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
-
-
-
-
-
-
-
 
 export const replaceHotelInItinerary = async (req, res) => {
   const { itineraryId, hotelDetailsId } = req.params; // Get itinerary and old hotel ID (modeDetailsId)
@@ -834,7 +892,7 @@ export const replaceHotelInItinerary = async (req, res) => {
       checkin: selectedHotel.checkin,
       checkout: selectedHotel.checkout,
       roomType: selectedHotel.roomType,
-      refundable: selectedHotel.refundable
+      refundable: selectedHotel.refundable,
     });
 
     // Save the new hotel to the DB
@@ -856,16 +914,25 @@ export const replaceHotelInItinerary = async (req, res) => {
     // Delete the old hotel from the DB
     await Hotel.findByIdAndDelete(hotelDetailsId);
 
-    // Save the updated itinerary
-    await itinerary.save();
+    // Save the updated itinerary, including 'changedBy' for tracking purposes
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId, // Use req.user.userId directly for tracking the change
+        },
+        comment: req.comment 
+      }
+    );
 
     res.status(StatusCodes.OK).json({ message: 'Hotel replaced successfully', data: itinerary });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
-
-
 
 export const getTotalTripsByUsers = async (req, res) => {
   try {
@@ -969,3 +1036,88 @@ export const deleteItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
+export const getFullItineraryWithHistories = async (req, res) => {
+  const { itineraryId } = req.params;
+
+  try {
+    // Fetch the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Fetch all versions related to the specific itinerary ID
+    const versions = await ItineraryVersion.find({ itineraryId }).sort({ version: -1 });
+
+    // Combine itinerary and its versions
+    const response = {
+      itinerary,
+      histories: versions
+    };
+
+    return res.status(StatusCodes.OK).json(httpFormatter(response, 'Itinerary and its histories retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving full itinerary with histories:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+export const getItineraryHistories = async (req, res) => {
+  const { itineraryId } = req.params;
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Fetch the associated histories
+    const histories = await ItineraryVersion.find({ itineraryId }).lean();
+
+    // Map through histories to fetch user names
+    const historiesWithUsernames = await Promise.all(histories.map(async (history) => {
+      const userId = history.changedBy?.userId; // Use optional chaining to safely access userId
+      let userName = 'Unknown';
+
+      if (userId) {
+        const user = await User.findById(userId).select('name').lean();
+        if (user) {
+          userName = user.name; // User found, get the name
+        } else {
+          const employee = await Employee.findById(userId).select('name').lean();
+          if (employee) {
+            userName = employee.name; // Employee found, get the name
+          }
+        }
+      }
+      
+      return {
+        comment: history.comment,
+        createdAt: history.createdAt,
+        changedBy: userName // Return the username
+      };
+    }));
+
+    // Return the itinerary and the modified histories
+    return res.status(StatusCodes.OK).json({
+      message: 'Itinerary and its histories retrieved successfully',
+      data: {
+        histories: historiesWithUsernames
+      }
+    });
+  } catch (error) {
+    console.error('Error retrieving itinerary histories:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+
+
+
+
+
