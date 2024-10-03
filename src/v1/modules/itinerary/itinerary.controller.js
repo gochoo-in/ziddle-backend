@@ -856,6 +856,16 @@ export const replaceFlightInItinerary = async (req, res) => {
   const { itineraryId, modeDetailsId } = req.params; // Get itinerary and flight ID (oldFlightId)
   const { selectedFlight } = req.body; // New flight details from the frontend
 
+
+  const departureCity = await City.findOne({ name: selectedFlight.segments[0].from });
+  const arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
+
+  if (!departureCity || !arrivalCity) {
+    return res.status(404).json({ message: 'City not found' });
+  }
+
+
+  console.log("details from frontend",itineraryId,modeDetailsId,selectedFlight)
   try {
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
@@ -870,29 +880,48 @@ export const replaceFlightInItinerary = async (req, res) => {
     }
 
     // Prepare baggageIncluded based on the presence of baggage details
-    const baggageIncluded = selectedFlight.flightSegments.some(segment => segment.baggage && segment.baggage.length > 0);
+    const baggageIncluded = selectedFlight.segments.some(segment => segment.baggage && segment.baggage.length > 0);
 
     // Convert the baggage details to fit the schema structure
     const baggageDetails = {
-      cabinBag: selectedFlight.flightSegments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
-      checkedBag: selectedFlight.flightSegments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0,
+      cabinBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
+      checkedBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0,
     };
+
+
+   
+
 
     // Create the new flight
     const newFlight = new Flight({
-      departureCityId: selectedFlight.fromCityId,
-      arrivalCityId: selectedFlight.toCityId,
+      departureCityId: departureCity._id,
+      arrivalCityId: arrivalCity._id,
       baggageIncluded: baggageIncluded,
       baggageDetails: baggageDetails,
-      price: parseFloat(selectedFlight.priceInINR),
+      price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')),
       currency: 'INR',
       airline: selectedFlight.airline,
       departureDate: new Date(selectedFlight.departureDate),
-      flightSegments: selectedFlight.flightSegments.map(segment => ({
-        departureTime: new Date(segment.departureTime),
-        arrivalTime: new Date(segment.arrivalTime),
-        flightNumber: segment.flightNumber, // Keep it as a string
-      })),
+      flightSegments: selectedFlight.segments.map(segment => {
+        // Combine the departureDate with departureTime and arrivalTime to create a full date-time
+        const departureDateTimeString = `${selectedFlight.departureDate} ${segment.departureTime}`;
+        const arrivalDateTimeString = `${selectedFlight.departureDate} ${segment.arrivalTime}`;
+    
+        // Create valid Date objects
+        const departureTime = new Date(departureDateTimeString);
+        const arrivalTime = new Date(arrivalDateTimeString);
+    
+        // Validate that the dates are valid
+        if (isNaN(departureTime.getTime()) || isNaN(arrivalTime.getTime())) {
+          throw new Error("Invalid date format for departure or arrival time");
+        }
+    
+        return {
+          departureTime,
+          arrivalTime,
+          flightNumber: segment.flightNumber, // Keep it as a string
+        };
+      }),
     });
 
     // Save the new flight to the DB
@@ -900,16 +929,18 @@ export const replaceFlightInItinerary = async (req, res) => {
 
     // Replace the old flight in the itinerary with the new one
     let flightReplaced = false; // To track if the flight was replaced
+
     itinerary.enrichedItinerary.itinerary.forEach(city => {
-      if (city.transport && city.transport.modeDetails.toString() === modeDetailsId) {
+      if (city.transport && city.transport.modeDetails && city.transport.modeDetails.toString() === modeDetailsId) {
         city.transport.modeDetails = savedFlight._id;
         flightReplaced = true;
       }
     });
-
+    
     if (!flightReplaced) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old flight not found in itinerary', success: false });
+      return res.status(404).json({ message: 'Old flight not found in itinerary', success: false });
     }
+    
 
     // Delete the old flight from the Flight table
     await Flight.findByIdAndDelete(modeDetailsId);
