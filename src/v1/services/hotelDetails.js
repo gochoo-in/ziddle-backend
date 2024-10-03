@@ -1,7 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import City from '../models/city.js';
-import Hotel from '../models/hotel.js'; 
+import Hotel from '../models/hotel.js';
 import logger from '../../config/logger.js'; 
 
 dotenv.config();
@@ -25,11 +25,10 @@ async function convertToINR(amount, currency) {
     }
 }
 
-export default async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges,roomQty=1) {
+export default async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges, roomQty = 1, cityId) {
     try {
-        // Check if childrenAges is an array and join ages with commas if there are any children
         const childrenAgesString = Array.isArray(childrenAges) && childrenAges.length > 0 ? childrenAges.join(',') : '0';
-        
+
         const options = {
             method: 'GET',
             url: HOTEL_API_URL,
@@ -40,8 +39,8 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
                 departure_date: departureDate,
                 radius: '10',
                 adults: adults,
-                children_age: childrenAgesString, // Pass the children ages here
-                room_qty: '1',
+                children_age: childrenAgesString,
+                room_qty: roomQty,
                 units: 'metric',
                 page_number: '1',
                 temperature_unit: 'c',
@@ -62,6 +61,7 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
                 const roomType = hotel.unit_configuration_label || 'Unknown Room Type';
                 const refundable = hotel.is_free_cancellable === 1;
 
+
                 return {
                     name: hotel.hotel_name,
                     address: hotel.city_in_trans || 'Unknown Address',
@@ -73,7 +73,8 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
                     checkin: `${arrivalDate} ${hotel.checkin.from}`,
                     checkout: `${departureDate} ${hotel.checkout.until}`,
                     roomType: roomType,
-                    refundable: refundable
+                    refundable: refundable,
+                    cityId: cityId 
                 };
             }));
 
@@ -97,13 +98,12 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
     }
 }
 
-export async function addHotelDetailsToItinerary(data,adults,childrenAges,rooms) {
+export async function addHotelDetailsToItinerary(data, adults, childrenAges, rooms) {
     try {
         const { itinerary } = data;
 
         for (let i = 0; i < itinerary.length; i++) {
             const currentCityName = itinerary[i].currentCity;
-
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
                 logger.warn(`City ${currentCityName} not found in the database.`);
@@ -112,7 +112,7 @@ export async function addHotelDetailsToItinerary(data,adults,childrenAges,rooms)
             }
 
             const { latitude, longitude } = city;
-            const roomQty=rooms;
+            const roomQty = rooms;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
             const departureDate = days.length > 0 ? days[days.length - 1].date : null;
@@ -125,12 +125,12 @@ export async function addHotelDetailsToItinerary(data,adults,childrenAges,rooms)
                 continue;
             }
 
-            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults,childrenAges,roomQty);
+            // Pass city ID to fetchHotelDetails function
+            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges, roomQty, city._id);
 
             if (currentCityHotel) {
                 const newHotel = new Hotel(currentCityHotel);
                 const savedHotel = await newHotel.save();
-
                 itinerary[i].hotelDetails = savedHotel._id;
             } else {
                 itinerary[i].hotelDetails = null;

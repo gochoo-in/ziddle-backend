@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import City from './city.js'
 
 const hotelSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -11,7 +12,9 @@ const hotelSchema = new mongoose.Schema({
   checkin: { type: String },
   checkout: { type: String },
   roomType: { type: String },
-  refundable: { type: Boolean }
+  refundable: { type: Boolean },
+  cityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true } 
 }, { timestamps: true, versionKey: false });
+
 
 export default mongoose.model('Hotel', hotelSchema);
