@@ -10,7 +10,7 @@ import {
   getAllActivities,
   addDaysToCity,
   deleteDaysFromCity,
-  addCityToItinerary,
+  addCityToItineraryAtPosition,
   deleteCityFromItinerary,
   replaceActivityInItinerary,
   replaceFlightInItinerary,
@@ -92,7 +92,7 @@ router.get('/:itineraryId/activities', getAllActivities);
 
 router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, addUpdateComment, deleteDaysFromCity);
 router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addUpdateComment, addDaysToCity);
-router.patch('/:itineraryId/cities/add-city', verifyToken, addUpdateComment, addCityToItinerary);
+router.patch('/:itineraryId/cities/add-city', verifyToken, addUpdateComment, addCityToItineraryAtPosition);
 router.patch('/:itineraryId/cities/:cityIndex/delete-city', verifyToken, addUpdateComment, deleteCityFromItinerary);
 router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, addUpdateComment, replaceActivityInItinerary);
 router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, addUpdateComment, replaceFlightInItinerary);
