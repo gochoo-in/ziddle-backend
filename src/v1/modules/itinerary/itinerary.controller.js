@@ -707,70 +707,124 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
 
 export const deleteCityFromItinerary = async (req, res) => {
-  const { itineraryId, cityIndex } = req.params; // Get itinerary ID and city index from the params
+  const { itineraryId, cityIndex } = req.params;
 
   try {
     // Fetch the itinerary
-    const itinerary = await Itinerary.findById(itineraryId).lean();
+    const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Check if the user has ownership or admin access
+    // Check user access
     const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
-    // Store the original start date before making changes
-    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
-
-    // Check if the cityIndex is valid
-    if (parseInt(cityIndex) >= itinerary.enrichedItinerary.itinerary.length) {
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
     }
 
-    // Remove the city to be deleted
-    const cityToDelete = itinerary.enrichedItinerary.itinerary.splice(cityIndex, 1)[0];
+    // Store the original start date
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
 
-    // Update the nextCity of the previous city, if applicable
-    if (parseInt(cityIndex) > 0) {
-      const previousCity = itinerary.enrichedItinerary.itinerary[cityIndex - 1];
-      if (cityIndex < itinerary.enrichedItinerary.itinerary.length) {
-        previousCity.nextCity = itinerary.enrichedItinerary.itinerary[cityIndex].currentCity;
-      } else {
-        previousCity.nextCity = null; // If the deleted city was the last one
+    // Remove the city to be deleted
+    const cityToDelete = itinerary.enrichedItinerary.itinerary.splice(parsedCityIndex, 1)[0];
+
+    // If no cities are left, clear the itinerary and update it
+    if (itinerary.enrichedItinerary.itinerary.length === 0) {
+      itinerary.enrichedItinerary.itinerary = [];
+    } else if (parsedCityIndex === 0) {
+      // If deleting the first city
+      const newFirstCity = itinerary.enrichedItinerary.itinerary[0];
+      if (newFirstCity.days[0] && newFirstCity.days[0].activities.length > 0) {
+        const oldTravelActivityId = newFirstCity.days[0].activities.shift();
+        await GptActivity.findByIdAndDelete(oldTravelActivityId);
+
+        // Remove the day if no activities left
+        if (newFirstCity.days[0].activities.length === 0) {
+          newFirstCity.days.shift();
+        }
+      }
+      newFirstCity.transport = { mode: null, modeDetails: null };
+    } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length) {
+      // If deleting the last city
+      const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
+      previousCity.nextCity = null;
+      previousCity.transport = { mode: null, modeDetails: null };
+    } else {
+      // If deleting a middle city
+      const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
+      const nextCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
+
+      // Update nextCity reference and transport mode
+      previousCity.nextCity = nextCity.currentCity;
+
+      const transportDetails = await generateTransportDetails({
+        departureCity: previousCity.currentCity,
+        arrivalCity: nextCity.currentCity,
+      });
+
+      previousCity.transport = { mode: transportDetails.mode, modeDetails: null };
+
+      // Remove old travel activity from next city
+      if (nextCity.days[0] && nextCity.days[0].activities.length > 0) {
+        const oldTravelActivityId = nextCity.days[0].activities.shift();
+        await GptActivity.findByIdAndDelete(oldTravelActivityId);
+
+        // Remove the day if no activities left
+        if (nextCity.days[0].activities.length === 0) {
+          nextCity.days.shift();
+        }
       }
 
-      // If the deleted city is now the last city, set transport mode to null
-      if (cityIndex === itinerary.enrichedItinerary.itinerary.length) {
-        previousCity.transport = {
-          mode: null,
-          modeDetails: null
-        };
+      // Create new travel activity between previous and next city
+      const previousCityDetails = await City.findOne({ name: previousCity.currentCity });
+      if (!previousCityDetails) {
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Previous city details not found', false));
+      }
+
+      const travelActivity = await GptActivity.create({
+        name: `Travel from ${previousCity.currentCity} to ${nextCity.currentCity}`,
+        startTime: '09:00 AM',
+        endTime: '12:00 PM',
+        duration: '3 hours',
+        timeStamp: 'Morning',
+        category: 'Travel',
+        cityId: previousCityDetails._id,
+      });
+
+      // Add the new travel activity to the first day of the next city
+      if (nextCity.days[0]) {
+        nextCity.days[0].activities.unshift(travelActivity._id);
+      } else {
+        // If the next city has no days, create a new day with the travel activity
+        nextCity.days.push({
+          day: 1,
+          activities: [travelActivity._id],
+        });
       }
     }
 
-    // Refetch flight, taxi, and hotel details after deleting the city
+    // Recalculate dates and save changes
     const updatedItinerary = itinerary.enrichedItinerary;
     const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
-    const itineraryWithNewDetails = await refetchFlightAndHotelDetails({ enrichedItinerary: finalItinerary }, req.body);
 
-    // Save the updated itinerary to the database, including 'changedBy'
     await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary: itineraryWithNewDetails },
+      { enrichedItinerary: finalItinerary },
       {
         new: true,
         lean: true,
-        changedBy: {
-          userId: req.user.userId // Directly use req.user.userId without additional checks
-        },
-        comment: req.comment 
+        changedBy: { userId: req.user.userId },
+        comment: req.comment,
       }
     );
 
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'City deleted successfully', true));
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: finalItinerary }, 'City deleted successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
