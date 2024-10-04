@@ -35,6 +35,8 @@ const enrichedItinerarySchema = new mongoose.Schema({
   title: { type: String, required: true },
   subtitle: { type: String, required: true },
   destination: { type: String, required: true },
+
+  destinationId:{type:String},
   itinerary: [itineraryDaySchema],
   totalDays: { type: Number, required: true },
   totalNights: { type: Number, required: true }

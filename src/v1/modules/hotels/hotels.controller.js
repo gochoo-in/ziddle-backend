@@ -54,3 +54,4 @@ export const getTopHotels = async (req, res) => {
             .json(httpFormatter({}, 'Internal server error.', false));
     }
 };
+ 

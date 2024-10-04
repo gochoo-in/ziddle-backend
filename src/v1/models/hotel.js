@@ -5,7 +5,7 @@ const hotelSchema = new mongoose.Schema({
   name: { type: String, required: true },
   address: { type: String },
   rating: { type: Number },
-  price: { type: Number, required: true },
+  price: { type: String, required: true },
   currency: { type: String, required: true, default: 'INR' },
   image: { type: String },
   cancellation: { type: String },
