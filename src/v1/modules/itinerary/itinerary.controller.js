@@ -777,7 +777,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
   const { newCity, stayDays, position, adults, children, childrenAges } = req.body;
 
   try {
-    console.log('Incoming request:', { itineraryId, newCity, stayDays, position, adults, children, childrenAges });
 
     // Validation for required fields
     if (adults == null || children == null || !Array.isArray(childrenAges)) {
@@ -788,7 +787,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId).lean();
-    console.log('Fetched Itinerary:', itinerary);
     if (!itinerary) {
       return res
         .status(StatusCodes.NOT_FOUND)
@@ -806,7 +804,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     const cityExists = itinerary.enrichedItinerary.itinerary.some(
       (city) => city.currentCity.toLowerCase() === newCity.toLowerCase()
     );
-    console.log('City Exists Check:', cityExists);
+    
     if (cityExists) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -815,7 +813,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     // Find the city by name to get its ObjectId
     const cityData = await City.findOne({ name: newCity }).lean();
-    console.log('Fetched City Data:', cityData);
+   
     if (!cityData) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -838,7 +836,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     };
 
     // Add leisure activities for each stay day in the new city, starting from day 2
-    console.log('Adding Leisure Activities for Days...');
+    
     for (let dayIndex = 2; dayIndex <= (stayDays || 1) + 1; dayIndex++) {
       const leisureActivity = await GptActivity.create({
         name: 'Leisure',
@@ -849,7 +847,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         category: 'Leisure',
         cityId: cityId,
       });
-      console.log('Created Leisure Activity:', leisureActivity);
+      
 
       cityToAdd.days.push({
         day: dayIndex,
@@ -858,15 +856,15 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       });
     }
 
-    console.log('City to Add:', cityToAdd);
+   
 
     // Insert the new city at the specified position
     itinerary.enrichedItinerary.itinerary.splice(position, 0, cityToAdd);
-    console.log('Updated Itinerary after Adding New City:', itinerary.enrichedItinerary.itinerary);
+    
 
     // Function to generate a travel activity and return its ID
     const generateTravelActivity = async (fromCity, toCity) => {
-      console.log('Generating Travel Activity:', { fromCity, toCity });
+      
       const travelActivity = await GptActivity.create({
         name: `Travel from ${fromCity} to ${toCity}`,
         startTime: '09:00 AM',
@@ -876,7 +874,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         category: 'Travel',
         cityId: (await City.findOne({ name: fromCity }))._id,
       });
-      console.log('Created Travel Activity:', travelActivity);
+      
       return travelActivity;
     };
 
@@ -884,15 +882,14 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       if (!city) {
         throw new Error('City object is null or undefined when trying to add travel activity.');
       }
-      console.log('Adding Travel Activity:', { fromCity, toCity });
+     
 
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
         arrivalCity: toCity,
       });
-      console.log('Generated Transport Details:', transportDetails);
-
+      
       const travelActivity = await generateTravelActivity(fromCity, toCity);
 
       // Set transport details for the city
@@ -905,12 +902,12 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         date: '', // Date will be set later
         activities: [travelActivity._id],
       });
-      console.log('City after Adding Travel Activity:', city);
+     
     };
 
     if (position === 0) {
       // If added at the start, set transport details for the next city
-      console.log('Adding City at the Start of the Itinerary');
+      
       const nextCityIndex = 1;
       if (nextCityIndex < itinerary.enrichedItinerary.itinerary.length) {
         const nextCity = itinerary.enrichedItinerary.itinerary[nextCityIndex];
@@ -920,7 +917,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           departureCity: newCity,
           arrivalCity: nextCity.currentCity,
         });
-        console.log('Generated Transport Details for Next City:', transportDetails);
+       
 
         const travelActivity = await generateTravelActivity(newCity, nextCity.currentCity);
 
@@ -939,24 +936,24 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           date: '', // Date will be set later
           activities: [travelActivity._id],
         });
-        console.log('Updated Next City with Travel Activity:', nextCity);
+       
       }
     } else if (position === itinerary.enrichedItinerary.itinerary.length - 1) {
       // If added at the end, add transport details for the previous city to the new city
-      console.log('Adding City at the End of the Itinerary');
+     
       const previousCity = itinerary.enrichedItinerary.itinerary[position - 1];
 
       // Add travel activity to the new city from the previous city
       await addTravelActivity(previousCity.currentCity, newCity, cityToAdd,previousCity);
     } else {
       // If added in the middle
-      console.log('Adding City in the Middle of the Itinerary');
+      
       const previousCity = itinerary.enrichedItinerary.itinerary[position - 1];
       const nextCity = itinerary.enrichedItinerary.itinerary[position + 1];
 
       // Remove existing travel activity from the next city
       nextCity.days[0].activities = await filterOutTravelActivities(nextCity.days[0].activities);
-      console.log('Updated Next City Activities after Removing Travel Activity:', nextCity);
+      
 
       // Add travel activity to the new city from the previous city
       await addTravelActivity(previousCity.currentCity, newCity, cityToAdd,previousCity);
@@ -967,7 +964,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     // Helper function to filter out travel activities from the list of activities
     async function filterOutTravelActivities(activityIds) {
-      console.log('Filtering Out Travel Activities from:', activityIds);
+     
       const filteredActivities = [];
       for (let activityId of activityIds) {
         const activity = await GptActivity.findById(activityId);
@@ -975,7 +972,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           filteredActivities.push(activityId);
         }
       }
-      console.log('Filtered Activities:', filteredActivities);
+     
       return filteredActivities;
     }
 
@@ -983,19 +980,19 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     itinerary.enrichedItinerary.itinerary.forEach((city) => {
       city.days = city.days.filter(day => day.activities.length > 0);
     });
-    console.log('Itinerary after Removing Empty Days:', itinerary.enrichedItinerary.itinerary);
+   
 
     // Update dates for the entire itinerary
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
-    console.log('Final Itinerary after Updating Dates:', finalItinerary);
+   
 
     // Refetch flight, taxi, and hotel details
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
       { adults, children, childrenAges }
     );
-    console.log('Enriched Itinerary after Refetching Details:', enrichedItinerary);
+    
 
     // Save the updated itinerary
     await Itinerary.findByIdAndUpdate(
@@ -1691,7 +1688,7 @@ export const replaceCityInItinerary = async (req, res) => {
       return travelActivity;
     };
 
-    const addTravelActivity = async (fromCity, toCity, city) => {
+    const addTravelActivity = async (fromCity, toCity, city,previousCity) => {
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
@@ -1709,8 +1706,8 @@ export const replaceCityInItinerary = async (req, res) => {
       }
 
       // Add the new travel activity
-      city.transport.mode = transportDetails.mode;
-      city.transport.modeDetails = travelActivity._id;
+      previousCity.transport.mode = transportDetails.mode;
+      previousCity.transport.modeDetails = travelActivity._id;
 
       // Add travel activity to the first day of the city's itinerary
       city.days.unshift({
@@ -1750,8 +1747,8 @@ export const replaceCityInItinerary = async (req, res) => {
         nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
 
         // Set transport details for the next city and add the new travel activity
-        nextCity.transport.mode = transportDetails.mode;
-        nextCity.transport.modeDetails = travelActivity._id;
+        // nextCity.transport.mode = transportDetails.mode;
+        // nextCity.transport.modeDetails = travelActivity._id;
 
         // Add the travel activity to the first day of the next city
         nextCity.days.unshift({
@@ -1763,7 +1760,7 @@ export const replaceCityInItinerary = async (req, res) => {
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length - 1) {
       // Case 3: Replacing the last city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
-      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd);
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd,previousCity);
     } else {
       // Case 2: Replacing a middle city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
@@ -1776,10 +1773,10 @@ export const replaceCityInItinerary = async (req, res) => {
       nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
 
       // Add travel activity to the new city from the previous city
-      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd);
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd,previousCity);
 
       // Add travel activity from the new city to the next city
-      await addTravelActivity(newCity, nextCity.currentCity, nextCity);
+      await addTravelActivity(newCity, nextCity.currentCity, nextCity,newCityToAdd);
     }
 
     // Helper function to filter out travel activities from the list of activities
