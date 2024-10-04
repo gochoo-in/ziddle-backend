@@ -781,7 +781,16 @@ export const deleteCityFromItinerary = async (req, res) => {
           newFirstCity.days.shift();
         }
       }
-      newFirstCity.transport = { mode: null, modeDetails: null };
+      if (newFirstCity.transport && newFirstCity.transport.mode) {
+        // Ensure transport details are retained since it connects to the next city
+        // Only reset if no valid transport exists
+        if (!newFirstCity.nextCity) {
+            newFirstCity.transport = {
+                mode: null,
+                modeDetails: null,
+            };
+        }
+    }
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length) {
       // If deleting the last city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
@@ -829,14 +838,23 @@ export const deleteCityFromItinerary = async (req, res) => {
         cityId: previousCityDetails._id,
       });
 
-      // Add the new travel activity to the first day of the next city
-      if (nextCity.days[0]) {
-        nextCity.days[0].activities.unshift(travelActivity._id);
-      } else {
-        // If the next city has no days, create a new day with the travel activity
+      if (nextCity.days.length === 0) {
+        // If the next city has no days, create a new day with the travel activity as the first day
         nextCity.days.push({
           day: 1,
           activities: [travelActivity._id],
+        });
+      } else {
+        // Create a new day for the travel activity and insert it as the first day
+        // Shift all existing days and update their day numbers accordingly
+        nextCity.days.unshift({
+          day: 1,
+          activities: [travelActivity._id],
+        });
+      
+        // Update the day numbers for the rest of the days
+        nextCity.days.slice(1).forEach((day, index) => {
+          day.day = index + 2; // Update day numbers starting from 2 for all following days
         });
       }
     }
