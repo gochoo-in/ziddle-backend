@@ -1321,9 +1321,232 @@ export const getItineraryHistories = async (req, res) => {
   }
 };
 
+export const replaceCityInItinerary = async (req, res) => {
+  const { itineraryId, cityIndex } = req.params;
+  const { newCity, adults, children, childrenAges } = req.body;
 
+  try {
+    // Fetch the itinerary from the database
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
 
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (parsedCityIndex < 0 || parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
 
+    // Find the new city by name to get its ObjectId
+    const newCityData = await City.findOne({ name: newCity }).lean();
+    if (!newCityData) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, `City '${newCity}' not found in the database`, false));
+    }
 
+    const newCityId = newCityData._id;
+    const oldCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
 
+    // Create a new city object for replacement, preserving the same number of days as the old city
+    const newCityToAdd = {
+      currentCity: newCity,
+      nextCity: oldCity.nextCity,
+      stayDays: oldCity.stayDays,
+      transport: {
+        mode: null,
+        modeDetails: null,
+      },
+      days: [],
+      hotelDetails: null, // Set hotelDetails to null for now
+    };
+
+    // Add leisure activities for each stay day, except the travel day
+    for (let day of oldCity.days) {
+      const newActivities = [];
+      for (let activityId of day.activities) {
+        const activity = await GptActivity.findById(activityId);
+        if (activity && activity.category === 'Travel') {
+          // Keep the travel activity
+          newActivities.push(activity._id);
+        } else {
+          // Replace other activities with leisure activities
+          const leisureActivity = await GptActivity.create({
+            name: 'Leisure',
+            startTime: '10:00 AM',
+            endTime: '5:00 PM',
+            duration: 'Full day',
+            timeStamp: 'All day',
+            category: 'Leisure',
+            cityId: newCityId,
+          });
+          newActivities.push(leisureActivity._id);
+        }
+      }
+
+      // Add the new day to the days array of the new city if it has activities
+      if (newActivities.length > 0) {
+        newCityToAdd.days.push({
+          day: day.day,
+          date: day.date,
+          activities: newActivities,
+        });
+      }
+    }
+
+    // Function to generate a travel activity and return its ID
+    const generateTravelActivity = async (fromCity, toCity) => {
+      const travelActivity = await GptActivity.create({
+        name: `Travel from ${fromCity} to ${toCity}`,
+        startTime: '09:00 AM',
+        endTime: '12:00 PM',
+        duration: '3 hours',
+        timeStamp: 'Morning',
+        category: 'Travel',
+        cityId: (await City.findOne({ name: fromCity }))._id,
+      });
+      return travelActivity;
+    };
+
+    const addTravelActivity = async (fromCity, toCity, city) => {
+      // Generate transport details using OpenAI
+      const transportDetails = await generateTransportDetails({
+        departureCity: fromCity,
+        arrivalCity: toCity,
+      });
+
+      const travelActivity = await generateTravelActivity(fromCity, toCity);
+
+      // Delete any existing travel activities for the city
+      city.days[0].activities = await filterOutTravelActivities(city.days[0].activities);
+
+      // Ensure city.transport is initialized
+      if (!city.transport) {
+        city.transport = { mode: null, modeDetails: null };
+      }
+
+      // Add the new travel activity
+      city.transport.mode = transportDetails.mode;
+      city.transport.modeDetails = travelActivity._id;
+
+      // Add travel activity to the first day of the city's itinerary
+      city.days.unshift({
+        day: 1,
+        date: '', // Date will be set later
+        activities: [travelActivity._id],
+      });
+    };
+
+    if (parsedCityIndex === 0) {
+      // Case 1: Replacing the first city
+      const nextCityIndex = 1;
+      if (nextCityIndex < itinerary.enrichedItinerary.itinerary.length) {
+        const nextCity = itinerary.enrichedItinerary.itinerary[nextCityIndex];
+
+        // Generate transport details for the new city to the next city
+        const transportDetails = await generateTransportDetails({
+          departureCity: newCity,
+          arrivalCity: nextCity.currentCity,
+        });
+
+        const travelActivity = await generateTravelActivity(newCity, nextCity.currentCity);
+
+        // Set transport details in the new city
+        newCityToAdd.transport.mode = transportDetails.mode;
+        newCityToAdd.transport.modeDetails = travelActivity._id;
+
+        // Ensure nextCity.transport is initialized
+        if (!nextCity.transport) {
+          nextCity.transport = { mode: null, modeDetails: null };
+        }
+
+        // Delete any existing travel activities for the next city
+        nextCity.days[0].activities = await filterOutTravelActivities(nextCity.days[0].activities);
+
+        // Remove days without activities in nextCity
+        nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
+
+        // Set transport details for the next city and add the new travel activity
+        nextCity.transport.mode = transportDetails.mode;
+        nextCity.transport.modeDetails = travelActivity._id;
+
+        // Add the travel activity to the first day of the next city
+        nextCity.days.unshift({
+          day: 1,
+          date: '', // Date will be set later
+          activities: [travelActivity._id],
+        });
+      }
+    } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length - 1) {
+      // Case 3: Replacing the last city
+      const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd);
+    } else {
+      // Case 2: Replacing a middle city
+      const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
+      const nextCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex + 1];
+
+      // Remove existing travel activity from the next city
+      nextCity.days[0].activities = await filterOutTravelActivities(nextCity.days[0].activities);
+
+      // Remove days without activities in nextCity
+      nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
+
+      // Add travel activity to the new city from the previous city
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd);
+
+      // Add travel activity from the new city to the next city
+      await addTravelActivity(newCity, nextCity.currentCity, nextCity);
+    }
+
+    // Helper function to filter out travel activities from the list of activities
+    async function filterOutTravelActivities(activityIds) {
+      const filteredActivities = [];
+      for (let activityId of activityIds) {
+        const activity = await GptActivity.findById(activityId);
+        if (activity && activity.category !== 'Travel') {
+          filteredActivities.push(activityId);
+        } else if (activity && activity.category === 'Travel') {
+          // Delete old travel activity
+          await GptActivity.findByIdAndDelete(activityId);
+        }
+      }
+      return filteredActivities;
+    }
+
+    // Replace the old city with the new city in the itinerary
+    itinerary.enrichedItinerary.itinerary[parsedCityIndex] = newCityToAdd;
+
+    // Remove days with no activities from the new city
+    newCityToAdd.days = newCityToAdd.days.filter(day => day.activities.length > 0);
+
+    // Update dates for the entire itinerary
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+
+    // Refetch flight, taxi, and hotel details
+    const enrichedItinerary = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: finalItinerary },
+      { adults, children, childrenAges }
+    );
+
+    // Save the updated itinerary using findByIdAndUpdate
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: { userId: req.user.userId },
+        comment: req.comment,
+      }
+    );
+
+    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City replaced successfully', true));
+  } catch (error) {
+    logger.error('Error replacing city in itinerary:', error);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
 

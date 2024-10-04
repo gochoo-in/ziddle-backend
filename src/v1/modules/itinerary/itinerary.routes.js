@@ -17,7 +17,8 @@ import {
   replaceHotelInItinerary,
   deleteItinerary,
   getItineraryHistories,
-  getFullItineraryWithHistories
+  getFullItineraryWithHistories,
+  replaceCityInItinerary
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -29,7 +30,6 @@ import Activity from '../../models/activity.js';
 import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
 
 const router = express.Router();
-
 
 const addUpdateComment = async (req, res, next) => {
   const { itineraryId, cityIndex, oldActivityId, hotelDetailsId, modeDetailsId } = req.params;
@@ -61,15 +61,17 @@ const addUpdateComment = async (req, res, next) => {
         const newActivity = await Activity.findById(newActivityId);
         if (oldActivity && newActivity) {
           req.comment = `${oldActivity.name} has been replaced with ${newActivity.name} in itinerary.`;
-        } else if(!oldActivity) {
+        } else if (!oldActivity) {
           return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
-        } else if(!newActivity) {
-            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old or new activity not found' });
-          }
+        } else if (!newActivity) {
+          return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old or new activity not found' });
+        }
       } else if (req.path.includes('flight') && req.path.includes('replace')) {
         req.comment = `Flight with ID ${modeDetailsId} has been replaced with a new flight in itinerary.`;
       } else if (req.path.includes('hotel') && req.path.includes('replace')) {
         req.comment = `Hotel with ID ${hotelDetailsId} has been replaced with new hotel (${selectedHotel.name}) in itinerary.`;
+      } else if (req.path.includes('replace-city')) {
+        req.comment = `City at index ${cityIndex} has been replaced with ${newCity} in itinerary.`;
       }
     }
     next();
@@ -77,9 +79,7 @@ const addUpdateComment = async (req, res, next) => {
     console.error(error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
-
 };
-
 
 router.post('/', verifyToken, createItinerary);
 router.get('/user/:userId', verifyToken, getItinerariesByUserId);
@@ -94,6 +94,7 @@ router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, addUpda
 router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addUpdateComment, addDaysToCity);
 router.patch('/:itineraryId/cities/add-city', verifyToken, addUpdateComment, addCityToItineraryAtPosition);
 router.patch('/:itineraryId/cities/:cityIndex/delete-city', verifyToken, addUpdateComment, deleteCityFromItinerary);
+router.patch('/:itineraryId/cities/:cityIndex/replace-city', verifyToken, addUpdateComment, replaceCityInItinerary);
 router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, addUpdateComment, replaceActivityInItinerary);
 router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, addUpdateComment, replaceFlightInItinerary);
 router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, addUpdateComment, replaceHotelInItinerary);
