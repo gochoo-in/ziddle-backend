@@ -74,6 +74,36 @@ const citySchema = Joi.object({
     }),
 });
 
+const roomSchema = Joi.object({
+  adults: Joi.number()
+    .integer()
+    .min(1)
+    .required()
+    .messages({
+      'number.base': 'Number of adults in room must be a number',
+      'number.integer': 'Number of adults in room must be an integer',
+      'number.min': 'Number of adults in room must be at least 1',
+      'any.required': 'Number of adults in room is required',
+    }),
+  children: Joi.number()
+    .integer()
+    .min(0)
+    .required()
+    .messages({
+      'number.base': 'Number of children in room must be a number',
+      'number.integer': 'Number of children in room must be an integer',
+      'number.min': 'Number of children in room cannot be negative',
+      'any.required': 'Number of children in room is required',
+    }),
+  childrenAges: Joi.array()
+    .items(Joi.number().min(0))
+    .messages({
+      'array.base': 'Children ages must be an array of numbers',
+      'array.items': 'Each child age must be a non-negative number',
+    }),
+});
+
+
 // Itinerary Validation Schema
 const itineraryValidation = {
   body: Joi.object().keys({
@@ -131,6 +161,14 @@ const itineraryValidation = {
         'array.base': 'Cities must be an array',
         'array.items': 'Each city must follow the defined schema',
         'any.required': 'Cities are required',
+      }),
+    rooms: Joi.array()
+      .items(roomSchema)
+      .required()
+      .messages({
+        'array.base': 'Rooms must be an array',
+        'array.items': 'Each room must follow the defined schema',
+        'any.required': 'Rooms are required',
       }),
   }),
 };

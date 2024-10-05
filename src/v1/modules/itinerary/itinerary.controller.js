@@ -34,47 +34,82 @@ export const createItinerary = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const { startDate, rooms, adults, children, childrenAges, departureCity, arrivalCity, countryId, cities, activities, tripDuration } = req.body;
+    const {
+      startDate,
+      rooms,
+      adults,
+      children,
+      childrenAges,
+      departureCity,
+      arrivalCity,
+      countryId,
+      cities,
+      activities,
+      tripDuration,
+      travellingWith
+    } = req.body;
 
     // Check for required fields
-    if (!startDate || !countryId || !departureCity || !arrivalCity || !childrenAges) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Missing or incorrect required fields in request body.', false));
+    if (
+      !startDate ||
+      !countryId ||
+      !departureCity ||
+      !arrivalCity ||
+      !childrenAges ||
+      !rooms ||
+      !travellingWith
+    ) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(
+          httpFormatter(
+            {},
+            'Missing or incorrect required fields in request body.',
+            false
+          )
+        );
     }
 
     // Find the country
     const country = await Destination.findById(countryId);
     if (!country) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid country ID.', false));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'Invalid country ID.', false));
     }
 
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
 
     // Find city and activity details
-    const cityDetails = await City.find({ '_id': { $in: cityIds } });
-    const activityDetails = await Activity.find({ '_id': { $in: activities } });
+    const cityDetails = await City.find({ _id: { $in: cityIds } });
+    const activityDetails = await Activity.find({ _id: { $in: activities } });
 
     if (!cityDetails.length) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'One or more cities are invalid.', false));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'One or more cities are invalid.', false));
     }
 
     // Generate itinerary
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
-      cities: cityDetails.map(city => ({
+      cities: cityDetails.map((city) => ({
         name: city.name,
         iataCode: city.iataCode,
         activities: activityDetails
-          .filter(activity => activity.city?.toString() === city._id?.toString())
-          .map(activity => ({
+          .filter(
+            (activity) => activity.city?.toString() === city._id?.toString()
+          )
+          .map((activity) => ({
             name: activity.name,
             duration: activity.duration,
             category: activity.category,
             opensAt: activity.opensAt,
-            closesAt: activity.closesAt
-          }))
-      }))
+            closesAt: activity.closesAt,
+          })),
+      })),
     });
 
     // Process itinerary details with travel and dates
@@ -82,9 +117,9 @@ export const createItinerary = async (req, res) => {
       title: result.title,
       subtitle: result.subtitle,
       destination: country.name,
-      itinerary: result.itinerary
+      itinerary: result.itinerary,
     };
-    console.log(itineraryWithTitles);
+
     // If there's more than one city, add transfer activities
     if (cityDetails.length > 1) {
       itineraryWithTitles = addTransferActivity(itineraryWithTitles);
@@ -92,7 +127,10 @@ export const createItinerary = async (req, res) => {
 
     // Add leisure activities if needed based on trip duration
     const [minTripDuration] = tripDuration.split('-').map(Number);
-    let totalPlannedDays = itineraryWithTitles.itinerary.reduce((acc, city) => acc + city.days.length, 0);
+    let totalPlannedDays = itineraryWithTitles.itinerary.reduce(
+      (acc, city) => acc + city.days.length,
+      0
+    );
     let remainingDays = minTripDuration - totalPlannedDays;
 
     if (remainingDays > 0) {
@@ -102,7 +140,9 @@ export const createItinerary = async (req, res) => {
 
       while (remainingDays > 0) {
         const currentCity = itineraryWithTitles.itinerary[cityIndex];
-        const cityId = cityDetails.find(c => c.name === currentCity.currentCity)?._id;
+        const cityId = cityDetails.find(
+          (c) => c.name === currentCity.currentCity
+        )?._id;
 
         if (cityId) {
           const leisureActivity = await GptActivity.create({
@@ -119,7 +159,7 @@ export const createItinerary = async (req, res) => {
           currentCity.days.push({
             day: newDayIndex,
             date: '', // Date will be set later
-            activities: [leisureActivity]
+            activities: [leisureActivity],
           });
 
           totalPlannedDays++;
@@ -133,6 +173,7 @@ export const createItinerary = async (req, res) => {
     // Add dates to itinerary after all activities have been added
     itineraryWithTitles = addDatesToItinerary(itineraryWithTitles, startDate);
     itineraryWithTitles = settransformItinerary(itineraryWithTitles);
+
     // Set arrival and departure dates for the single city, if applicable
     if (cityDetails.length === 1) {
       itineraryWithTitles.itinerary[0].arrivalDate = startDate;
@@ -144,14 +185,15 @@ export const createItinerary = async (req, res) => {
       for (const day of city.days) {
         const activityIds = [];
         for (const activity of day.activities) {
-          const cityId = cityDetails.find(c => c.name === city.currentCity)?._id;
-    
-          // Add a check to see if the activity has a name property
+          const cityId = cityDetails.find(
+            (c) => c.name === city.currentCity
+          )?._id;
+
           if (!activity.name) {
             logger.error(`Missing name in activity: ${JSON.stringify(activity)}`);
             continue; // Skip this activity if name is missing
           }
-    
+
           if (cityId) {
             try {
               const newActivity = await GptActivity.create({
@@ -172,13 +214,21 @@ export const createItinerary = async (req, res) => {
         day.activities = activityIds;
       }
     }
+
     // Add flight details if there are multiple cities
-    
     let itineraryWithFlights = itineraryWithTitles;
     if (cityDetails.length > 1) {
-      itineraryWithFlights = await addFlightDetailsToItinerary(itineraryWithTitles, adults, children, childrenAges, cityDetails);
+      itineraryWithFlights = await addFlightDetailsToItinerary(
+        itineraryWithTitles,
+        adults,
+        children,
+        childrenAges,
+        cityDetails
+      );
       if (itineraryWithFlights.error) {
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, itineraryWithFlights.error, false));
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json(httpFormatter({}, itineraryWithFlights.error, false));
       }
     }
 
@@ -189,10 +239,15 @@ export const createItinerary = async (req, res) => {
     }
 
     // Add hotel details (even if it's a single city)
-    const enrichedItinerary = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
+    const enrichedItinerary = await addHotelDetailsToItinerary(
+      itineraryWithTaxi,
+      adults,
+      childrenAges,
+      rooms
+    );
 
     // Remove any invalid transport or hotel details
-    enrichedItinerary.itinerary.forEach(city => {
+    enrichedItinerary.itinerary.forEach((city) => {
       if (!city.transport || typeof city.transport !== 'object') {
         city.transport = null; // Ensure transport is either an object or null
       }
@@ -205,7 +260,12 @@ export const createItinerary = async (req, res) => {
     // Save the new itinerary
     const newItinerary = new Itinerary({
       createdBy: userId,
-      enrichedItinerary: enrichedItinerary
+      enrichedItinerary: enrichedItinerary,
+      adults: adults,
+      children: children,
+      childrenAges: childrenAges,
+      rooms: rooms,
+      travellingWith: travellingWith
     });
     await newItinerary.save();
 
@@ -214,7 +274,7 @@ export const createItinerary = async (req, res) => {
       createdBy: userId,
       itineraryId: newItinerary._id,
       status: 'ML',
-      comments: []
+      comments: [],
     });
     await newLead.save();
 
@@ -229,12 +289,22 @@ export const createItinerary = async (req, res) => {
     }
 
     // Return response
-    return res.status(StatusCodes.OK).json(httpFormatter({ newItinerary, newLead }, 'Create Itinerary and Lead Successful'));
+    return res
+      .status(StatusCodes.OK)
+      .json(
+        httpFormatter(
+          { newItinerary, newLead },
+          'Create Itinerary and Lead Successful'
+        )
+      );
   } catch (error) {
     logger.error('Error creating itinerary or lead:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 export const getItineraryDetails = async (req, res) => {
@@ -540,17 +610,9 @@ export const deleteDaysFromCity = async (req, res) => {
 
 export const addCityToItineraryAtPosition = async (req, res) => {
   const { itineraryId } = req.params;
-  const { newCity, stayDays, position, adults, children, childrenAges } = req.body;
+  const { newCity, stayDays, position } = req.body;
 
   try {
-
-    // Validation for required fields
-    if (adults == null || children == null || !Array.isArray(childrenAges)) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(httpFormatter({}, 'Missing required fields: adults, children, or childrenAges', false));
-    }
-
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId).lean();
     if (!itinerary) {
@@ -558,6 +620,9 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         .status(StatusCodes.NOT_FOUND)
         .json(httpFormatter({}, 'Itinerary not found', false));
     }
+
+    // Use values from the itinerary
+    const { adults, children, childrenAges } = itinerary;
 
     // Validate the position
     if (position < 0 || position > itinerary.enrichedItinerary.itinerary.length) {
@@ -570,7 +635,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     const cityExists = itinerary.enrichedItinerary.itinerary.some(
       (city) => city.currentCity.toLowerCase() === newCity.toLowerCase()
     );
-    
+
     if (cityExists) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -579,7 +644,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     // Find the city by name to get its ObjectId
     const cityData = await City.findOne({ name: newCity }).lean();
-   
+
     if (!cityData) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -602,7 +667,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     };
 
     // Add leisure activities for each stay day in the new city, starting from day 2
-    
     for (let dayIndex = 2; dayIndex <= (stayDays || 1) + 1; dayIndex++) {
       const leisureActivity = await GptActivity.create({
         name: 'Leisure',
@@ -613,7 +677,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         category: 'Leisure',
         cityId: cityId,
       });
-      
 
       cityToAdd.days.push({
         day: dayIndex,
@@ -622,15 +685,11 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       });
     }
 
-   
-
     // Insert the new city at the specified position
     itinerary.enrichedItinerary.itinerary.splice(position, 0, cityToAdd);
-    
 
     // Function to generate a travel activity and return its ID
     const generateTravelActivity = async (fromCity, toCity) => {
-      
       const travelActivity = await GptActivity.create({
         name: `Travel from ${fromCity} to ${toCity}`,
         startTime: '09:00 AM',
@@ -640,22 +699,21 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         category: 'Travel',
         cityId: (await City.findOne({ name: fromCity }))._id,
       });
-      
+
       return travelActivity;
     };
 
-    const addTravelActivity = async (fromCity, toCity, city,previousCity) => {
+    const addTravelActivity = async (fromCity, toCity, city, previousCity) => {
       if (!city) {
         throw new Error('City object is null or undefined when trying to add travel activity.');
       }
-     
 
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
         arrivalCity: toCity,
       });
-      
+
       const travelActivity = await generateTravelActivity(fromCity, toCity);
 
       // Set transport details for the city
@@ -668,12 +726,10 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         date: '', // Date will be set later
         activities: [travelActivity._id],
       });
-     
     };
 
     if (position === 0) {
       // If added at the start, set transport details for the next city
-      
       const nextCityIndex = 1;
       if (nextCityIndex < itinerary.enrichedItinerary.itinerary.length) {
         const nextCity = itinerary.enrichedItinerary.itinerary[nextCityIndex];
@@ -683,7 +739,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           departureCity: newCity,
           arrivalCity: nextCity.currentCity,
         });
-       
 
         const travelActivity = await generateTravelActivity(newCity, nextCity.currentCity);
 
@@ -702,35 +757,30 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           date: '', // Date will be set later
           activities: [travelActivity._id],
         });
-       
       }
     } else if (position === itinerary.enrichedItinerary.itinerary.length - 1) {
       // If added at the end, add transport details for the previous city to the new city
-     
       const previousCity = itinerary.enrichedItinerary.itinerary[position - 1];
 
       // Add travel activity to the new city from the previous city
-      await addTravelActivity(previousCity.currentCity, newCity, cityToAdd,previousCity);
+      await addTravelActivity(previousCity.currentCity, newCity, cityToAdd, previousCity);
     } else {
       // If added in the middle
-      
       const previousCity = itinerary.enrichedItinerary.itinerary[position - 1];
       const nextCity = itinerary.enrichedItinerary.itinerary[position + 1];
 
       // Remove existing travel activity from the next city
       nextCity.days[0].activities = await filterOutTravelActivities(nextCity.days[0].activities);
-      
 
       // Add travel activity to the new city from the previous city
-      await addTravelActivity(previousCity.currentCity, newCity, cityToAdd,previousCity);
+      await addTravelActivity(previousCity.currentCity, newCity, cityToAdd, previousCity);
 
       // Add travel activity from new city to next city
-      await addTravelActivity(newCity, nextCity.currentCity, nextCity,cityToAdd);
+      await addTravelActivity(newCity, nextCity.currentCity, nextCity, cityToAdd);
     }
 
     // Helper function to filter out travel activities from the list of activities
     async function filterOutTravelActivities(activityIds) {
-     
       const filteredActivities = [];
       for (let activityId of activityIds) {
         const activity = await GptActivity.findById(activityId);
@@ -738,7 +788,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           filteredActivities.push(activityId);
         }
       }
-     
       return filteredActivities;
     }
 
@@ -746,19 +795,16 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     itinerary.enrichedItinerary.itinerary.forEach((city) => {
       city.days = city.days.filter(day => day.activities.length > 0);
     });
-   
 
     // Update dates for the entire itinerary
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
-   
 
     // Refetch flight, taxi, and hotel details
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
       { adults, children, childrenAges }
     );
-    
 
     // Save the updated itinerary
     await Itinerary.findByIdAndUpdate(
@@ -784,24 +830,25 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
 export const deleteCityFromItinerary = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
-  const { adults, children, childrenAges } = req.body;
+
   try {
     // Fetch the itinerary
-    const itinerary = await Itinerary.findById(itineraryId);
+    const itinerary = await Itinerary.findById(itineraryId).lean();
     if (!itinerary) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Check user access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
-    if (!hasAccess) {
-      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
-    }
+    // Use values from the itinerary
+    const { adults, children, childrenAges } = itinerary;
 
     // Validate city index
     const parsedCityIndex = parseInt(cityIndex);
-    if (parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    if (parsedCityIndex < 0 || parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'Invalid city index', false));
     }
 
     // Store the original start date
@@ -827,14 +874,13 @@ export const deleteCityFromItinerary = async (req, res) => {
       }
       if (newFirstCity.transport && newFirstCity.transport.mode) {
         // Ensure transport details are retained since it connects to the next city
-        // Only reset if no valid transport exists
         if (!newFirstCity.nextCity) {
-            newFirstCity.transport = {
-                mode: null,
-                modeDetails: null,
-            };
+          newFirstCity.transport = {
+            mode: null,
+            modeDetails: null,
+          };
         }
-    }
+      }
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length) {
       // If deleting the last city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
@@ -869,7 +915,9 @@ export const deleteCityFromItinerary = async (req, res) => {
       // Create new travel activity between previous and next city
       const previousCityDetails = await City.findOne({ name: previousCity.currentCity });
       if (!previousCityDetails) {
-        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Previous city details not found', false));
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json(httpFormatter({}, 'Previous city details not found', false));
       }
 
       const travelActivity = await GptActivity.create({
@@ -890,12 +938,11 @@ export const deleteCityFromItinerary = async (req, res) => {
         });
       } else {
         // Create a new day for the travel activity and insert it as the first day
-        // Shift all existing days and update their day numbers accordingly
         nextCity.days.unshift({
           day: 1,
           activities: [travelActivity._id],
         });
-      
+
         // Update the day numbers for the rest of the days
         nextCity.days.slice(1).forEach((day, index) => {
           day.day = index + 2; // Update day numbers starting from 2 for all following days
@@ -912,7 +959,7 @@ export const deleteCityFromItinerary = async (req, res) => {
     );
     await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary},
+      { enrichedItinerary },
       {
         new: true,
         lean: true,
@@ -923,9 +970,12 @@ export const deleteCityFromItinerary = async (req, res) => {
 
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City deleted successfully', true));
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, error.message, false));
   }
 };
+
 
 export const replaceActivityInItinerary = async (req, res) => {
   const { itineraryId, oldActivityId } = req.params;
@@ -1399,7 +1449,7 @@ export const getItineraryHistories = async (req, res) => {
 
 export const replaceCityInItinerary = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
-  const { newCity, adults, children, childrenAges } = req.body;
+  const { newCity } = req.body;
 
   try {
     // Fetch the itinerary from the database
@@ -1408,12 +1458,26 @@ export const replaceCityInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
+    // Use values from the itinerary
+    const { adults, children, childrenAges } = itinerary;
+
     // Validate city index
     const parsedCityIndex = parseInt(cityIndex);
     if (parsedCityIndex < 0 || parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
       return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
     }
 
+    // Check if the new city is already in the itinerary
+    const cityExists = itinerary.enrichedItinerary.itinerary.some(
+      (city, index) => city.currentCity.toLowerCase() === newCity.toLowerCase() && index !== parsedCityIndex
+    );
+
+    if (cityExists) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, `City '${newCity}' already exists in the itinerary`, false));
+    }
+    
     // Find the new city by name to get its ObjectId
     const newCityData = await City.findOne({ name: newCity }).lean();
     if (!newCityData) {
@@ -1483,7 +1547,7 @@ export const replaceCityInItinerary = async (req, res) => {
       return travelActivity;
     };
 
-    const addTravelActivity = async (fromCity, toCity, city,previousCity) => {
+    const addTravelActivity = async (fromCity, toCity, city, previousCity) => {
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
@@ -1541,10 +1605,6 @@ export const replaceCityInItinerary = async (req, res) => {
         // Remove days without activities in nextCity
         nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
 
-        // Set transport details for the next city and add the new travel activity
-        // nextCity.transport.mode = transportDetails.mode;
-        // nextCity.transport.modeDetails = travelActivity._id;
-
         // Add the travel activity to the first day of the next city
         nextCity.days.unshift({
           day: 1,
@@ -1555,7 +1615,7 @@ export const replaceCityInItinerary = async (req, res) => {
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length - 1) {
       // Case 3: Replacing the last city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
-      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd,previousCity);
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd, previousCity);
     } else {
       // Case 2: Replacing a middle city
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
@@ -1568,10 +1628,10 @@ export const replaceCityInItinerary = async (req, res) => {
       nextCity.days = nextCity.days.filter(day => day.activities.length > 0);
 
       // Add travel activity to the new city from the previous city
-      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd,previousCity);
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd, previousCity);
 
       // Add travel activity from the new city to the next city
-      await addTravelActivity(newCity, nextCity.currentCity, nextCity,newCityToAdd);
+      await addTravelActivity(newCity, nextCity.currentCity, nextCity, newCityToAdd);
     }
 
     // Helper function to filter out travel activities from the list of activities
@@ -1625,6 +1685,7 @@ export const replaceCityInItinerary = async (req, res) => {
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 export const getItineraryHistoryById = async (req, res) => {
   const { historyId } = req.params;
