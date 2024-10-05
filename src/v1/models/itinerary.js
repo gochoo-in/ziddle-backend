@@ -64,7 +64,7 @@ const itinerarySchema = new mongoose.Schema({
 }, { timestamps: true, versionKey: false });
 
 // Middleware to create a version before updating
-itinerarySchema.pre(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {
+itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {
   try {
     const query = this;
     const itineraryId = query.getQuery()._id || query.getQuery().itineraryId;
