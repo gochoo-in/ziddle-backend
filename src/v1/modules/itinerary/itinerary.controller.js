@@ -644,7 +644,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     // Find the city by name to get its ObjectId
     const cityData = await City.findOne({ name: newCity }).lean();
-
     if (!cityData) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -800,7 +799,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
 
-    // Refetch flight, taxi, and hotel details
+    // Refetch flight, taxi, and hotel details for all cities
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
       { adults, children, childrenAges }
@@ -826,6 +825,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 export const deleteCityFromItinerary = async (req, res) => {
@@ -950,13 +950,16 @@ export const deleteCityFromItinerary = async (req, res) => {
       }
     }
 
-    // Recalculate dates and save changes
-    const updatedItinerary = itinerary.enrichedItinerary;
-    const finalItinerary = addDatesToItinerary(updatedItinerary, startDay);
+    // Recalculate dates for the entire itinerary
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+
+    // Refetch flight, taxi, and hotel details for all cities in the itinerary
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
       { adults, children, childrenAges }
     );
+
+    // Save the updated itinerary
     await Itinerary.findByIdAndUpdate(
       itineraryId,
       { enrichedItinerary },
@@ -975,6 +978,7 @@ export const deleteCityFromItinerary = async (req, res) => {
       .json(httpFormatter({}, error.message, false));
   }
 };
+
 
 
 export const replaceActivityInItinerary = async (req, res) => {
@@ -1659,7 +1663,7 @@ export const replaceCityInItinerary = async (req, res) => {
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
 
-    // Refetch flight, taxi, and hotel details
+    // Refetch flight, taxi, and hotel details for all cities
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
       { adults, children, childrenAges }
@@ -1685,6 +1689,8 @@ export const replaceCityInItinerary = async (req, res) => {
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
 
 
 export const getItineraryHistoryById = async (req, res) => {
