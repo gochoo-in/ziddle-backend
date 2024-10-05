@@ -1503,7 +1503,8 @@ export const getItineraryHistories = async (req, res) => {
       return {
         comment: history.comment,
         createdAt: history.createdAt,
-        changedBy: userName // Return the username
+        changedBy: userName, // Return the username
+        historyId:history._id
       };
     }));
 
