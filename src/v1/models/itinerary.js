@@ -98,7 +98,6 @@ itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (
       });
     }
 
-    next();
   } catch (error) {
     console.error('Error in pre-update hook:', error);
     next(error);
