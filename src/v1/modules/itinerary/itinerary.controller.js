@@ -934,7 +934,6 @@ export const deleteCityFromItinerary = async (req, res) => {
       const newFirstCity = itinerary.enrichedItinerary.itinerary[0];
       if (newFirstCity.days[0] && newFirstCity.days[0].activities.length > 0) {
         const oldTravelActivityId = newFirstCity.days[0].activities.shift();
-        await GptActivity.findByIdAndDelete(oldTravelActivityId);
 
         // Remove the day if no activities left
         if (newFirstCity.days[0].activities.length === 0) {
@@ -973,7 +972,6 @@ export const deleteCityFromItinerary = async (req, res) => {
       // Remove old travel activity from next city
       if (nextCity.days[0] && nextCity.days[0].activities.length > 0) {
         const oldTravelActivityId = nextCity.days[0].activities.shift();
-        await GptActivity.findByIdAndDelete(oldTravelActivityId);
 
         // Remove the day if no activities left
         if (nextCity.days[0].activities.length === 0) {
@@ -1103,7 +1101,6 @@ export const replaceActivityInItinerary = async (req, res) => {
     }
 
     // Delete the old activity from GptActivity
-    await GptActivity.findByIdAndDelete(oldActivityId);
 
     // Save the updated itinerary, including 'changedBy' for tracking purposes
     await Itinerary.findByIdAndUpdate(
@@ -1718,7 +1715,6 @@ export const replaceCityInItinerary = async (req, res) => {
           filteredActivities.push(activityId);
         } else if (activity && activity.category === 'Travel') {
           // Delete old travel activity
-          await GptActivity.findByIdAndDelete(activityId);
         }
       }
       return filteredActivities;
