@@ -18,7 +18,8 @@ import {
   deleteItinerary,
   getItineraryHistories,
   getFullItineraryWithHistories,
-  replaceCityInItinerary
+  replaceCityInItinerary,
+  getItineraryHistoryById
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -100,6 +101,7 @@ router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, addUpda
 router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, addUpdateComment, replaceHotelInItinerary);
 router.get('/:itineraryId/full-histories', casbinMiddleware, getFullItineraryWithHistories);
 router.get('/:itineraryId/histories', casbinMiddleware, getItineraryHistories);
+router.get("/:itineraryId/history/:historyId", casbinMiddleware, getItineraryHistoryById);
 
 router.delete('/:itineraryId', deleteItinerary);
 
