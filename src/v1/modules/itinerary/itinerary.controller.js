@@ -505,9 +505,6 @@ export const getAllActivities = async (req, res) => {
   }
 };
 
-
-
-
 export const addDaysToCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
   const { additionalDays } = req.body;
@@ -525,17 +522,60 @@ export const addDaysToCity = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
-    // Add new days to the city in the itinerary
-    const updatedItinerary = await addDaysToCityService(itinerary, cityIndex, additionalDays);
-
-    // Ensure enrichedItinerary exists before refetching details
-    if (!updatedItinerary.enrichedItinerary) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Failed to update itinerary.', false));
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (parsedCityIndex < 0 || parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
     }
 
-    // Refetch flight, taxi, and hotel details after adding days
-    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
+    // Add new days to the city in the itinerary
+    const city = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
     
+    // Ensure `cityId` is available for the city
+    const cityId = city.cityId || (await City.findOne({ name: city.currentCity }).lean())._id;
+
+    // Adding leisure activities for the new days
+    for (let i = 0; i < additionalDays; i++) {
+      const leisureActivity = await GptActivity.create({
+        name: 'Leisure',
+        startTime: '10:00 AM',
+        endTime: '5:00 PM',
+        duration: 'Full day',
+        timeStamp: 'All day',
+        category: 'Leisure',
+        cityId: cityId, // Ensure cityId is correctly provided
+      });
+
+      city.days.push({
+        day: city.days.length + 1, // Temporarily set the day number
+        date: '', // Date will be set later
+        activities: [leisureActivity._id],
+      });
+    }
+
+    // Recalculate day numbers for all days in the city
+    city.days = city.days.map((day, index) => ({
+      ...day,
+      day: index + 1,
+    }));
+
+    // Update the itinerary with the new city details
+    itinerary.enrichedItinerary.itinerary[parsedCityIndex] = city;
+
+    // Update dates for the entire itinerary
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+
+    // Use values from the itinerary to refetch details
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
+
+    // Refetch flight, taxi, and hotel details after adding days
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: finalItinerary },
+      { adults, children, childrenAges, totalRooms }
+    );
+
     // Save the updated itinerary to the database, including 'changedBy'
     await Itinerary.findByIdAndUpdate(
       itineraryId,
@@ -546,7 +586,7 @@ export const addDaysToCity = async (req, res) => {
         changedBy: {
           userId: req.user.userId // Directly use req.user.userId without additional checks
         },
-        comment: req.comment 
+        comment: req.comment,
       }
     );
 
@@ -556,8 +596,6 @@ export const addDaysToCity = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
-
-
 
 export const deleteDaysFromCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
@@ -576,16 +614,43 @@ export const deleteDaysFromCity = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
-    // Remove days from the city in the itinerary
-    const updatedItinerary = await deleteDaysFromCityService(itinerary, cityIndex, daysToDelete);
-
-    // Ensure enrichedItinerary exists before refetching details
-    if (!updatedItinerary.enrichedItinerary) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Failed to update itinerary.', false));
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (parsedCityIndex < 0 || parsedCityIndex >= itinerary.enrichedItinerary.itinerary.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
     }
 
+    // Remove the specified number of days from the city in the itinerary
+    const city = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
+
+    if (daysToDelete > city.days.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cannot delete more days than available in the city.', false));
+    }
+
+    // Remove the specified number of days from the end of the city's days array
+    city.days.splice(-daysToDelete, daysToDelete);
+
+    // Recalculate day numbers for all remaining days in the city
+    city.days = city.days.map((day, index) => ({
+      ...day,
+      day: index + 1,
+    }));
+
+    // Update the itinerary with the modified city details
+    itinerary.enrichedItinerary.itinerary[parsedCityIndex] = city;
+
+    // Update dates for the entire itinerary
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+
+    // Use values from the itinerary to refetch details
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
     // Refetch flight, taxi, and hotel details after deleting days
-    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(updatedItinerary, req.body);
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: finalItinerary },
+      { adults, children, childrenAges, totalRooms }
+    );
 
     // Save the updated itinerary to the database, including 'changedBy'
     await Itinerary.findByIdAndUpdate(
@@ -595,17 +660,19 @@ export const deleteDaysFromCity = async (req, res) => {
         new: true,
         lean: true,
         changedBy: {
-          userId: req.user.userId // Directly use req.user.userId without additional checks
+          userId: req.user.userId, // Directly use req.user.userId without additional checks
         },
-        comment: req.comment 
+        comment: req.comment,
       }
     );
 
+    // Send back the cleaned enrichedItinerary field
     res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
+
 
 
 export const addCityToItineraryAtPosition = async (req, res) => {
@@ -622,7 +689,8 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     }
 
     // Use values from the itinerary
-    const { adults, children, childrenAges } = itinerary;
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
 
     // Validate the position
     if (position < 0 || position > itinerary.enrichedItinerary.itinerary.length) {
@@ -802,7 +870,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     // Refetch flight, taxi, and hotel details for all cities
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
-      { adults, children, childrenAges }
+      { adults, children, childrenAges, totalRooms }
     );
 
     // Save the updated itinerary
@@ -841,7 +909,8 @@ export const deleteCityFromItinerary = async (req, res) => {
     }
 
     // Use values from the itinerary
-    const { adults, children, childrenAges } = itinerary;
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
 
     // Validate city index
     const parsedCityIndex = parseInt(cityIndex);
@@ -956,7 +1025,7 @@ export const deleteCityFromItinerary = async (req, res) => {
     // Refetch flight, taxi, and hotel details for all cities in the itinerary
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
-      { adults, children, childrenAges }
+      { adults, children, childrenAges, totalRooms }
     );
 
     // Save the updated itinerary
@@ -1463,7 +1532,8 @@ export const replaceCityInItinerary = async (req, res) => {
     }
 
     // Use values from the itinerary
-    const { adults, children, childrenAges } = itinerary;
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
 
     // Validate city index
     const parsedCityIndex = parseInt(cityIndex);
@@ -1666,7 +1736,7 @@ export const replaceCityInItinerary = async (req, res) => {
     // Refetch flight, taxi, and hotel details for all cities
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
-      { adults, children, childrenAges }
+      { adults, children, childrenAges, totalRooms }
     );
 
     // Save the updated itinerary using findByIdAndUpdate
