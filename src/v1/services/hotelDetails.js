@@ -55,6 +55,8 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
 
         const response = await axios.request(options);
 
+       
+
         if (response.data && response.data.data && response.data.data.result) {
             const hotels = await Promise.all(response.data.data.result.map(async hotel => {
                 const priceInINR = await convertToINR(parseFloat(hotel.min_total_price), hotel.currencycode);

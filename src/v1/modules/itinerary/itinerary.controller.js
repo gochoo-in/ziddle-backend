@@ -244,6 +244,22 @@ export const createItinerary = async (req, res) => {
 
 
 
+// export const getItineraryDetails = async (req, res) => {
+//   try {
+//     const { itineraryId } = req.params;
+
+//     // Find the itinerary by ID
+//     const itinerary = await Itinerary.findById(itineraryId);
+//     if (!itinerary) {
+//       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+//     }
+
+//     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
+//   } catch (error) {
+//     console.error('Error retrieving itinerary details:', error);
+//     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+//   }
+// };
 export const getItineraryDetails = async (req, res) => {
   try {
     const { itineraryId } = req.params;
@@ -252,6 +268,24 @@ export const getItineraryDetails = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Assuming enrichedItinerary contains a destination name, find its corresponding destination ID
+    const destinationName = itinerary.enrichedItinerary?.destination;
+
+    let destinationId = null;
+    if (destinationName) {
+      const destination = await Destination.findOne({ name: destinationName });
+      if (destination) {
+        destinationId = destination._id; // Assuming Destination model has an '_id' field representing the destinationId
+      }
+    }
+
+    console.log("destinationId",destinationId)
+
+    // Add destinationId to enrichedItinerary without altering the existing response structure
+    if (destinationId) {
+      itinerary.enrichedItinerary.destinationId = destinationId; // Add destinationId to enrichedItinerary object
     }
 
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
@@ -1350,8 +1384,9 @@ export const replaceFlightInItinerary = async (req, res) => {
   }
 };
 
+
 export const replaceHotelInItinerary = async (req, res) => {
-  const { itineraryId, hotelDetailsId } = req.params; // Get itinerary and old hotel ID (modeDetailsId)
+  const { itineraryId, hotelDetailsId } = req.params; // Get itinerary and old hotel ID
   const { selectedHotel } = req.body; // Selected hotel details from the frontend
 
   try {
@@ -1367,19 +1402,37 @@ export const replaceHotelInItinerary = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
-    // Create the new hotel
+    // Prepare the rooms data from selectedHotel to handle multiple rooms
+    const roomsData = selectedHotel.rooms.map(room => ({
+      roomType: room.roomType,
+      roomtag: room.roomtag,
+      area: room.area,
+      accommodates: room.accommodates,
+      bedType: room.bedType,
+      facilities: room.facilities,
+      rating: parseFloat(room.rating), // Parse rating to number if necessary
+      image: room.image,
+      price: parseFloat(room.price), // Convert the price to a number if required
+      priceDrop: room.priceDrop,
+    }));
+
+    // Create the new hotel with multiple rooms
     const newHotel = new Hotel({
-      name: selectedHotel.name,
-      address: selectedHotel.address,
-      rating: selectedHotel.rating,
-      price: parseFloat(selectedHotel.priceInINR), // Assuming price is converted to INR
+      name: selectedHotel.hotelName,
+      address: selectedHotel.location, // Assuming 'location' is the hotel address
+      rating: Math.max(...roomsData.map(room => room.rating)), // Take the highest rating among all rooms
+      price: Math.min(...roomsData.map(room => room.price)), // Take the minimum price among all rooms
       currency: 'INR',
-      image: selectedHotel.image,
-      cancellation: selectedHotel.cancellation,
-      checkin: selectedHotel.checkin,
-      checkout: selectedHotel.checkout,
-      roomType: selectedHotel.roomType,
-      refundable: selectedHotel.refundable,
+      image: roomsData[0]?.image, // Take the image from the first room for a general representation
+      cancellation: roomsData.some(room => room.facilities.includes('Free cancellation available'))
+        ? 'Free cancellation available'
+        : '',
+      checkin: selectedHotel.checkInDate,
+      checkout: selectedHotel.checkOutDate,
+      roomType: roomsData.map(room => room.roomType).join(', '), // Concatenate all room types as a string
+      refundable: roomsData.some(room => room.roomtag === 'REFUNDABLE'),
+      cityId: selectedHotel.cityId,
+      rooms: roomsData, // Save all the rooms information as an array
     });
 
     // Save the new hotel to the DB
@@ -1411,15 +1464,25 @@ export const replaceHotelInItinerary = async (req, res) => {
         changedBy: {
           userId: req.user.userId, // Use req.user.userId directly for tracking the change
         },
-        comment: req.comment 
+        comment: req.comment,
       }
     );
 
-    res.status(StatusCodes.OK).json({ message: 'Hotel replaced successfully', data: itinerary });
+    // Fetch the updated itinerary to ensure all data is properly populated
+    const updatedItinerary = await Itinerary.findById(itineraryId)
+      .populate('enrichedItinerary.itinerary.hotelDetails') // Ensure the hotelDetails field is populated
+      .lean();
+
+    if (!updatedItinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Updated itinerary not found' });
+    }
+
+    res.status(StatusCodes.OK).json({ message: 'Hotel replaced successfully', data: updatedItinerary });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 export const getTotalTripsByUsers = async (req, res) => {
   try {
