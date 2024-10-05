@@ -4,7 +4,7 @@ import GptActivity from '../v1/models/gptactivity.js';
 export const createLeisureActivityIfNotExist = async (cityId) => {
   
     const leisureActivity = await GptActivity.create({
-      name: 'Leisure Activity',
+      name: 'Leisure',
       startTime: '10:00 AM',
       endTime: '5:00 PM',
       duration: 'Full day',

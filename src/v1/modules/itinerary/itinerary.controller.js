@@ -504,7 +504,51 @@ export const getAllActivities = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+export const getAllActivitiesForHistory = async (req, res) => {
+  try {
+    const { historyId } = req.params;
+    
+    // Find the itinerary by ID and extract all activity IDs
+    const itinerary = await ItineraryVersion.findById(historyId).lean();
+   
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
 
+    // Extract all GPT activity IDs from the itinerary
+    
+    const gptActivityIds = itinerary.enrichedItinerary.itinerary
+      .flatMap(city => city.days)
+      .flatMap(day => day.activities)
+      .filter(Boolean); // Remove null or undefined activity IDs
+
+    // Fetch GPT activities and match with Activity table based on the name
+    const gptActivities = await GptActivity.find({ _id: { $in: gptActivityIds } });
+
+    // Prepare all activity names to be fetched from the Activity table
+    const activityNames = gptActivities.map(gptActivity => gptActivity.name);
+
+    // Fetch all corresponding detailed activities from the Activity table in one query
+    const activityDetails = await Activity.find({ name: { $in: activityNames } });
+
+    // Create a map for faster lookups by name
+    const activityDetailsMap = activityDetails.reduce((acc, activity) => {
+      acc[activity.name] = activity;
+      return acc;
+    }, {});
+
+    // Construct the final activities array
+    const detailedActivities = gptActivities.map(gptActivity => ({
+      gptActivity,
+      detailedActivity: activityDetailsMap[gptActivity.name] || null, // Match by name or return null if not found
+    }));
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ activities: detailedActivities }, 'Activities retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving activities from itinerary:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
 export const addDaysToCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
   const { additionalDays } = req.body;
