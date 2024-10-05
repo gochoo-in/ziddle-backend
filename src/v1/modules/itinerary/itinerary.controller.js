@@ -818,19 +818,26 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       if (!city) {
         throw new Error('City object is null or undefined when trying to add travel activity.');
       }
-
+    
+      // Ensure city.transport is properly initialized
+      if (!city.transport) {
+        city.transport = { mode: null, modeDetails: null };
+      }
+    
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
         arrivalCity: toCity,
       });
-
+      
       const travelActivity = await generateTravelActivity(fromCity, toCity);
-
-      // Set transport details for the city
-      previousCity.transport.mode = transportDetails.mode;
-      previousCity.transport.modeDetails = travelActivity._id;
-
+    
+      // Set transport details for the previous city
+      previousCity.transport = {
+        mode: transportDetails.mode,
+        modeDetails: travelActivity._id,
+      };
+    
       // Add travel activity to the first day of the city's itinerary
       city.days.unshift({
         day: 1,
