@@ -11,6 +11,7 @@ import { cookieManager } from "./utils/middleware.js";
 import cors from 'cors';
 import expressListEndpoints from 'express-list-endpoints';
 import { routeDescriptions } from "./utils/routeDescriptions.js";
+import './v1/services/updatedPricesService.js';
 
 dotenv.config();
 const { port } = Config;

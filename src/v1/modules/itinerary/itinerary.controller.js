@@ -19,8 +19,8 @@ import GptActivity from '../../models/gptactivity.js';
 import Flight from '../../models/flight.js';
 import Hotel from '../../models/hotel.js';
 import Taxi from '../../models/taxi.js'
-import {addDaysToCityService} from '../../services/itineraryService.js'
-import { refetchFlightAndHotelDetails,deleteDaysFromCityService } from '../../services/itineraryService.js';
+import { addDaysToCityService } from '../../services/itineraryService.js'
+import { refetchFlightAndHotelDetails, deleteDaysFromCityService } from '../../services/itineraryService.js';
 import Lead from '../../models/lead.js';  
 import Notification from '../../models/notification.js'; 
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
@@ -307,14 +307,14 @@ export const createItinerary = async (req, res) => {
 
           if (modeDetails && modeDetails.price) {
             if (typeof modeDetails.price === 'string') {
-              transferPrice = parseFloat(modeDetails.price)
+              transferPrice = parseFloat(modeDetails.price);
             } else if (typeof modeDetails.price === 'number') {
-              transferPrice = modeDetails.price
+              transferPrice = modeDetails.price;
             }
           }
 
           if (mode === 'Flight') {
-            transferPrice += transferPrice * 0.15;
+            transferPrice += transferPrice * 0.15; // Add 15% surcharge for flights
           }
 
         } catch (error) {
@@ -361,7 +361,7 @@ export const createItinerary = async (req, res) => {
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
 
     // Convert totalPrice to a string
-    totalPrice = totalPrice + (0.15 * totalPrice)
+    totalPrice = totalPrice + (0.15 * totalPrice);
     const totalPriceString = totalPrice.toFixed(2).toString();
 
     // Save the new itinerary with totalPrice as a string
@@ -423,7 +423,6 @@ export const createItinerary = async (req, res) => {
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
-
 };
 
 export const getItineraryDetails = async (req, res) => {
