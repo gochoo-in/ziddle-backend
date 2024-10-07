@@ -7,7 +7,7 @@ export const createLeisureActivityIfNotExist = async (cityId) => {
       name: 'Leisure',
       startTime: '10:00 AM',
       endTime: '5:00 PM',
-      duration: 'Full day',
+      duration: '7 hours',
       timeStamp: 'All day',
       category: 'Leisure',
       cityId: cityId,

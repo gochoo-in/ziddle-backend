@@ -135,7 +135,7 @@ export const createItinerary = async (req, res) => {
       destination: country.name,
       itinerary: result.itinerary,
     };
-
+   
     // If there's more than one city, add transfer activities
     if (cityDetails.length > 1) {
       itineraryWithTitles = addTransferActivity(itineraryWithTitles);
@@ -165,7 +165,7 @@ export const createItinerary = async (req, res) => {
             name: 'Leisure',
             startTime: '10:00 AM',
             endTime: '5:00 PM',
-            duration: 'Full day',
+            duration: '7 hours',
             timeStamp: 'All day',
             category: 'Leisure',
             cityId: cityId,
@@ -178,7 +178,7 @@ export const createItinerary = async (req, res) => {
           currentCity.days.push({
             day: newDayIndex,
             date: '', // Date will be set later
-            activities: [leisureActivity._id], // Store ObjectId
+            activities: [leisureActivity], // Store ObjectId
           });
 
           totalPlannedDays++;
@@ -701,7 +701,7 @@ export const addDaysToCity = async (req, res) => {
         name: 'Leisure',
         startTime: '10:00 AM',
         endTime: '5:00 PM',
-        duration: 'Full day',
+        duration: '7 hours',
         timeStamp: 'All day',
         category: 'Leisure',
         cityId: cityId, // Ensure cityId is correctly provided
@@ -900,7 +900,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         name: 'Leisure',
         startTime: '10:00 AM',
         endTime: '5:00 PM',
-        duration: 'Full day',
+        duration: '7 hours',
         timeStamp: 'All day',
         category: 'Leisure',
         cityId: cityId,
@@ -1754,7 +1754,7 @@ export const replaceCityInItinerary = async (req, res) => {
             name: 'Leisure',
             startTime: '10:00 AM',
             endTime: '5:00 PM',
-            duration: 'Full day',
+            duration: '7 hours',
             timeStamp: 'All day',
             category: 'Leisure',
             cityId: newCityId,
