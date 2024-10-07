@@ -335,7 +335,6 @@ export const createItinerary = async (req, res) => {
       }
     }
 
-    // Add activity prices if available (asynchronous handling)
     const activityPricesPromises = enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
         day.activities.map(async (activityId) => {
@@ -343,10 +342,11 @@ export const createItinerary = async (req, res) => {
           if (gptActivity) {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
-              const activityPrice = parseFloat(originalActivity.price);
+              const activityPricePerPerson = parseFloat(originalActivity.price);
+              const totalActivityPrice = activityPricePerPerson * (adults + children);
               
               // Return the correct price or 0 if NaN
-              return isNaN(activityPrice) ? 0 : activityPrice;
+              return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
               return 0;
@@ -356,9 +356,10 @@ export const createItinerary = async (req, res) => {
         })
       )
     );
-
+    
     const activityPrices = await Promise.all(activityPricesPromises);
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
+    
 
     // Convert totalPrice to a string
     totalPrice = totalPrice + (0.15 * totalPrice);
