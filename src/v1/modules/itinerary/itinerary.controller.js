@@ -33,7 +33,6 @@ import { generateTransportDetails } from '../../services/gptTransfer.js';
 export const createItinerary = async (req, res) => {
   try {
     const userId = req.user.userId;
-
     const {
       startDate,
       rooms,
@@ -268,15 +267,21 @@ export const createItinerary = async (req, res) => {
       travellingWith: travellingWith
     });
     await newItinerary.save();
-
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'Invalid user ID.', false));
+    }
     // Create the new lead
     const newLead = new Lead({
       createdBy: userId,
       itineraryId: newItinerary._id,
       status: 'ML',
-      comments: [],
+      contactNumber: user.phoneNumber, 
     });
     await newLead.save();
+
 
     // Send notifications to admins with access
     const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
