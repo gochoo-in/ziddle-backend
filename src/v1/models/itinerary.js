@@ -35,7 +35,7 @@ const itineraryDaySchema = new mongoose.Schema({
   nextCity: { type: String, default: null },
   stayDays: { type: Number, required: true },
   transport: { type: transportSchema, default: null },
-  transferCostPerPersonINR: { type: Number, default: null },
+  transferCostPerPersonINR: { type: String, default: null },
   transferDuration: { type: String, default: null },
   days: [activitySchema],
   hotelDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', default: null }
@@ -60,7 +60,8 @@ const itinerarySchema = new mongoose.Schema({
   children: { type: Number, required: true },
   childrenAges: [{ type: Number, required: true }],
   rooms: { type: [roomSchema], required: true },
-  travellingWith: { type: String, required: true }
+  travellingWith: { type: String, required: true },
+  totalPrice: { type: String, required: true, default: "0" } // Added totalPrice as a String
 }, { timestamps: true, versionKey: false });
 
 // Middleware to create a version before updating

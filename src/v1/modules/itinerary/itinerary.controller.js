@@ -30,22 +30,27 @@ import Employee from '../../models/employee.js';
 import User from '../../models/user.js';
 import { generateTransportDetails } from '../../services/gptTransfer.js';
 
+
 export const createItinerary = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'User ID is missing from the request.', false));
+    }
+
     const {
       startDate,
       rooms,
-      adults,
-      children,
-      childrenAges,
       departureCity,
       arrivalCity,
       countryId,
       cities,
       activities,
       tripDuration,
-      travellingWith
+      travellingWith,
     } = req.body;
 
     // Check for required fields
@@ -54,7 +59,6 @@ export const createItinerary = async (req, res) => {
       !countryId ||
       !departureCity ||
       !arrivalCity ||
-      !childrenAges ||
       !rooms ||
       !travellingWith
     ) {
@@ -68,6 +72,19 @@ export const createItinerary = async (req, res) => {
           )
         );
     }
+
+    // Calculate total adults, children, and collect childrenAges from rooms array
+    let adults = 0;
+    let children = 0;
+    let childrenAges = [];
+
+    rooms.forEach((room) => {
+      adults += room.adults || 0;
+      children += room.children || 0;
+      if (room.childrenAges && Array.isArray(room.childrenAges)) {
+        childrenAges = childrenAges.concat(room.childrenAges);
+      }
+    });
 
     // Find the country
     const country = await Destination.findById(countryId);
@@ -153,12 +170,15 @@ export const createItinerary = async (req, res) => {
             category: 'Leisure',
             cityId: cityId,
           });
+
+          logger.info(`Leisure Activity Created: ${JSON.stringify(leisureActivity)}`);
+
           const newDayIndex = currentCity.days.length + 1;
 
           currentCity.days.push({
             day: newDayIndex,
             date: '', // Date will be set later
-            activities: [leisureActivity],
+            activities: [leisureActivity._id], // Store ObjectId
           });
 
           totalPlannedDays++;
@@ -195,6 +215,7 @@ export const createItinerary = async (req, res) => {
 
           if (cityId) {
             try {
+              // Create a new activity in the GptActivity collection
               const newActivity = await GptActivity.create({
                 name: activity.name,
                 startTime: activity.startTime || '00:00',
@@ -204,12 +225,17 @@ export const createItinerary = async (req, res) => {
                 category: activity.category || 'General',
                 cityId: cityId,
               });
+
+              logger.info(`New Activity Created: ${JSON.stringify(newActivity)}`);
+
+              // Push the ObjectId of the newly created activity
               activityIds.push(newActivity._id);
             } catch (error) {
               logger.error(`Error creating GptActivity for city ${city.currentCity}:`, error);
             }
           }
         }
+        // Assign only ObjectIds to the day's activities array
         day.activities = activityIds;
       }
     }
@@ -256,7 +282,89 @@ export const createItinerary = async (req, res) => {
       }
     });
 
-    // Save the new itinerary
+    // Sum up the prices from flights, hotels, and activities
+    let totalPrice = 0;
+
+    // Add transport prices if available from modeDetails
+    for (const city of enrichedItinerary.itinerary) {
+      let transferPrice = 0;
+
+      // Check if transport details are available
+      if (city.transport && city.transport.modeDetails) {
+        const modeId = city.transport.modeDetails;
+        const mode = city.transport.mode;
+
+        let modeDetails = null;
+
+        try {
+          if (mode === 'Flight') {
+            modeDetails = await Flight.findById(modeId);
+          } else if (mode === 'Ferry') {
+            modeDetails = await Ferry.findById(modeId);
+          } else if (mode === 'Taxi') {
+            modeDetails = await Taxi.findById(modeId);
+          }
+
+          if (modeDetails && modeDetails.price) {
+            if (typeof modeDetails.price === 'string') {
+              transferPrice = parseFloat(modeDetails.price)
+            } else if (typeof modeDetails.price === 'number') {
+              transferPrice = modeDetails.price
+            }
+          }
+
+          if (mode === 'Flight') {
+            transferPrice += transferPrice * 0.15;
+          }
+
+        } catch (error) {
+          logger.error(`Error fetching modeDetails for mode ${mode} with ID ${modeId}:`, error);
+        }
+      }
+
+      totalPrice += transferPrice;
+      logger.info(`Added transport cost for city ${city.currentCity}: ${transferPrice}, Total Price Now: ${totalPrice}`);
+    }
+
+    // Add hotel prices if available
+    for (const city of enrichedItinerary.itinerary) {
+      if (city.hotelDetails && city.hotelDetails.price) {
+        const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
+        totalPrice += hotelPrice;
+        logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
+      }
+    }
+
+    // Add activity prices if available (asynchronous handling)
+    const activityPricesPromises = enrichedItinerary.itinerary.flatMap(city =>
+      city.days.flatMap(day =>
+        day.activities.map(async (activityId) => {
+          const gptActivity = await GptActivity.findById(activityId);
+          if (gptActivity) {
+            const originalActivity = await Activity.findOne({ name: gptActivity.name });
+            if (originalActivity && originalActivity.price) {
+              const activityPrice = parseFloat(originalActivity.price);
+              
+              // Return the correct price or 0 if NaN
+              return isNaN(activityPrice) ? 0 : activityPrice;
+            } else {
+              logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
+              return 0;
+            }
+          }
+          return 0;
+        })
+      )
+    );
+
+    const activityPrices = await Promise.all(activityPricesPromises);
+    totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
+
+    // Convert totalPrice to a string
+    totalPrice = totalPrice + (0.15 * totalPrice)
+    const totalPriceString = totalPrice.toFixed(2).toString();
+
+    // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
       createdBy: userId,
       enrichedItinerary: enrichedItinerary,
@@ -264,24 +372,31 @@ export const createItinerary = async (req, res) => {
       children: children,
       childrenAges: childrenAges,
       rooms: rooms,
-      travellingWith: travellingWith
+      travellingWith: travellingWith,
+      totalPrice: totalPriceString, // Add the total price as a string
     });
     await newItinerary.save();
-    const user = await User.findById(userId);
+
+    // Verify the user exists before creating the lead
+    let user = await User.findById(userId);
     if (!user) {
+      user = await Employee.findById(userId);
+    }
+
+    if (!user || !(user.phoneNumber || user.phone)) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json(httpFormatter({}, 'Invalid user ID.', false));
+        .json(httpFormatter({}, 'Invalid user ID or missing contact number.', false));
     }
+
     // Create the new lead
     const newLead = new Lead({
       createdBy: userId,
       itineraryId: newItinerary._id,
       status: 'ML',
-      contactNumber: user.phoneNumber, 
+      contactNumber: user.phoneNumber || user.phone,
     });
     await newLead.save();
-
 
     // Send notifications to admins with access
     const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
@@ -308,9 +423,8 @@ export const createItinerary = async (req, res) => {
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
+
 };
-
-
 
 export const getItineraryDetails = async (req, res) => {
   try {
@@ -346,7 +460,6 @@ export const getItineraryDetails = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
-
 
 export const getFlightsInItinerary = async (req, res) => {
   try {
