@@ -16,6 +16,7 @@ import adminPackages from '../modules/adminPackages/adminpackages.routes.js'
 import leads from '../modules/leads/leads.routes.js'
 import notifications from '../modules/notifications/notifications.routes.js'
 import indianCities from '../modules/indianCities/indianCities.routes.js'
+import settings from '../modules/settings/settings.routes.js'
 
 const allRoutes = Router()
 
@@ -92,6 +93,10 @@ const defaultRoutes = [
     {
         path:'/indianCities',
         route: indianCities
+    },
+    {
+        path: '/settings',
+        route: settings
     }
 
 ]
