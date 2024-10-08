@@ -5,6 +5,7 @@ import { addDatesToItinerary } from '../../utils/dateUtils.js';
 import { addFlightDetailsToItinerary } from '../services/flightdetails.js';
 import { addHotelDetailsToItinerary } from '../services/hotelDetails.js';
 import { addTaxiDetailsToItinerary } from '../services/taxiDetails.js';
+import {addFerryDetailsToItinerary} from '../../utils/dummyData.js'
 import Flight from '../models/flight.js'
 import Taxi from '../models/taxi.js'
 import Hotel from '../models/hotel.js'
@@ -78,9 +79,9 @@ export const refetchFlightAndHotelDetails = async (itinerary, requestData) => {
 
   // Refetch taxi details
   const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
-
+  const itineraryWithFerry = await addFerryDetailsToItinerary(itineraryWithTaxi);
   // Refetch hotel details
-  const itineraryWithHotels = await addHotelDetailsToItinerary(itineraryWithTaxi, adults, childrenAges, rooms);
+  const itineraryWithHotels = await addHotelDetailsToItinerary(itineraryWithFerry, adults, childrenAges, rooms);
 
   return itineraryWithHotels;
 };
