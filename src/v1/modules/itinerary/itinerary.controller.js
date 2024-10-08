@@ -890,7 +890,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     }
 
     const cityId = cityData._id;
-    const stayDays = 2
+    const stayDays = 1
     // Generate the new city object without travel details (as it is the starting point)
     const cityToAdd = {
       currentCity: newCity,
