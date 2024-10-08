@@ -262,6 +262,7 @@ export const createItinerary = async (req, res) => {
     if (cityDetails.length > 1) {
       itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
     }
+    itineraryWithTaxi=await addFerryDetailsToItinerary(itineraryWithTaxi);
 
     // Add hotel details (even if it's a single city)
     const enrichedItinerary = await addHotelDetailsToItinerary(
@@ -301,7 +302,7 @@ export const createItinerary = async (req, res) => {
             modeDetails = await Flight.findById(modeId);
           } else if (mode === 'Ferry') {
             modeDetails = await Ferry.findById(modeId);
-          } else if (mode === 'Taxi') {
+          } else if (mode === 'Car') {
             modeDetails = await Taxi.findById(modeId);
           }
 
