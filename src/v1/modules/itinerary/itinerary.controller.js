@@ -847,7 +847,7 @@ export const deleteDaysFromCity = async (req, res) => {
 
 export const addCityToItineraryAtPosition = async (req, res) => {
   const { itineraryId } = req.params;
-  const { newCity, stayDays, position } = req.body;
+  const { newCity, position } = req.body;
 
   try {
     // Fetch the itinerary
@@ -889,12 +889,12 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     }
 
     const cityId = cityData._id;
-
+    const stayDays = 2
     // Generate the new city object without travel details (as it is the starting point)
     const cityToAdd = {
       currentCity: newCity,
       nextCity: null,
-      stayDays: stayDays || 1,
+      stayDays: stayDays,
       transport: {
         mode: null,
         modeDetails: null,
@@ -904,7 +904,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     };
 
     // Add leisure activities for each stay day in the new city, starting from day 2
-    for (let dayIndex = 2; dayIndex <= (stayDays || 1) + 1; dayIndex++) {
+    for (let dayIndex = 2; dayIndex <= (stayDays) + 1; dayIndex++) {
       const leisureActivity = await GptActivity.create({
         name: 'Leisure',
         startTime: '10:00 AM',

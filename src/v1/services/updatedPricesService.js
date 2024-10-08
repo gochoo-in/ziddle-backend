@@ -4,16 +4,14 @@ import Flight from '../models/flight.js';
 import Hotel from '../models/hotel.js';
 import { refetchFlightAndHotelDetails } from '../services/itineraryService.js';
 import logger from '../../config/logger.js';
+import { recalculateTotalPriceForItinerary } from '../../utils/calculateCostMiddleware.js';
 
-// Function to refetch flight and hotel details and update itineraries
 export const updateFlightAndHotelDetails = async () => {
   try {
-    // Get all itineraries
     const itineraries = await Itinerary.find({});
 
     for (const itinerary of itineraries) {
       try {
-        // Extract adults, children, and childrenAges from rooms array
         let adults = 0;
         let children = 0;
         let childrenAges = [];
@@ -28,7 +26,6 @@ export const updateFlightAndHotelDetails = async () => {
           });
         }
 
-        // Prepare data needed to refetch details
         const requestData = {
           adults,
           children,
@@ -36,22 +33,22 @@ export const updateFlightAndHotelDetails = async () => {
           rooms: itinerary.rooms,
         };
 
-        // Delete old flight and hotel details from DB
         await deleteOldFlightAndHotelDetails(itinerary);
 
-        // Refetch flight and hotel details for the itinerary
         const updatedItinerary = await refetchFlightAndHotelDetails(itinerary, requestData);
 
-        // Update the itinerary in the database with the new details
         itinerary.enrichedItinerary = updatedItinerary;
         itinerary.adults = adults;
         itinerary.children = children;
         itinerary.childrenAges = childrenAges;
-        itinerary.travellingWith = itinerary.travellingWith; // Ensure travellingWith is still preserved
+        itinerary.travellingWith = itinerary.travellingWith; 
+
+        await recalculateTotalPriceForItinerary(itinerary);
 
         await itinerary.save();
 
         logger.info(`Itinerary ID ${itinerary._id} updated with new flight and hotel details`);
+        
       } catch (error) {
         logger.error(`Error updating flight and hotel details for itinerary ID ${itinerary._id}:`, error);
       }
