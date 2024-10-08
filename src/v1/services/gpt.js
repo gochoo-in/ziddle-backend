@@ -19,6 +19,10 @@ export async function generateItinerary(itineraryData) {
             `${city.name}: ${city.activities.map(activity => `- ${activity.name} (${activity.duration})`).join(', ')}`
         )
         .join('\n');
+    const validCityActivities = new Map();
+        itineraryData.cities.forEach(city => {
+            validCityActivities.set(city.name, new Set(city.activities.map(activity => activity.name)));
+        });
     const messages = [
         {
             role: "system",
@@ -247,6 +251,49 @@ export async function generateItinerary(itineraryData) {
             });
         });
 
+        parsedResponse.itinerary.forEach(leg => {
+          // Filter out activities that don't belong to the current city
+          leg.days.forEach(day => {
+              day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
+          });
+      
+          // Remove empty days (after filtering activities)
+          leg.days = leg.days.filter(day => day.activities.length > 0);
+      
+          // Find any activities that should belong to other cities
+          const incorrectActivities = leg.days.flatMap(day => 
+              day.activities.filter(activity => !validCityActivities.get(leg.currentCity).has(activity.name))
+          );
+      
+          // Remove incorrect activities from the current city
+          leg.days.forEach(day => {
+              day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
+          });
+      
+          // Move incorrect activities to their respective cities
+          incorrectActivities.forEach(activity => {
+              const correctCity = parsedResponse.itinerary.find(cityLeg => 
+                  validCityActivities.get(cityLeg.currentCity).has(activity.name)
+              );
+              
+              if (correctCity) {
+                  // Add to the first available day or create a new day if needed
+                  if (correctCity.days.length > 0) {
+                      correctCity.days[correctCity.days.length - 1].activities.push(activity);
+                  } else {
+                      correctCity.days.push({
+                          day: correctCity.days.length + 1,
+                          date: `2024-09-${correctCity.days.length + 1}`,
+                          activities: [activity],
+                      });
+                  }
+              }
+          });
+      
+          // Recheck and remove any days that became empty after moving activities
+          leg.days = leg.days.filter(day => day.activities.length > 0);
+      });
+      
         // Remove duplicate activities across the entire itinerary
         const allAddedActivities = new Set();
         parsedResponse.itinerary.forEach(leg => {
