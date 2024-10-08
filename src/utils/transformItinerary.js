@@ -40,7 +40,7 @@ export function settransformItinerary(itineraryData) {
                             activity.endTime = newEndTime.format('hh:mm A');
                         }
             
-                        previousEndTime = moment(activity.endTime, 'hh:mm A');
+                        previousEndTime = moment(activity.endTime, 'hh:mm A'); 
                     } else {
                         const newEndTime = startTime.clone().add(durationHours, 'hours');
                         activity.endTime = newEndTime.format('hh:mm A');

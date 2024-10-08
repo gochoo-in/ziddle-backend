@@ -75,7 +75,7 @@ const destinationSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    markup: {
+    markupPrice: {
         type: Number,
         required: true
     }
