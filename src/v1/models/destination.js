@@ -74,6 +74,10 @@ const destinationSchema = new mongoose.Schema({
     active:{
         type: Boolean,
         default: true
+    },
+    markup: {
+        type: Number,
+        required: true
     }
 }, { timestamps: true, versionKey: false });
 

@@ -89,7 +89,7 @@ export const createItinerary = async (req, res) => {
     // Calculate total persons (adults + children)
     const totalPersons = adults + children;
 
-    // Find the country
+    // Find the country (destination)
     const country = await Destination.findById(countryId);
     if (!country) {
       return res
@@ -138,7 +138,7 @@ export const createItinerary = async (req, res) => {
       destination: country.name,
       itinerary: result.itinerary,
     };
-   
+
     // If there's more than one city, add transfer activities
     if (cityDetails.length > 1) {
       itineraryWithTitles = addTransferActivity(itineraryWithTitles);
@@ -153,7 +153,6 @@ export const createItinerary = async (req, res) => {
     let remainingDays = minTripDuration - totalPlannedDays;
 
     if (remainingDays > 0) {
-      // Distribute the remaining days across cities
       const citiesCount = itineraryWithTitles.itinerary.length;
       let cityIndex = 0;
 
@@ -213,12 +212,11 @@ export const createItinerary = async (req, res) => {
 
           if (!activity.name) {
             logger.error(`Missing name in activity: ${JSON.stringify(activity)}`);
-            continue; // Skip this activity if name is missing
+            continue;
           }
 
           if (cityId) {
             try {
-              // Create a new activity in the GptActivity collection
               const newActivity = await GptActivity.create({
                 name: activity.name,
                 startTime: activity.startTime || '00:00',
@@ -231,14 +229,12 @@ export const createItinerary = async (req, res) => {
 
               logger.info(`New Activity Created: ${JSON.stringify(newActivity)}`);
 
-              // Push the ObjectId of the newly created activity
               activityIds.push(newActivity._id);
             } catch (error) {
               logger.error(`Error creating GptActivity for city ${city.currentCity}:`, error);
             }
           }
         }
-        // Assign only ObjectIds to the day's activities array
         day.activities = activityIds;
       }
     }
@@ -316,8 +312,9 @@ export const createItinerary = async (req, res) => {
             }
           }
 
+          // Apply the fixed 15% surcharge for flights
           if (mode === 'Flight') {
-            transferPrice += transferPrice * 0.15; // Add 15% surcharge for flights
+            transferPrice += transferPrice * 0.15;
           }
 
         } catch (error) {
@@ -338,6 +335,7 @@ export const createItinerary = async (req, res) => {
       }
     }
 
+    // Calculate total activity prices
     const activityPricesPromises = enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
         day.activities.map(async (activityId) => {
@@ -347,7 +345,7 @@ export const createItinerary = async (req, res) => {
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
               const totalActivityPrice = activityPricePerPerson * (adults + children); // Multiply by both adults and children
-    
+
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
@@ -358,13 +356,14 @@ export const createItinerary = async (req, res) => {
         })
       )
     );
-    
+
     const activityPrices = await Promise.all(activityPricesPromises);
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
-    
+
+    // Apply the destination's markup to the total price
+    totalPrice += totalPrice * (country.markup / 100);
 
     // Convert totalPrice to a string
-    totalPrice = totalPrice + (0.15 * totalPrice);
     const totalPriceString = totalPrice.toFixed(2).toString();
 
     // Save the new itinerary with totalPrice as a string
@@ -376,7 +375,7 @@ export const createItinerary = async (req, res) => {
       childrenAges: childrenAges,
       rooms: rooms,
       travellingWith: travellingWith,
-      totalPrice: totalPriceString, // Add the total price as a string
+      totalPrice: totalPriceString,
     });
     await newItinerary.save();
 
@@ -427,6 +426,7 @@ export const createItinerary = async (req, res) => {
       .json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 export const getItineraryDetails = async (req, res) => {
   try {
