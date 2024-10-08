@@ -86,6 +86,9 @@ export const createItinerary = async (req, res) => {
       }
     });
 
+    // Calculate total persons (adults + children)
+    const totalPersons = adults + children;
+
     // Find the country
     const country = await Destination.findById(countryId);
     if (!country) {
@@ -343,9 +346,8 @@ export const createItinerary = async (req, res) => {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
-              const totalActivityPrice = activityPricePerPerson * (adults + children);
-              
-              // Return the correct price or 0 if NaN
+              const totalActivityPrice = activityPricePerPerson * (adults + children); // Multiply by both adults and children
+    
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
@@ -409,12 +411,12 @@ export const createItinerary = async (req, res) => {
       });
     }
 
-    // Return response
+    // Return response with totalPersons
     return res
       .status(StatusCodes.OK)
       .json(
         httpFormatter(
-          { newItinerary, newLead },
+          { newItinerary, newLead, totalPersons }, 
           'Create Itinerary and Lead Successful'
         )
       );
