@@ -10,7 +10,7 @@ const activitySchema = new mongoose.Schema({
 
 // Transport Schema
 const transportSchema = new mongoose.Schema({
-  mode: { type: String, required: true, enum: ['Flight', 'Car', 'Ferry'] },
+  mode: { type: String, enum: ['Flight', 'Car', 'Ferry', null], required: false, default: null },
   modeDetails: {
     type: mongoose.Schema.Types.ObjectId,
     refPath: 'transport.modeDetailsModel',
@@ -18,7 +18,9 @@ const transportSchema = new mongoose.Schema({
   },
   modeDetailsModel: {
     type: String,
-    enum: ['Flight', 'Taxi', 'Ferry']
+    enum: ['Flight', 'Taxi', 'Ferry', null],
+    required: false,
+    default:null
   }
 }, { _id: false });
 

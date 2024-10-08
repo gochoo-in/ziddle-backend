@@ -29,6 +29,7 @@ import mongoose from 'mongoose'
 import Employee from '../../models/employee.js';
 import User from '../../models/user.js';
 import { generateTransportDetails } from '../../services/gptTransfer.js';
+import { calculateTotalPriceMiddleware } from '../../../utils/calculateCostMiddleware.js';
 
 
 export const createItinerary = async (req, res) => {
@@ -754,8 +755,10 @@ export const addDaysToCity = async (req, res) => {
       }
     );
 
-    // Send back the cleaned enrichedItinerary field
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days added successfully', true));
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days added and price updated successfully', true));
+    });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
@@ -831,7 +834,10 @@ export const deleteDaysFromCity = async (req, res) => {
     );
 
     // Send back the cleaned enrichedItinerary field
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted successfully', true));
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted and price updated successfully', true));
+    });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
@@ -1056,7 +1062,10 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       }
     );
 
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added successfully', true));
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added and price updated successfully', true));
+    });
   } catch (error) {
     console.error('Error adding city to itinerary:', error);
     return res
@@ -1209,7 +1218,10 @@ export const deleteCityFromItinerary = async (req, res) => {
       }
     );
 
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City deleted successfully', true));
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City deleted and price updated successfully', true));
+    });
   } catch (error) {
     res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -1271,7 +1283,6 @@ export const replaceActivityInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
     }
 
-    // Delete the old activity from GptActivity
 
     // Save the updated itinerary, including 'changedBy' for tracking purposes
     await Itinerary.findByIdAndUpdate(
@@ -1287,7 +1298,11 @@ export const replaceActivityInItinerary = async (req, res) => {
       }
     );
 
-    res.status(StatusCodes.OK).json({ message: 'Activity replaced successfully', data: itinerary });
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
+
+    });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -1401,7 +1416,10 @@ export const replaceFlightInItinerary = async (req, res) => {
       }
     );
 
-    res.status(StatusCodes.OK).json({ message: 'Flight replaced successfully', data: itinerary });
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Flight replaced and price updated successfully', true));
+    });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -1500,7 +1518,10 @@ export const replaceHotelInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Updated itinerary not found' });
     }
 
-    res.status(StatusCodes.OK).json({ message: 'Hotel replaced successfully', data: updatedItinerary });
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Hotel replaced and price updated successfully', true));
+    });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
