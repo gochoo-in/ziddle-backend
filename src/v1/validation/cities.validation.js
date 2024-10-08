@@ -68,15 +68,15 @@ const cityValidation = {
         'number.base': 'Longitude must be a number',
         'any.required': 'Longitude is required',
       }),
-    bestTimeToVisit: Joi.string()
-      .optional(),
+    bestTimeToVisit: Joi.string().
+      allow(null, '').optional(),
     isMajorHub: Joi.boolean()
       .optional(),
     pointsOfInterest: Joi.array()
       .items(Joi.string())
       .optional(),
-    climate: Joi.string()
-      .optional(),
+    climate: Joi.string().
+    allow(null, '').optional(),
     languageSpoken: Joi.string()
       .required()
       .messages({
