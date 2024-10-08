@@ -350,6 +350,7 @@ export const createItinerary = async (req, res) => {
 
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
+              return 0;
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
               return 0;
             }
@@ -364,7 +365,6 @@ export const createItinerary = async (req, res) => {
 
     // Apply the destination's markup to the total price
     totalPrice += totalPrice * (country.markup / 100);
-
     // Convert totalPrice to a string
     const totalPriceString = totalPrice.toFixed(2).toString();
 

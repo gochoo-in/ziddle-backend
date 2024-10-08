@@ -89,7 +89,7 @@ const destinationValidation = {
         'string.base': 'Longitude must be a string',
         'any.required': 'Longitude is required',
       }),
-      markupPrice: Joi.number()
+      markup: Joi.number()
       .required()
       .messages({
         'string.base': 'Markup must be a string',
