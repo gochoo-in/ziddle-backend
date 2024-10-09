@@ -1249,21 +1249,55 @@ export const replaceActivityInItinerary = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
+    // Fetch the old activity from the GptActivity table
+    const oldGptActivity = await GptActivity.findById(oldActivityId);
+    if (!oldGptActivity) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
+    }
+
     // Fetch the new activity from the Activity table
     const newActivity = await Activity.findById(newActivityId);
     if (!newActivity) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'New activity not found' });
     }
 
+    // Format the start time from the old activity
+    const startTime = oldGptActivity.startTime; // e.g., "10:00 AM"
+    const [time, modifier] = startTime.split(' '); // Split into "10:00" and "AM"
+    let [startHour, startMinute] = time.split(':'); // Split "10:00" into "10" and "00"
+
+    // Convert startHour to 24-hour format
+    startHour = Number(startHour);
+    if (modifier === 'PM' && startHour !== 12) {
+      startHour += 12; // Convert PM hours to 24-hour format
+    } else if (modifier === 'AM' && startHour === 12) {
+      startHour = 0; // Handle 12 AM as midnight
+    }
+
+    // Create a start date and set hours and minutes
+    const startDate = new Date();
+    startDate.setHours(startHour);
+    startDate.setMinutes(Number(startMinute));
+
+    // Extract the first number from newActivity.duration (e.g., "7 hours", "3-5 hours")
+    const durationMatch = newActivity.duration.match(/\d+/);
+    const durationInHours = durationMatch ? Number(durationMatch[0]) : 4; // Default to 1 hour if no match
+    console.log(startDate);
+    // Add the duration to the start time
+    const endDate = new Date(startDate.getTime() + durationInHours * 60 * 60000);
+    console.log(endDate);
+    // Format the end time to "10:00 AM" format
+    const endTime = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+
     // Create the new activity in the GptActivity table
     const newGptActivity = await GptActivity.create({
       name: newActivity.name,
-      startTime: newActivity.opensAt,
-      endTime: newActivity.closesAt,
+      startTime: startTime, // Use the old activity's start time
+      endTime: endTime,     // Use the calculated end time
       duration: newActivity.duration,
       category: newActivity.category || 'General',
       cityId: newActivity.city,
-      timeStamp: new Date().toISOString(),
+      timeStamp: oldGptActivity.timeStamp, // Use the old activity's timestamp
       activityId: newActivityId, // Reference to the Activity table
     });
 
@@ -1284,6 +1318,75 @@ export const replaceActivityInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
     }
 
+    // Save the updated itinerary, including 'changedBy' for tracking purposes
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Use req.user.userId directly for tracking the change
+        },
+        comment: req.comment 
+      }
+    );
+
+    // Call the price calculation middleware
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
+    });
+    
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+
+
+export const deleteActivityInItinerary = async (req, res) => {
+  const { itineraryId, oldActivityId } = req.params;
+console.log(itineraryId,oldActivityId)
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
+    }
+console.log(oldActivityId)
+    // Fetch the old activity from the GptActivity table
+    const oldGptActivity = await GptActivity.findById(oldActivityId);
+    if (!oldGptActivity) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
+    }
+
+ 
+    const newGptActivity_id =  await createLeisureActivityIfNotExist(oldGptActivity.cityId)
+
+    // Replace the old activity in the itinerary with the new GptActivity ID
+    let activityReplaced = false; // To track if the activity was replaced
+    itinerary.enrichedItinerary.itinerary.forEach(city => {
+      city.days.forEach(day => {
+        const activityIndex = day.activities.indexOf(oldActivityId);
+        if (activityIndex !== -1) {
+          // Replace the old activity with the new GptActivity ID
+          day.activities[activityIndex] = newGptActivity_id;
+          activityReplaced = true;
+        }
+      });
+    });
+
+    if (!activityReplaced) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
+    }
 
     // Save the updated itinerary, including 'changedBy' for tracking purposes
     await Itinerary.findByIdAndUpdate(
@@ -1299,15 +1402,17 @@ export const replaceActivityInItinerary = async (req, res) => {
       }
     );
 
+    // Call the price calculation middleware
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
-
     });
+    
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 export const changeTransportModeInCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
   const { newMode } = req.body;
