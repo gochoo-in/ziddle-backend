@@ -20,7 +20,8 @@ import {
   getFullItineraryWithHistories,
   replaceCityInItinerary,
   getItineraryHistoryById,
-  getAllActivitiesForHistory
+  getAllActivitiesForHistory,
+  changeTransportModeInCity // New controller for transport mode
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -74,6 +75,8 @@ const addUpdateComment = async (req, res, next) => {
         req.comment = `Hotel with ID ${hotelDetailsId} has been replaced with new hotel (${selectedHotel.name}) in itinerary.`;
       } else if (req.path.includes('replace-city')) {
         req.comment = `City at index ${cityIndex} has been replaced with ${newCity} in itinerary.`;
+      } else if (req.path.includes('transport-mode')) { // New comment for changing transport mode
+        req.comment = `Transport mode for city at index ${cityIndex} has been changed to ${req.body.newMode}.`;
       }
     }
     next();
@@ -83,6 +86,7 @@ const addUpdateComment = async (req, res, next) => {
   }
 };
 
+// Define all routes
 router.post('/', verifyToken, createItinerary);
 router.get('/user/:userId', verifyToken, getItinerariesByUserId);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
@@ -100,6 +104,7 @@ router.patch('/:itineraryId/cities/:cityIndex/replace-city', verifyToken, addUpd
 router.patch('/:itineraryId/activity/:oldActivityId/replace', verifyToken, addUpdateComment, replaceActivityInItinerary);
 router.patch('/:itineraryId/flight/:modeDetailsId/replace', verifyToken, addUpdateComment, replaceFlightInItinerary);
 router.patch('/:itineraryId/hotel/:hotelDetailsId/replace', verifyToken, addUpdateComment, replaceHotelInItinerary);
+router.patch('/:itineraryId/cities/:cityIndex/transport-mode', verifyToken, addUpdateComment, changeTransportModeInCity); // New endpoint
 router.get('/:itineraryId/full-histories', casbinMiddleware, getFullItineraryWithHistories);
 router.get('/:itineraryId/histories', casbinMiddleware, getItineraryHistories);
 router.get("/:itineraryId/history/:historyId", casbinMiddleware, getItineraryHistoryById);

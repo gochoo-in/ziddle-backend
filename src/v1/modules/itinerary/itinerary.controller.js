@@ -1308,6 +1308,59 @@ export const replaceActivityInItinerary = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+export const changeTransportModeInCity = async (req, res) => {
+  const { itineraryId, cityIndex } = req.params;
+  const { newMode } = req.body;
+
+  try {
+    // Fetch the itinerary
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+    }
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length
+    // Check if the user has ownership or admin access
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
+    }
+
+    // Find the city by cityIndex and update the transport mode
+    const city = itinerary.enrichedItinerary.itinerary[cityIndex];
+    if (!city) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'City not found in itinerary' });
+    }
+
+    // Change the transport mode
+    city.transport.mode = newMode;
+    const enrichedItinerary = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      { adults, children, childrenAges, totalRooms }
+    );
+    // Save the updated itinerary
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId // Use req.user.userId directly for tracking the change
+        },
+        comment: req.comment 
+      }
+    );
+
+    // Call middleware to calculate the total price
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      // Respond after price calculation
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Transport mode changed and price updated successfully', true));
+    });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+  }
+};
 
 
 export const replaceFlightInItinerary = async (req, res) => {
