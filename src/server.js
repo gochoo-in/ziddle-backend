@@ -4,7 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import Config from "./config/index.js";
 import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
-import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
+import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js"
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { cookieManager } from "./utils/middleware.js";
@@ -12,6 +12,7 @@ import cors from 'cors';
 import expressListEndpoints from 'express-list-endpoints';
 import { routeDescriptions } from "./utils/routeDescriptions.js";
 import './v1/services/updatedPricesService.js';
+import { startItineraryUpdateJob, agenda } from './v1/services/updatedPricesService.js'
 
 dotenv.config();
 const { port } = Config;
@@ -22,14 +23,12 @@ const httpServer = http.Server;
 app.use(express.json());
 app.use(cookieParser());
 app.use(cookieManager);
-// app.use(trackUserActivity);
 
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'], 
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true, 
+  credentials: true,
 }));
-
 
 app.get('/', (req, res) => {
   res.status(StatusCodes.OK).json("API Testing SuccessFull!!");
@@ -53,9 +52,8 @@ app.get('/health/mongo', async (req, res) => {
   }
 });
 
-
 app.get('/endpoints', (req, res) => {
-  const endpoints = expressListEndpoints(app); 
+  const endpoints = expressListEndpoints(app);
 
   const enrichedEndpoints = [];
 
@@ -65,7 +63,7 @@ app.get('/endpoints', (req, res) => {
     endpoint.methods.forEach((method) => {
       enrichedEndpoints.push({
         path: endpoint.path,
-        method, 
+        method,
         middlewares: endpoint.middlewares.length > 0 ? endpoint.middlewares : 'None',
         description: hasDescriptions[method] || 'No description available'
       });
@@ -75,10 +73,7 @@ app.get('/endpoints', (req, res) => {
   res.status(200).json({ endpoints: enrichedEndpoints });
 });
 
-
-
 app.use('/api/v1', allV1Routes);
-
 
 // Error handling middleware
 app.use((req, res, next) => {
@@ -101,10 +96,14 @@ app.use((error, req, res, next) => {
 // Start server function
 async function startServer() {
   try {
-    const server = app.listen(port, '0.0.0.0', () => {
+    const server = app.listen(port, '0.0.0.0', async () => {
       logger.info(`Listening on port ${port}`);
+      await connectMongoDB();
+
+      // Start the Agenda job scheduler
+      await startItineraryUpdateJob();
+      logger.info("Agenda job scheduler started.");
     });
-    await connectMongoDB();
 
     // Error handling for EADDRINUSE
     server.on("error", (error) => {
@@ -126,10 +125,12 @@ async function startServer() {
 // Start the server
 startServer();
 
-const exitHandler = () => {
+// Gracefully shut down server and Agenda
+const exitHandler = async () => {
   if (httpServer) {
-    httpServer.close(() => {
+    httpServer.close(async () => {
       logger.info('Server closed');
+      await agenda.stop();  // Stop Agenda before exiting
       process.exit(1);
     });
   } else {
@@ -143,3 +144,7 @@ const unexpectedErrorHandler = (error) => {
 
 process.on('uncaughtException', unexpectedErrorHandler);
 process.on('unhandledRejection', unexpectedErrorHandler);
+
+// Gracefully handle process termination signals
+process.on('SIGTERM', exitHandler);
+process.on('SIGINT', exitHandler);
