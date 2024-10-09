@@ -4,7 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import Config from "./config/index.js";
 import logger from "./config/logger.js";
 import allV1Routes from './v1/routes/index.js';
-import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js"
+import { connectMongoDB, checkMongoDBDatabaseHealth } from "./config/db/mongo.js";
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { cookieManager } from "./utils/middleware.js";
@@ -12,28 +12,34 @@ import cors from 'cors';
 import expressListEndpoints from 'express-list-endpoints';
 import { routeDescriptions } from "./utils/routeDescriptions.js";
 import './v1/services/updatedPricesService.js';
-import { startItineraryUpdateJob, agenda } from './v1/services/updatedPricesService.js'
+import { startItineraryUpdateJob, agenda } from './v1/services/updatedPricesService.js';
 
 dotenv.config();
 const { port } = Config;
 
 const app = express();
+
+// Create an HTTP server
 const httpServer = http.Server;
 
+// Middleware setup
 app.use(express.json());
 app.use(cookieParser());
 app.use(cookieManager);
 
+// CORS configuration
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
 
+// Root endpoint for testing
 app.get('/', (req, res) => {
-  res.status(StatusCodes.OK).json("API Testing SuccessFull!!");
+  res.status(StatusCodes.OK).json("API Testing Successful!!");
 });
 
+// Health check for SQL database
 app.get('/health', async (req, res) => {
   const healthStatus = await checkSqlDatabaseHealth();
   if (healthStatus.status === 'healthy') {
@@ -43,6 +49,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Health check for MongoDB
 app.get('/health/mongo', async (req, res) => {
   const healthStatus = await checkMongoDBDatabaseHealth();
   if (healthStatus.status === 'healthy') {
@@ -52,14 +59,13 @@ app.get('/health/mongo', async (req, res) => {
   }
 });
 
+// Endpoint listing
 app.get('/endpoints', (req, res) => {
   const endpoints = expressListEndpoints(app);
-
   const enrichedEndpoints = [];
 
   endpoints.forEach((endpoint) => {
     const hasDescriptions = routeDescriptions[endpoint.path] || {};
-
     endpoint.methods.forEach((method) => {
       enrichedEndpoints.push({
         path: endpoint.path,
@@ -73,6 +79,7 @@ app.get('/endpoints', (req, res) => {
   res.status(200).json({ endpoints: enrichedEndpoints });
 });
 
+// Use v1 routes
 app.use('/api/v1', allV1Routes);
 
 // Error handling middleware
@@ -82,6 +89,7 @@ app.use((req, res, next) => {
   next(error);
 });
 
+// Global error handling middleware
 app.use((error, req, res, next) => {
   if (req.expiredToken) {
     delete req.headers.authorization;
@@ -89,8 +97,7 @@ app.use((error, req, res, next) => {
       message: "Your token has been removed. Please log in again.",
     });
   }
-  res.status(error.status || StatusCodes.INTERNAL_SERVER_ERROR);
-  return res.json({ message: error.message });
+  res.status(error.status || StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
 });
 
 // Start server function
@@ -115,10 +122,8 @@ async function startServer() {
       setTimeout(() => process.exit(1), 1000);
     });
   } catch (err) {
-    if (err instanceof Error) {
-      logger.error(err.message);
-      setTimeout(() => process.exit(1), 1000);
-    }
+    logger.error("Error starting server:", err);
+    setTimeout(() => process.exit(1), 1000);
   }
 }
 
@@ -127,24 +132,19 @@ startServer();
 
 // Gracefully shut down server and Agenda
 const exitHandler = async () => {
-  if (httpServer) {
-    httpServer.close(async () => {
-      logger.info('Server closed');
-      await agenda.stop();  // Stop Agenda before exiting
-      process.exit(1);
-    });
-  } else {
-    process.exit(1);
-  }
+  logger.info('Shutting down server...');
+  await agenda.stop();  // Stop Agenda before exiting
+  logger.info('Agenda stopped successfully.');
+  process.exit(0);
 };
 
+// Handle unexpected errors
 const unexpectedErrorHandler = (error) => {
-  logger.error(error);
+  logger.error("Unexpected error:", error);
 };
 
-process.on('uncaughtException', unexpectedErrorHandler);
-process.on('unhandledRejection', unexpectedErrorHandler);
-
-// Gracefully handle process termination signals
+// Handle process termination signals
 process.on('SIGTERM', exitHandler);
 process.on('SIGINT', exitHandler);
+process.on('uncaughtException', unexpectedErrorHandler);
+process.on('unhandledRejection', unexpectedErrorHandler);
