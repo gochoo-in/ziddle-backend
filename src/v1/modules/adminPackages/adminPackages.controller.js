@@ -1,152 +1,229 @@
-import PackageTemplate from '../../models/adminPackage.js';
-import { StatusCodes } from 'http-status-codes';
-import httpFormatter from '../../../utils/formatter.js';
-import logger from '../../../config/logger.js';
+import AdminPackage from '../../models/adminPackage.js';
+import Destination from '../../models/destination.js';
+import City from '../../models/city.js';
+import Activity from '../../models/activity.js';
+import Hotel from '../../models/hotel.js';
+import GptActivity from '../../models/gptactivity.js';
+import fetchHotelDetails from '../../services/hotelDetails.js';
 
-// Create Package Template
-export const createPackageTemplate = async (req, res) => {
-    try {
-        const { employeeId } = req.params;
+export const createBasicAdminPackage = async (req, res) => {
+  try {
+    const {
+      packageName,
+      description,
+      destinationId,
+      totalDays,
+      validDateRange,
+      price,
+      createdBy, 
+    } = req.body;
 
-        const {
-            destinationId,
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Added tripDuration
-        } = req.body;
-
-        // Validate required fields
-        if (!templateName || !destinationId || !basePrice || !cityIds || !activityIds || !transportationIds || !packageType || !travelCompanion || !tripDuration) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
-        }
-
-        const packageTemplate = new PackageTemplate({
-            destinationId,
-            employeeId, // Employee ID from route parameters
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Ensure tripDuration is included in the package
-        });
-
-        const savedPackageTemplate = await packageTemplate.save();
-
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ savedPackageTemplate }, 'Package template created successfully', true));
-    } catch (error) {
-        logger.error('Error creating package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    const destination = await Destination.findById(destinationId);
+    if (!destination) {
+      return res.status(404).json({ message: 'Destination not found' });
     }
+
+    const newAdminPackage = new AdminPackage({
+      packageName,
+      description,
+      destination: destination._id,
+      totalDays,
+      validDateRange: {
+        startDate: validDateRange.startDate,
+        endDate: validDateRange.endDate,
+      },
+      price,
+      createdBy, 
+    });
+
+    const savedPackage = await newAdminPackage.save();
+
+    return res.status(201).json({
+      message: 'Basic admin package created successfully',
+      adminPackageId: savedPackage._id,
+    });
+  } catch (error) {
+    console.error('Error creating basic admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Get Filtered Packages
-export const getFilteredPackages = async (req, res) => {
-    try {
-        const { destinationId, minPrice, maxPrice, duration, hotelRating, travelCompanion, packageType, tripDuration } = req.query;
+export const addDetailsToAdminPackage = async (req, res) => {
+  try {
+    const { adminPackageId, cities } = req.body;
 
-        const query = {};
-
-        if (destinationId) query.destinationId = destinationId;
-        if (minPrice && maxPrice) query.basePrice = { $gte: minPrice, $lte: maxPrice };
-        if (duration) query.duration = duration;
-        if (hotelRating) query.hotelRating = { $in: hotelRating.split(',').map(Number) };
-        if (packageType) query.packageType = packageType;
-        if (travelCompanion) query.travelCompanion = { $in: travelCompanion.split(',') };
-        if (tripDuration) query.tripDuration = tripDuration;  // Filter by tripDuration
-
-        const packages = await PackageTemplate.find(query);
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ packages }, 'Filtered packages fetched successfully', true));
-    } catch (error) {
-        logger.error('Error fetching filtered packages:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
     }
+
+    const citiesWithDetails = await Promise.all(
+      cities.map(async (city, index) => {
+        const cityRecord = await City.findById(city.cityId);
+        if (!cityRecord) {
+          throw new Error(`City with ID ${city.cityId} not found`);
+        }
+
+        const updatedDays = await Promise.all(
+          city.days.map(async (day) => {
+            const processedActivities = await Promise.all(
+              day.activities.map(async ({ activityId, startTime, endTime }) => {
+                const activityDetails = await Activity.findById(activityId);
+                if (!activityDetails) {
+                  throw new Error(`Activity with ID ${activityId} not found`);
+                }
+
+                const gptActivity = new GptActivity({
+                  name: activityDetails.name,
+                  duration: activityDetails.duration,
+                  category: activityDetails.category,
+                  cityId: city.cityId,
+                  startTime,
+                  endTime,
+                });
+
+                const savedActivity = await gptActivity.save();
+                return savedActivity._id;
+              })
+            );
+
+            return {
+              day: day.day,
+              activities: processedActivities,
+            };
+          })
+        );
+
+        const arrivalDate = adminPackage.validDateRange.startDate;
+        const departureDate = new Date(new Date(arrivalDate).setDate(new Date(arrivalDate).getDate() + updatedDays.length - 1));
+
+        let hotelDetails = null;
+        try {
+          hotelDetails = await fetchHotelDetails(
+            cityRecord.latitude,
+            cityRecord.longitude,
+            arrivalDate,
+            departureDate,
+            city.adults || 1,
+            city.childrenAges || [],
+            city.rooms || 1,
+            city.cityId
+          );
+        } catch (error) {
+          console.error('Error fetching hotel details:', error.message);
+        }
+
+        let savedHotel = null;
+        if (hotelDetails) {
+          const newHotel = new Hotel(hotelDetails);
+          savedHotel = await newHotel.save();
+        }
+
+        return {
+          city: city.cityId,
+          stayDays: city.stayDays,
+          days: updatedDays,
+          transportToNextCity: {
+            mode: city.transportToNextCity.mode,
+          },
+          hotelDetails: savedHotel ? savedHotel._id : null,
+        };
+      })
+    );
+
+    adminPackage.cities = citiesWithDetails;
+    await adminPackage.save();
+
+    return res.status(200).json({
+      message: 'Admin package updated with details successfully',
+      adminPackage,
+    });
+  } catch (error) {
+    console.error('Error adding details to admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Update Package Template
-export const updatePackageTemplate = async (req, res) => {
-    try {
-        const { packageId } = req.params;
-        const {
-            destinationId,
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Added tripDuration
-        } = req.body;
+export const getGptActivityDetailsById = async (req, res) => {
+  const { gptActivityId } = req.params;
 
-        // Check if at least one field is provided for update
-        if (!destinationId && !templateName && !imageUrls && !duration && basePrice === undefined && hotelRating === undefined && !cityIds && !activityIds && !transportationIds && isCustomizable === undefined && !packageType && !travelCompanion && !tripDuration) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
-        }
-
-        const packageTemplate = await PackageTemplate.findById(packageId);
-        if (!packageTemplate) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Package not found', false));
-        }
-
-        // Update fields if they are provided
-        if (destinationId) packageTemplate.destinationId = destinationId;
-        if (templateName) packageTemplate.templateName = templateName;
-        if (imageUrls) packageTemplate.imageUrls = imageUrls;
-        if (duration) packageTemplate.duration = duration;
-        if (basePrice !== undefined) packageTemplate.basePrice = basePrice;
-        if (hotelRating !== undefined) packageTemplate.hotelRating = hotelRating;
-        if (cityIds) packageTemplate.cityIds = cityIds;
-        if (activityIds) packageTemplate.activityIds = activityIds;
-        if (transportationIds) packageTemplate.transportationIds = transportationIds;
-        if (isCustomizable !== undefined) packageTemplate.isCustomizable = isCustomizable;
-        if (packageType) packageTemplate.packageType = packageType;
-        if (travelCompanion) packageTemplate.travelCompanion = travelCompanion;
-        if (tripDuration) packageTemplate.tripDuration = tripDuration;  // Update tripDuration
-
-        await packageTemplate.save();
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ packageTemplate }, 'Package template updated successfully', true));
-    } catch (error) {
-        logger.error('Error updating package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  try {
+    const gptActivity = await GptActivity.findById(gptActivityId);
+    if (!gptActivity) {
+      return res.status(404).json({ message: 'GptActivity not found' });
     }
+
+    const detailedActivity = await Activity.findOne({ name: gptActivity.name });
+
+    return res.status(200).json({
+      message: 'GptActivity details retrieved successfully',
+      data: {
+        gptActivity,
+        detailedActivity: detailedActivity || null,
+      },
+    });
+  } catch (error) {
+    console.error('Error retrieving GptActivity details:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Delete Package Template
-export const deletePackageTemplate = async (req, res) => {
-    try {
-        const { packageId } = req.params;
+export const getAdminPackageById = async (req, res) => {
+  const { adminPackageId } = req.params;
 
-        const deletedPackage = await PackageTemplate.findByIdAndDelete(packageId);
+  try {
+    const adminPackage = await AdminPackage.findById(adminPackageId)
+      .populate({
+        path: 'cities.city',
+        select: '_id',
+      })
+      .populate({
+        path: 'cities.days.activities',
+        model: 'GptActivity',
+      })
+      .populate({
+        path: 'cities.hotelDetails',
+        model: 'Hotel',
+      });
 
-        if (!deletedPackage) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Package not found', false));
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({}, 'Package template deleted successfully', true));
-    } catch (error) {
-        logger.error('Error deleting package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
     }
+
+    const transformedCities = adminPackage.cities.map(city => ({
+      transportToNextCity: city.transportToNextCity,
+      hotelDetails: city.hotelDetails,
+      city: {
+        cityId: city.city._id,
+      },
+      stayDays: city.stayDays,
+      days: city.days.map(day => ({
+        day: day.day,
+        activities: day.activities.map(activity => activity._id),
+      })),
+    }));
+
+    const response = {
+      validDateRange: adminPackage.validDateRange,
+      id: adminPackage._id,
+      packageName: adminPackage.packageName,
+      description: adminPackage.description,
+      destination: adminPackage.destination,
+      totalDays: adminPackage.totalDays,
+      price: adminPackage.price,
+      cities: transformedCities,
+      imageUrls: adminPackage.imageUrls,
+      createdAt: adminPackage.createdAt,
+      updatedAt: adminPackage.updatedAt,
+      createdBy: adminPackage.createdBy, 
+    };
+
+    return res.status(200).json({
+      message: 'Admin package retrieved successfully',
+      data: response,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };

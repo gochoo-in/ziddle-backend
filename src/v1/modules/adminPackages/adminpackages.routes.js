@@ -1,13 +1,15 @@
 import express from 'express';
-import { createPackageTemplate , getFilteredPackages,updatePackageTemplate,deletePackageTemplate } from './adminPackages.controller.js';
+import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
+import { createBasicAdminPackage, addDetailsToAdminPackage, getGptActivityDetailsById, getAdminPackageById } from './adminPackages.controller.js';
 
 const router = express.Router();
 
-// Route to create a new package template
-router.post('/:employeeId/package', createPackageTemplate);
-router.get('/packages', getFilteredPackages);
-router.patch('/:employeeId/package/:packageId', updatePackageTemplate);
+router.post('/package/basic', casbinMiddleware, createBasicAdminPackage);
 
-router.delete('/:employeeId/package/:packageId', deletePackageTemplate);
+router.post('/package/details', casbinMiddleware, addDetailsToAdminPackage);
+
+router.get('/package/activity/:gptActivityId', casbinMiddleware, getGptActivityDetailsById);
+
+router.get('/package/:adminPackageId', casbinMiddleware, getAdminPackageById);
 
 export default router;

@@ -12,11 +12,11 @@ import callbackRequest from '../modules/callbackRequest/callbackRequest.routes.j
 import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
-import adminPackages from '../modules/adminPackages/adminpackages.routes.js'
 import leads from '../modules/leads/leads.routes.js'
 import notifications from '../modules/notifications/notifications.routes.js'
 import indianCities from '../modules/indianCities/indianCities.routes.js'
 import settings from '../modules/settings/settings.routes.js'
+import adminPackage from '../modules/adminPackages/adminpackages.routes.js'
 
 const allRoutes = Router()
 
@@ -79,10 +79,6 @@ const defaultRoutes = [
         route: cityFlight
     },
     {
-        path: '/admin',
-        route: adminPackages
-    },
-    {
         path: '/leads',
         route: leads
     },
@@ -97,6 +93,10 @@ const defaultRoutes = [
     {
         path: '/settings',
         route: settings
+    },
+    {
+        path: '/admin',
+        route: adminPackage
     }
 
 ]
