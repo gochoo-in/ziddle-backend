@@ -1,10 +1,9 @@
 import AdminPackage from '../../models/adminPackage.js';
-import AdminPackageActivity from '../../models/adminPackageActivity.js'; // Import the new model
+import AdminPackageActivity from '../../models/adminPackageActivity.js';
 import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Hotel from '../../models/hotel.js';
-import GptActivity from '../../models/gptactivity.js';
 import fetchHotelDetails from '../../services/hotelDetails.js';
 import mongoose from 'mongoose';
 
@@ -40,21 +39,6 @@ export const createBasicAdminPackage = async (req, res) => {
 
     const savedPackage = await newAdminPackage.save();
 
-    if (newAdminPackage.cities.length > 0) {
-      const lastCityId = newAdminPackage.cities[newAdminPackage.cities.length - 1].city;
-      const nextCityId = destinationId; 
-
-      const travelActivity = new AdminPackageActivity({
-        name: `Travel from ${lastCityId} to ${nextCityId}`,
-        startTime: '09:00 AM',
-        endTime: '12:00 PM',
-        duration: '3 hours',
-        category: 'Travel',
-        cityId: lastCityId,
-      });
-      await travelActivity.save(); 
-    }
-
     return res.status(201).json({
       message: 'Basic admin package created successfully',
       adminPackageId: savedPackage._id,
@@ -81,35 +65,94 @@ export const addDetailsToAdminPackage = async (req, res) => {
           throw new Error(`City with ID ${city.cityId} not found`);
         }
 
-        const updatedDays = await Promise.all(
-          city.days.map(async (day) => {
-            const processedActivities = await Promise.all(
-              day.activities.map(async ({ activityId, startTime, endTime }) => {
-                const activityDetails = await Activity.findById(activityId);
-                if (!activityDetails) {
-                  throw new Error(`Activity with ID ${activityId} not found`);
-                }
+        const updatedDays = [];
 
-                const gptActivity = new GptActivity({
-                  name: activityDetails.name,
-                  duration: activityDetails.duration,
-                  category: activityDetails.category,
-                  cityId: city.cityId,
-                  startTime,
-                  endTime,
-                });
+        // Only add the travel activity on Day 1 of cities except the first city
+        if (index > 0) {
+          const prevCity = await City.findById(cities[index - 1].cityId);
+          const travelActivity = new AdminPackageActivity({
+            name: `Travel from ${prevCity.name} to ${cityRecord.name}`,
+            duration: '3 hours', // Hardcoded duration
+            category: 'Travel',
+            startTime: '09:00 AM', // Hardcoded start time
+            endTime: '12:00 PM',   // Hardcoded end time
+            cityId: city.cityId,
+          });
+          const savedTravelActivity = await travelActivity.save();
 
-                const savedActivity = await gptActivity.save();
-                return savedActivity._id;
-              })
-            );
+          // Add the travel activity as Day 1
+          updatedDays.push({
+            day: 1,
+            activities: [savedTravelActivity._id],
+          });
 
-            return {
-              day: day.day,
-              activities: processedActivities,
-            };
-          })
-        );
+          // Shift the existing activities to subsequent days
+          const shiftedActivities = await Promise.all(
+            city.days.map(async (day) => {
+              const processedActivities = await Promise.all(
+                day.activities.map(async ({ activityId, startTime, endTime }) => {
+                  const activityDetails = await Activity.findById(activityId);
+                  if (!activityDetails) {
+                    throw new Error(`Activity with ID ${activityId} not found`);
+                  }
+
+                  const newActivity = new AdminPackageActivity({
+                    name: activityDetails.name,
+                    duration: activityDetails.duration,
+                    category: activityDetails.category,
+                    cityId: city.cityId,
+                    startTime,
+                    endTime,
+                  });
+
+                  const savedActivity = await newActivity.save();
+                  return savedActivity._id;
+                })
+              );
+
+              return {
+                day: day.day + 1, // Increment day number
+                activities: processedActivities,
+              };
+            })
+          );
+
+          // Push shifted activities to updatedDays array
+          updatedDays.push(...shiftedActivities);
+        } else {
+          // For the first city, don't add the travel activity, just process normally
+          const normalActivities = await Promise.all(
+            city.days.map(async (day) => {
+              const processedActivities = await Promise.all(
+                day.activities.map(async ({ activityId, startTime, endTime }) => {
+                  const activityDetails = await Activity.findById(activityId);
+                  if (!activityDetails) {
+                    throw new Error(`Activity with ID ${activityId} not found`);
+                  }
+
+                  const newActivity = new AdminPackageActivity({
+                    name: activityDetails.name,
+                    duration: activityDetails.duration,
+                    category: activityDetails.category,
+                    cityId: city.cityId,
+                    startTime,
+                    endTime,
+                  });
+
+                  const savedActivity = await newActivity.save();
+                  return savedActivity._id;
+                })
+              );
+
+              return {
+                day: day.day,
+                activities: processedActivities,
+              };
+            })
+          );
+
+          updatedDays.push(...normalActivities);
+        }
 
         const arrivalDate = adminPackage.validDateRange.startDate;
         const departureDate = new Date(new Date(arrivalDate).setDate(new Date(arrivalDate).getDate() + updatedDays.length - 1));
@@ -138,7 +181,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
 
         return {
           city: city.cityId,
-          stayDays: city.stayDays,
+          stayDays: updatedDays.length, // Update stay days to reflect the new number of days
           days: updatedDays,
           transportToNextCity: {
             mode: city.transportToNextCity.mode,
@@ -161,26 +204,27 @@ export const addDetailsToAdminPackage = async (req, res) => {
   }
 };
 
-export const getGptActivityDetailsById = async (req, res) => {
-  const { gptActivityId } = req.params;
+
+export const getAdminPackageActivityDetailsById = async (req, res) => {
+  const { AdminPackageActivityId } = req.params;
 
   try {
-    const gptActivity = await GptActivity.findById(gptActivityId);
-    if (!gptActivity) {
-      return res.status(404).json({ message: 'GptActivity not found' });
+    const AdminPackageActivity = await AdminPackageActivity.findById(AdminPackageActivityId);
+    if (!AdminPackageActivity) {
+      return res.status(404).json({ message: 'AdminPackageActivity not found' });
     }
 
-    const detailedActivity = await Activity.findOne({ name: gptActivity.name });
+    const detailedActivity = await Activity.findOne({ name: AdminPackageActivity.name });
 
     return res.status(200).json({
-      message: 'GptActivity details retrieved successfully',
+      message: 'AdminPackageActivity details retrieved successfully',
       data: {
-        gptActivity,
+        AdminPackageActivity,
         detailedActivity: detailedActivity || null,
       },
     });
   } catch (error) {
-    console.error('Error retrieving GptActivity details:', error);
+    console.error('Error retrieving AdminPackageActivity details:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
@@ -196,7 +240,7 @@ export const getAdminPackageById = async (req, res) => {
       })
       .populate({
         path: 'cities.days.activities',
-        model: 'GptActivity',
+        model: 'AdminPackageActivity',
       })
       .populate({
         path: 'cities.hotelDetails',
