@@ -14,7 +14,6 @@ export function settransformItinerary(itineraryData) {
                 delete city.transfer_duration;
                 delete city.transfer_cost_per_person_inr;
             }
-            console.log("ramu",city.days);
             // Adjust activities within each city for a 1-hour gap and ensure chronological order
             city.days.forEach(day => {
                 console.log(day.activities)
@@ -24,7 +23,6 @@ export function settransformItinerary(itineraryData) {
                 let previousEndTime = null;
                 // console.log("dataaa",parseFloat(activity.duration.split(' ')[0]))
                 day.activities.forEach(activity => {
-                    console.log("raja",activity)
                     const durationHours = parseFloat(activity.duration.split(' ')[0]);
                     const startTime = moment(activity.startTime, 'hh:mm A');
             

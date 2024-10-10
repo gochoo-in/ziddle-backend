@@ -1,10 +1,12 @@
 import AdminPackage from '../../models/adminPackage.js';
+import AdminPackageActivity from '../../models/adminPackageActivity.js'; // Import the new model
 import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Hotel from '../../models/hotel.js';
 import GptActivity from '../../models/gptactivity.js';
 import fetchHotelDetails from '../../services/hotelDetails.js';
+import mongoose from 'mongoose';
 
 export const createBasicAdminPackage = async (req, res) => {
   try {
@@ -15,7 +17,7 @@ export const createBasicAdminPackage = async (req, res) => {
       totalDays,
       validDateRange,
       price,
-      createdBy, 
+      createdBy,
     } = req.body;
 
     const destination = await Destination.findById(destinationId);
@@ -33,10 +35,25 @@ export const createBasicAdminPackage = async (req, res) => {
         endDate: validDateRange.endDate,
       },
       price,
-      createdBy, 
+      createdBy,
     });
 
     const savedPackage = await newAdminPackage.save();
+
+    if (newAdminPackage.cities.length > 0) {
+      const lastCityId = newAdminPackage.cities[newAdminPackage.cities.length - 1].city;
+      const nextCityId = destinationId; 
+
+      const travelActivity = new AdminPackageActivity({
+        name: `Travel from ${lastCityId} to ${nextCityId}`,
+        startTime: '09:00 AM',
+        endTime: '12:00 PM',
+        duration: '3 hours',
+        category: 'Travel',
+        cityId: lastCityId,
+      });
+      await travelActivity.save(); 
+    }
 
     return res.status(201).json({
       message: 'Basic admin package created successfully',
@@ -217,7 +234,6 @@ export const getAdminPackageById = async (req, res) => {
       updatedAt: adminPackage.updatedAt,
       createdBy: adminPackage.createdBy, 
     };
-
     return res.status(200).json({
       message: 'Admin package retrieved successfully',
       data: response,
