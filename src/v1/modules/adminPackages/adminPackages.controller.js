@@ -8,6 +8,8 @@ import fetchHotelDetails from '../../services/hotelDetails.js';
 import mongoose from 'mongoose';
 import { addDatesToItinerary } from '../../../utils/dateUtils.js'; 
 import moment from 'moment'
+import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
+
 
 export const createBasicAdminPackage = async (req, res) => {
   try {
@@ -52,113 +54,122 @@ export const createBasicAdminPackage = async (req, res) => {
 
 export const addDetailsToAdminPackage = async (req, res) => {
   try {
-      const { adminPackageId, cities } = req.body;
+    const { adminPackageId, cities } = req.body; 
 
-      const adminPackage = await AdminPackage.findById(adminPackageId);
-      if (!adminPackage) {
-          return res.status(404).json({ message: 'Admin package not found' });
-      }
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
+    }
 
-      const citiesWithDetails = await Promise.all(
-          cities.map(async (city, index) => {
-              const cityRecord = await City.findById(city.cityId);
-              if (!cityRecord) {
-                  throw new Error(`City with ID ${city.cityId} not found`);
-              }
+    // Process each city and its details
+    const citiesWithDetails = await Promise.all(
+      cities.map(async (city, index) => {
+        const cityRecord = await City.findById(city.cityId);
+        if (!cityRecord) {
+          throw new Error(`City with ID ${city.cityId} not found`);
+        }
 
-              const updatedDays = [];
-              const normalActivities = await Promise.all(
-                  city.days.map(async (day) => {
-                      const processedActivities = await Promise.all(
-                          day.activities.map(async ({ activityId, startTime, endTime }) => {
-                              const activityDetails = await Activity.findById(activityId);
-                              if (!activityDetails) {
-                                  throw new Error(`Activity with ID ${activityId} not found`);
-                              }
+        const updatedDays = [];
+        const normalActivities = await Promise.all(
+          city.days.map(async (day) => {
+            const processedActivities = await Promise.all(
+              day.activities.map(async ({ activityId, startTime, endTime }) => {
+                const activityDetails = await Activity.findById(activityId);
+                if (!activityDetails) {
+                  throw new Error(`Activity with ID ${activityId} not found`);
+                }
 
-                              const newActivity = new AdminPackageActivity({
-                                  name: activityDetails.name,
-                                  duration: activityDetails.duration,
-                                  category: activityDetails.category,
-                                  cityId: city.cityId,
-                                  startTime,
-                                  endTime,
-                              });
+                const newActivity = new AdminPackageActivity({
+                  name: activityDetails.name,
+                  duration: activityDetails.duration,
+                  category: activityDetails.category,
+                  cityId: city.cityId,
+                  startTime,
+                  endTime,
+                });
 
-                              const savedActivity = await newActivity.save();
-                              return savedActivity._id;
-                          })
-                      );
+                const savedActivity = await newActivity.save();
+                return savedActivity._id;
+              })
+            );
 
-                      // Push the temporary day entry without a proper day number yet
-                      const dayEntry = {
-                          date: moment(day.date).format('YYYY-MM-DD'), // Store the date directly
-                          activities: processedActivities,
-                      };
+            const dayEntry = {
+              date: moment(day.date).format('YYYY-MM-DD'), // Store the date directly
+              activities: processedActivities,
+            };
 
-                      updatedDays.push(dayEntry);
-                      return dayEntry;
-                  })
-              );
-
-              // If not the first city, add travel activity
-              if (index > 0) {
-                  const prevCity = await City.findById(cities[index - 1].cityId);
-                  const travelActivity = new AdminPackageActivity({
-                      name: `Travel from ${prevCity.name} to ${cityRecord.name}`,
-                      duration: '3 hours', // Hardcoded duration
-                      category: 'Travel',
-                      cityId: city.cityId,
-                      startTime: '09:00 AM', // Hardcoded start time
-                      endTime: '12:00 PM',   // Hardcoded end time
-                  });
-                  const savedTravelActivity = await travelActivity.save();
-
-                  // Add the travel activity on the same day as leaving the previous city
-                  updatedDays.unshift({ // Add travel activity as the first day of this city
-                      date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD'), // Previous date
-                      activities: [savedTravelActivity._id],
-                  });
-              }
-
-              return {
-                  city: city.cityId,
-                  stayDays: updatedDays.length,
-                  days: updatedDays,
-                  transportToNextCity: {
-                      mode: city.transportToNextCity.mode,
-                  },
-                  hotelDetails: null, // Handle hotel details if necessary
-              };
+            updatedDays.push(dayEntry);
+            return dayEntry;
           })
-      );
+        );
 
-      // Here, we will add dates to the itinerary using the utility function
-      const itineraryData = {
-          itinerary: citiesWithDetails
-      };
-      
-      const startDate = adminPackage.startDate; // Use the startDate from adminPackage
-      const updatedItineraryData = addDatesToItinerary(itineraryData, startDate);
+        // If not the first city, add travel activity
+        if (index > 0) {
+          const prevCity = await City.findById(cities[index - 1].cityId);
+          const travelActivity = new AdminPackageActivity({
+            name: `Travel from ${prevCity.name} to ${cityRecord.name}`,
+            duration: '3 hours', // Hardcoded duration
+            category: 'Travel',
+            cityId: city.cityId,
+            startTime: '09:00 AM', // Hardcoded start time
+            endTime: '12:00 PM',   // Hardcoded end time
+          });
+          const savedTravelActivity = await travelActivity.save();
 
-      // Now update the days with their corresponding day values
-      let dayCounter = 1;
-      for (const city of updatedItineraryData.itinerary) {
-          for (const day of city.days) {
-              day.day = dayCounter++; // Assign sequential day values
-          }
+          updatedDays.unshift({
+            date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD'), // Previous date
+            activities: [savedTravelActivity._id],
+          });
+        }
+
+        return {
+          city: city.cityId,
+          stayDays: updatedDays.length,
+          days: updatedDays,
+          transportToNextCity: {
+            mode: city.transportToNextCity.mode,
+          },
+          hotelDetails: null, // Placeholder, to be filled later
+        };
+      })
+    );
+
+    // Now that we have the base city details, we can proceed with adding hotel details.
+    let itineraryWithHotelDetails = {
+      itinerary: citiesWithDetails
+    };
+
+    const adults = 1 
+    const childrenAges = []
+    const rooms = 1
+
+    itineraryWithHotelDetails = await addHotelDetailsToItinerary(
+      itineraryWithHotelDetails,
+      adults,
+      childrenAges,
+      rooms
+    );
+
+    const startDate = adminPackage.startDate;
+    const updatedItineraryData = addDatesToItinerary(itineraryWithHotelDetails, startDate);
+
+    let dayCounter = 1;
+    for (const city of updatedItineraryData.itinerary) {
+      for (const day of city.days) {
+        day.day = dayCounter++; 
       }
+    }
 
-      adminPackage.cities = updatedItineraryData.itinerary;
-      await adminPackage.save();
+    adminPackage.cities = updatedItineraryData.itinerary;
+    await adminPackage.save();
 
-      return res.status(200).json({
-          message: 'Admin package updated with details successfully',
-          adminPackage,
-      });
+    return res.status(200).json({
+      message: 'Admin package updated with details and hotel information successfully',
+      adminPackage,
+    });
   } catch (error) {
-      console.error('Error adding details to admin package:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+    console.error('Error adding details to admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -243,6 +254,76 @@ export const getAdminPackageById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error retrieving admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getAllAdminPackages = async (req, res) => {
+  try {
+    const { active } = req.query;
+
+    let query = {};
+
+    if (active === 'true') {
+      query.active = true;
+    } else if (active === 'false') {
+      query.active = false;
+    }
+
+    const adminPackages = await AdminPackage.find(query);
+
+    return res.status(200).json({
+      data: adminPackages,
+      message: 'Admin packages retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+export const toggleAdminPackageActiveStatus = async (req, res) => {
+  const { adminPackageId } = req.params;
+
+  try {
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
+    }
+
+    adminPackage.active = !adminPackage.active;
+
+    await adminPackage.updateOne({ active: adminPackage.active }); 
+
+    return res.status(200).json({
+      success: true,
+      message: `Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`,
+      active: adminPackage.active,
+    });
+  } catch (error) {
+    console.error('Error toggling admin package status:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getAdminPackagesByDestinationId = async (req, res) => {
+  const { destinationId } = req.params; 
+
+  try {
+    const adminPackages = await AdminPackage.find({ destination: destinationId });
+
+    if (adminPackages.length === 0) {
+      return res.status(404).json({ message: 'No admin packages found for this destination' });
+    }
+
+    return res.status(200).json({
+      message: 'Admin packages retrieved successfully',
+      data: adminPackages,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages by destination ID:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
