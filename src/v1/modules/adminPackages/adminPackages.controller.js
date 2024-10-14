@@ -11,7 +11,6 @@ import moment from 'moment'
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
-import GptActivity from '../../models/gptactivity.js';
 
 
 export const createBasicAdminPackage = async (req, res) => {
@@ -26,6 +25,7 @@ export const createBasicAdminPackage = async (req, res) => {
       endDate,
       price,
       createdBy,
+      category
     } = req.body;
 
     const destination = await Destination.findById(destinationId);
@@ -43,6 +43,7 @@ export const createBasicAdminPackage = async (req, res) => {
       endDate: endDate,
       price,
       createdBy,
+      category
     });
 
     const savedPackage = await newAdminPackage.save();
@@ -241,6 +242,7 @@ export const getAdminPackageById = async (req, res) => {
 
     const response = {
       startDate: adminPackage.startDate,
+      category: adminPackage.category,
       startsAt: adminPackage.startsAt,
       endDate: adminPackage.endDate,
       id: adminPackage._id,
@@ -482,3 +484,23 @@ export const deleteDaysFromAdminPackage = async (req, res) => {
 };
 
 
+export const getAdminPackagesByCategory = async (req, res) => {
+  const { category } = req.params; // Get the category from the request parameters
+
+  try {
+    // Find admin packages that match the specified category
+    const adminPackages = await AdminPackage.find({ category });
+
+    if (adminPackages.length === 0) {
+      return res.status(404).json({ message: 'No admin packages found for this category' });
+    }
+
+    return res.status(200).json({
+      message: 'Admin packages retrieved successfully',
+      data: adminPackages,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages by category:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};

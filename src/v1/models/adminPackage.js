@@ -34,7 +34,7 @@ const adminPackageSchema = new mongoose.Schema({
       },
       activities: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'GptActivity',
+        ref: 'AdminPackageActivity',
       }],
       _id: false
     }],
@@ -99,6 +99,11 @@ const adminPackageSchema = new mongoose.Schema({
     type: Boolean,
     default: true 
   },
+  category: {
+    type: String,
+    enum: ['AerialSports', 'MountainAdventures', 'WaterSports', 'OutdoorAdventures'],
+    required: true
+  }
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('AdminPackage', adminPackageSchema);

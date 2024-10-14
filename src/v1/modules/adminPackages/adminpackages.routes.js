@@ -10,6 +10,7 @@ import {
   getAdminPackageById,
   toggleAdminPackageActiveStatus,
   getAdminPackagesByDestinationId,
+  getAdminPackagesByCategory
 } from './adminPackages.controller.js';
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.patch('/package/:adminPackageId/deleteDays/:cityIndex', casbinMiddleware,
 router.patch('/package/:adminPackageId/toggleAdminPackageStatus', toggleAdminPackageActiveStatus);
 router.get('/package/activity/:gptActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
 router.get('/package/:adminPackageId', casbinMiddleware, getAdminPackageById);
+router.get('/packages/category/:category', getAdminPackagesByCategory);
 
 
 export default router;
