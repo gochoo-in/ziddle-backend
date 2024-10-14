@@ -28,9 +28,8 @@ const adminPackageSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      date: { // Field for the day date
-        type: String,
-        required: true,
+      date: { 
+        type: String
       },
       activities: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -60,8 +59,7 @@ const adminPackageSchema = new mongoose.Schema({
     required: true,
   },
   startsAt: { 
-    type: String,
-    required: true,
+    type: String
   },
   endDate: {
     type: String,

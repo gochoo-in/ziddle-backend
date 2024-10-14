@@ -100,7 +100,8 @@ export const addDetailsToAdminPackage = async (req, res) => {
             );
 
             const dayEntry = {
-              date: moment(day.date).format('YYYY-MM-DD'), // Store the date directly
+              // Only include date if startsAt exists
+              ...(adminPackage.startsAt ? { date: moment(day.date).format('YYYY-MM-DD') } : {}),
               activities: processedActivities,
             };
 
@@ -123,7 +124,8 @@ export const addDetailsToAdminPackage = async (req, res) => {
           const savedTravelActivity = await travelActivity.save();
 
           updatedDays.unshift({
-            date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD'), // Previous date
+            // Previous date for travel activity only if startsAt exists
+            ...(adminPackage.startsAt ? { date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
             activities: [savedTravelActivity._id],
           });
         }
@@ -145,9 +147,9 @@ export const addDetailsToAdminPackage = async (req, res) => {
       itinerary: citiesWithDetails
     };
 
-    const adults = 1 
-    const childrenAges = []
-    const rooms = 1
+    const adults = 1; 
+    const childrenAges = [];
+    const rooms = 1;
 
     itineraryWithHotelDetails = await addHotelDetailsToItinerary(
       itineraryWithHotelDetails,
@@ -157,7 +159,10 @@ export const addDetailsToAdminPackage = async (req, res) => {
     );
 
     const startsAt = adminPackage.startsAt;
-    const updatedItineraryData = addDatesToItinerary(itineraryWithHotelDetails, startsAt);
+    const updatedItineraryData = startsAt 
+  ? addDatesToItinerary(itineraryWithHotelDetails, startsAt) 
+  : itineraryWithHotelDetails; 
+
 
     let dayCounter = 1;
     for (const city of updatedItineraryData.itinerary) {
