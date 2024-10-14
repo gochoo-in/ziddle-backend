@@ -1,8 +1,5 @@
+// adminPackage.js
 import mongoose from "mongoose";
-import Destination from "./destination.js";
-import City from './city.js';
-import GptActivity from './gptactivity.js';
-import Hotel from './hotel.js';
 
 const adminPackageSchema = new mongoose.Schema({
   packageName: {
@@ -32,6 +29,10 @@ const adminPackageSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
+      date: { // Add this line for the date field
+        type: String,
+        required: true,
+      },
       activities: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'GptActivity',
@@ -56,13 +57,13 @@ const adminPackageSchema = new mongoose.Schema({
     required: true,
   },
   startDate: {
-      type: String,
-      required: true,
-    },
-    endDate: {
-      type: String,
-      required: true,
-    },
+    type: String,
+    required: true,
+  },
+  endDate: {
+    type: String,
+    required: true,
+  },
   price: {
     type: String,
     required: true,
