@@ -14,7 +14,8 @@ export const createBasicAdminPackage = async (req, res) => {
       description,
       destinationId,
       totalDays,
-      validDateRange,
+      startDate,
+      endDate,
       price,
       createdBy,
     } = req.body;
@@ -29,10 +30,8 @@ export const createBasicAdminPackage = async (req, res) => {
       description,
       destination: destination._id,
       totalDays,
-      validDateRange: {
-        startDate: validDateRange.startDate,
-        endDate: validDateRange.endDate,
-      },
+      startDate: startDate,
+      endDate: endDate,
       price,
       createdBy,
     });
@@ -154,7 +153,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
           updatedDays.push(...normalActivities);
         }
 
-        const arrivalDate = adminPackage.validDateRange.startDate;
+        const arrivalDate = adminPackage.startDate;
         const departureDate = new Date(new Date(arrivalDate).setDate(new Date(arrivalDate).getDate() + updatedDays.length - 1));
 
         let hotelDetails = null;
@@ -265,7 +264,8 @@ export const getAdminPackageById = async (req, res) => {
     }));
 
     const response = {
-      validDateRange: adminPackage.validDateRange,
+      startDate: adminPackage.startDate,
+      endDate: adminPackage.endDate,
       id: adminPackage._id,
       packageName: adminPackage.packageName,
       description: adminPackage.description,

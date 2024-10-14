@@ -55,8 +55,7 @@ const adminPackageSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  validDateRange: {
-    startDate: {
+  startDate: {
       type: String,
       required: true,
     },
@@ -64,7 +63,6 @@ const adminPackageSchema = new mongoose.Schema({
       type: String,
       required: true,
     },
-  },
   price: {
     type: String,
     required: true,
