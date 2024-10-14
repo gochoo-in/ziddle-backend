@@ -1,4 +1,3 @@
-// adminPackage.js
 import mongoose from "mongoose";
 
 const adminPackageSchema = new mongoose.Schema({
@@ -29,7 +28,7 @@ const adminPackageSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      date: { // Add this line for the date field
+      date: { // Field for the day date
         type: String,
         required: true,
       },
@@ -56,7 +55,11 @@ const adminPackageSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  startDate: {
+  startDate: { 
+    type: String,
+    required: true,
+  },
+  startsAt: { 
     type: String,
     required: true,
   },

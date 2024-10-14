@@ -9,6 +9,9 @@ import mongoose from 'mongoose';
 import { addDatesToItinerary } from '../../../utils/dateUtils.js'; 
 import moment from 'moment'
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
+import { StatusCodes } from 'http-status-codes';
+import httpFormatter from '../../../utils/formatter.js';
+import GptActivity from '../../models/gptactivity.js';
 
 
 export const createBasicAdminPackage = async (req, res) => {
@@ -19,6 +22,7 @@ export const createBasicAdminPackage = async (req, res) => {
       destinationId,
       totalDays,
       startDate,
+      startsAt,
       endDate,
       price,
       createdBy,
@@ -35,6 +39,7 @@ export const createBasicAdminPackage = async (req, res) => {
       destination: destination._id,
       totalDays,
       startDate: startDate,
+      startsAt: startsAt,
       endDate: endDate,
       price,
       createdBy,
@@ -150,8 +155,8 @@ export const addDetailsToAdminPackage = async (req, res) => {
       rooms
     );
 
-    const startDate = adminPackage.startDate;
-    const updatedItineraryData = addDatesToItinerary(itineraryWithHotelDetails, startDate);
+    const startsAt = adminPackage.startsAt;
+    const updatedItineraryData = addDatesToItinerary(itineraryWithHotelDetails, startsAt);
 
     let dayCounter = 1;
     for (const city of updatedItineraryData.itinerary) {
@@ -229,12 +234,14 @@ export const getAdminPackageById = async (req, res) => {
       stayDays: city.stayDays,
       days: city.days.map(day => ({
         day: day.day,
+        date: day.date,
         activities: day.activities.map(activity => activity._id),
       })),
     }));
 
     const response = {
       startDate: adminPackage.startDate,
+      startsAt: adminPackage.startsAt,
       endDate: adminPackage.endDate,
       id: adminPackage._id,
       packageName: adminPackage.packageName,
@@ -327,3 +334,151 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+export const addDaysToAdminPackage = async (req, res) => {
+  const { adminPackageId, cityIndex } = req.params; // Extract adminPackageId and cityIndex from params
+  const { additionalDays } = req.body; // Expect additionalDays in the body
+
+  try {
+    // Fetch the admin package from the database
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    // Validate additionalDays
+    if (typeof additionalDays !== 'number' || additionalDays <= 0) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Additional days must be a positive number.', false));
+    }
+
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (isNaN(parsedCityIndex) || parsedCityIndex < 0 || parsedCityIndex >= adminPackage.cities.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
+
+    // Get the specified city from the admin package
+    const city = adminPackage.cities[parsedCityIndex];
+
+    // Use the city ObjectId directly
+    const cityId = city.city; // Assuming city.city holds the ObjectId for the city
+
+    // Determine the last date in the current days array
+    const lastDay = city.days[city.days.length - 1];
+    const lastDate = lastDay ? moment(lastDay.date) : moment(); // Default to now if no days exist
+
+    // Adding leisure activities for the new days
+    for (let i = 0; i < additionalDays; i++) {
+      const leisureActivity = await AdminPackageActivity.create({
+        name: 'Leisure',
+        startTime: '10:00 AM',
+        endTime: '5:00 PM',
+        duration: '7 hours',
+        timeStamp: 'All day',
+        category: 'Leisure',
+        cityId: cityId, // Use the fetched cityId directly
+      });
+
+      // Calculate the new date for the day
+      const newDate = lastDate.clone().add(i + 1, 'days'); // Increment the date by i + 1
+
+      city.days.push({
+        day: city.days.length + 1, // Set the day number
+        date: newDate.format('YYYY-MM-DD'), // Format the date to string
+        activities: [leisureActivity._id],
+      });
+    }
+
+    // Update the stayDays for this city
+    city.stayDays = city.days.length; // Adjust stayDays to the new total
+
+    // Update the admin package with the modified city details
+    adminPackage.cities[parsedCityIndex] = city;
+
+    // ** NEW CODE: Recalculate days and dates for the entire admin package **
+    let currentDayCount = 1; // Initialize day count for all cities
+    let currentDate = moment(adminPackage.startsAt); // Start from the package's start date
+
+    for (const city of adminPackage.cities) {
+      for (let i = 0; i < city.days.length; i++) {
+        city.days[i].day = currentDayCount; // Set the correct day number
+        city.days[i].date = currentDate.format('YYYY-MM-DD'); // Set the date based on currentDate
+        currentDayCount++; // Increment the day count for the next day
+        currentDate.add(1, 'days'); // Increment the date for the next day
+      }
+    }
+
+    // Update the total days for the admin package
+    adminPackage.totalDays = currentDayCount - 1; // Total days is one less than the final count
+
+    // Save the updated admin package in the database
+    const updatedPackage = await adminPackage.save(); // Save the updated admin package
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ updatedPackage }, 'Days added successfully', true));
+  } catch (error) {
+    console.error('Error adding days to admin package:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+
+export const deleteDaysFromAdminPackage = async (req, res) => {
+  const { adminPackageId, cityIndex } = req.params; // Get adminPackageId and cityIndex from params
+  const { daysToDelete } = req.body; // Expect daysToDelete in the body
+
+  try {
+    // Fetch the admin package from the database
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex, 10);
+    if (isNaN(parsedCityIndex) || parsedCityIndex < 0 || parsedCityIndex >= adminPackage.cities.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
+
+    // Get the specified city from the admin package
+    const city = adminPackage.cities[parsedCityIndex];
+
+    // Prevent deletion of the first day
+    if (city.days.length < 2) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cannot delete the first day of the city. At least one day must remain.', false));
+    }
+
+    // Validate the number of days to delete
+    if (daysToDelete > city.days.length - 1) { // Only allow deleting days except the first
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cannot delete more days than available in the city (excluding the first day).', false));
+    }
+
+    // Remove the specified number of days from the end of the city's days array
+    city.days.splice(-daysToDelete, daysToDelete);
+
+    // Recalculate day numbers for remaining days in the city
+    city.days = city.days.map((day, index) => ({
+      ...day,
+      day: index + 1, // Update the day number
+    }));
+
+    // Update the stayDays property based on remaining days in the city
+    city.stayDays = city.days.length;
+
+    // Update the admin package with the modified city details
+    adminPackage.cities[parsedCityIndex] = city;
+
+    // Update total days for the admin package
+    adminPackage.totalDays = adminPackage.cities.reduce((total, city) => total + city.days.length, 0);
+
+    // Save the updated admin package in the database
+    await adminPackage.save();
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ adminPackage }, 'Days deleted successfully', true));
+  } catch (error) {
+    console.error('Error deleting days from admin package:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+
