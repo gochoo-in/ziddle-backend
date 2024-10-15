@@ -6,12 +6,12 @@ import { addFlightDetailsToItinerary } from '../../services/flightdetails.js';
 import { addTransferActivity } from '../../../utils/travelItinerary.js';
 import { createLeisureActivityIfNotExist } from '../../../utils/activityUtils.js';
 import httpFormatter from '../../../utils/formatter.js';
-import Destination from '../../models/destination.js'; 
+import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import Itinerary from '../../models/itinerary.js';
 import ItineraryVersion from '../../models/itineraryVersion.js';
-import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js'; 
+import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
 import { addTaxiDetailsToItinerary } from '../../services/taxiDetails.js';
 import { addFerryDetailsToItinerary } from '../../../utils/dummyData.js'
 import logger from '../../../config/logger.js';
@@ -21,8 +21,8 @@ import Hotel from '../../models/hotel.js';
 import Taxi from '../../models/taxi.js'
 import { addDaysToCityService } from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails, deleteDaysFromCityService } from '../../services/itineraryService.js';
-import Lead from '../../models/lead.js';  
-import Notification from '../../models/notification.js'; 
+import Lead from '../../models/lead.js';
+import Notification from '../../models/notification.js';
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
 import mongoose from 'mongoose'
@@ -30,6 +30,7 @@ import Employee from '../../models/employee.js';
 import User from '../../models/user.js';
 import { generateTransportDetails } from '../../services/gptTransfer.js';
 import { calculateTotalPriceMiddleware } from '../../../utils/calculateCostMiddleware.js';
+import Settings from '../../models/settings.js'
 
 
 export const createItinerary = async (req, res) => {
@@ -262,7 +263,7 @@ export const createItinerary = async (req, res) => {
     if (cityDetails.length > 1) {
       itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
     }
-    itineraryWithTaxi=await addFerryDetailsToItinerary(itineraryWithTaxi);
+    itineraryWithTaxi = await addFerryDetailsToItinerary(itineraryWithTaxi);
 
     // Add hotel details (even if it's a single city)
     const enrichedItinerary = await addHotelDetailsToItinerary(
@@ -285,55 +286,61 @@ export const createItinerary = async (req, res) => {
 
     // Sum up the prices from flights, hotels, and activities
     let totalPrice = 0;
+    let price = 0;
 
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(404).json({ message: 'Settings not found' });
+    }
     // Add transport prices if available from modeDetails
     for (const city of enrichedItinerary.itinerary) {
       let transferPrice = 0;
 
-      // Check if transport details are available
-      if (city.transport && city.transport.modeDetails) {
+      if (city.transport && city.transport.mode && city.transport.modeDetails) {
         const modeId = city.transport.modeDetails;
         const mode = city.transport.mode;
-
         let modeDetails = null;
 
-        try {
-          if (mode === 'Flight') {
-            modeDetails = await Flight.findById(modeId);
-          } else if (mode === 'Ferry') {
-            modeDetails = await Ferry.findById(modeId);
-          } else if (mode === 'Car') {
-            modeDetails = await Taxi.findById(modeId);
-          }
-
+        // Handling different transport modes with respective markups
+        if (mode === 'Flight') {
+          modeDetails = await Flight.findById(modeId);
           if (modeDetails && modeDetails.price) {
-            if (typeof modeDetails.price === 'string') {
-              transferPrice = parseFloat(modeDetails.price);
-            } else if (typeof modeDetails.price === 'number') {
-              transferPrice = modeDetails.price;
-            }
+            transferPrice = parseFloat(modeDetails.price);
+            // Apply flight markup
+            price += transferPrice;
+            transferPrice += transferPrice * (settings.flightMarkup / 100);
           }
-
-          // Apply the fixed 15% surcharge for flights
-          if (mode === 'Flight') {
-            transferPrice += transferPrice * 0.15;
+        } else if (mode === 'Car') {
+          modeDetails = await Taxi.findById(modeId);
+          if (modeDetails && modeDetails.price) {
+            transferPrice = parseFloat(modeDetails.price);
+            price += transferPrice;
+            // Apply taxi markup
+            transferPrice += transferPrice * (settings.taxiMarkup / 100);
           }
+        } else if (mode === 'Ferry') {
+          modeDetails = await Ferry.findById(modeId);
+          if (modeDetails && modeDetails.price) {
+            transferPrice = parseFloat(modeDetails.price);
+            price += transferPrice;
 
-        } catch (error) {
-          logger.error(`Error fetching modeDetails for mode ${mode} with ID ${modeId}:`, error);
+            // Apply ferry markup
+            transferPrice += transferPrice * (settings.ferryMarkup / 100);
+          }
         }
       }
 
       totalPrice += transferPrice;
-      logger.info(`Added transport cost for city ${city.currentCity}: ${transferPrice}, Total Price Now: ${totalPrice}`);
     }
 
     // Add hotel prices if available
     for (const city of enrichedItinerary.itinerary) {
       if (city.hotelDetails && city.hotelDetails.price) {
         const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
-        totalPrice += hotelPrice;
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
+        price += hotelPrice;
+        totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
+        logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
     }
 
@@ -361,10 +368,20 @@ export const createItinerary = async (req, res) => {
     );
 
     const activityPrices = await Promise.all(activityPricesPromises);
+    price += activityPrices.reduce((acc, price) => acc + price, 0);
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
 
     // Apply the destination's markup to the total price
     totalPrice += totalPrice * (country.markup / 100);
+
+    const currentTotalPrice = totalPrice;
+
+    // Calculate and add 18% tax
+    const taxAmount = currentTotalPrice * 0.18; // 18% tax
+    totalPrice += taxAmount;
+
+    // Add service fee
+    totalPrice += settings.serviceFee;
     // Convert totalPrice to a string
     const totalPriceString = totalPrice.toFixed(2).toString();
 
@@ -378,6 +395,8 @@ export const createItinerary = async (req, res) => {
       rooms: rooms,
       travellingWith: travellingWith,
       totalPrice: totalPriceString,
+      currentTotalPrice: currentTotalPrice.toFixed(2),
+      totalPriceWithoutMarkup: price.toFixed(2)
     });
     await newItinerary.save();
 
@@ -417,7 +436,7 @@ export const createItinerary = async (req, res) => {
       .status(StatusCodes.OK)
       .json(
         httpFormatter(
-          { newItinerary, newLead, totalPersons }, 
+          { newItinerary, newLead, totalPersons },
           'Create Itinerary and Lead Successful'
         )
       );
@@ -451,7 +470,7 @@ export const getItineraryDetails = async (req, res) => {
       }
     }
 
-    console.log("destinationId",destinationId)
+    console.log("destinationId", destinationId)
 
     // Add destinationId to enrichedItinerary without altering the existing response structure
     if (destinationId) {
@@ -477,15 +496,15 @@ export const getFlightsInItinerary = async (req, res) => {
 
     // Extract flight IDs from the itinerary
     const flightIds = itinerary.enrichedItinerary.itinerary
-    .flatMap(city => {
-      return city.transport && city.transport.mode === "Flight"
-        ? [city.transport.modeDetails] // Return flight ID if transport is a flight
-        : []; // Return an empty array if not a flight
-    })
-    .filter(id => id !== null); // Filter out any null values
+      .flatMap(city => {
+        return city.transport && city.transport.mode === "Flight"
+          ? [city.transport.modeDetails] // Return flight ID if transport is a flight
+          : []; // Return an empty array if not a flight
+      })
+      .filter(id => id !== null); // Filter out any null values
     // Fetch flight details from the Flight collection
     const flights = await Flight.find({ _id: { $in: flightIds } });
-    
+
     return res.status(StatusCodes.OK).json(httpFormatter({ flights }, 'Flights retrieved successfully', true));
   } catch (error) {
     console.error('Error retrieving flights from itinerary:', error);
@@ -510,7 +529,7 @@ export const getHotelsInItinerary = async (req, res) => {
 
     // Fetch hotel details from the Hotel collection
     const hotels = await Hotel.find({ _id: { $in: hotelIds } });
-    
+
     return res.status(StatusCodes.OK).json(httpFormatter({ hotels }, 'Hotels retrieved successfully', true));
   } catch (error) {
     console.error('Error retrieving hotels from itinerary:', error);
@@ -629,16 +648,16 @@ export const getAllActivities = async (req, res) => {
 export const getAllActivitiesForHistory = async (req, res) => {
   try {
     const { historyId } = req.params;
-    
+
     // Find the itinerary by ID and extract all activity IDs
     const itinerary = await ItineraryVersion.findById(historyId).lean();
-   
+
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     // Extract all GPT activity IDs from the itinerary
-    
+
     const gptActivityIds = itinerary.enrichedItinerary.itinerary
       .flatMap(city => city.days)
       .flatMap(day => day.activities)
@@ -696,7 +715,7 @@ export const addDaysToCity = async (req, res) => {
 
     // Add new days to the city in the itinerary
     const city = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
-    
+
     // Ensure `cityId` is available for the city
     const cityId = city.cityId || (await City.findOne({ name: city.currentCity }).lean())._id;
 
@@ -945,26 +964,26 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       if (!city) {
         throw new Error('City object is null or undefined when trying to add travel activity.');
       }
-    
+
       // Ensure city.transport is properly initialized
       if (!city.transport) {
         city.transport = { mode: null, modeDetails: null };
       }
-    
+
       // Generate transport details using OpenAI
       const transportDetails = await generateTransportDetails({
         departureCity: fromCity,
         arrivalCity: toCity,
       });
-      
+
       const travelActivity = await generateTravelActivity(fromCity, toCity);
-    
+
       // Set transport details for the previous city
       previousCity.transport = {
         mode: transportDetails.mode,
         modeDetails: travelActivity._id,
       };
-    
+
       // Add travel activity to the first day of the city's itinerary
       city.days.unshift({
         day: 1,
@@ -1328,7 +1347,7 @@ export const replaceActivityInItinerary = async (req, res) => {
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
         },
-        comment: req.comment 
+        comment: req.comment
       }
     );
 
@@ -1337,7 +1356,7 @@ export const replaceActivityInItinerary = async (req, res) => {
       // Respond after price calculation
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
     });
-    
+
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -1347,7 +1366,7 @@ export const replaceActivityInItinerary = async (req, res) => {
 
 export const deleteActivityInItinerary = async (req, res) => {
   const { itineraryId, oldActivityId } = req.params;
-console.log(itineraryId,oldActivityId)
+  console.log(itineraryId, oldActivityId)
 
   try {
     // Fetch the itinerary
@@ -1361,15 +1380,15 @@ console.log(itineraryId,oldActivityId)
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
-console.log(oldActivityId)
+    console.log(oldActivityId)
     // Fetch the old activity from the GptActivity table
     const oldGptActivity = await GptActivity.findById(oldActivityId);
     if (!oldGptActivity) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
     }
 
- 
-    const newGptActivity_id =  await createLeisureActivityIfNotExist(oldGptActivity.cityId)
+
+    const newGptActivity_id = await createLeisureActivityIfNotExist(oldGptActivity.cityId)
 
     // Replace the old activity in the itinerary with the new GptActivity ID
     let activityReplaced = false; // To track if the activity was replaced
@@ -1398,7 +1417,7 @@ console.log(oldActivityId)
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
         },
-        comment: req.comment 
+        comment: req.comment
       }
     );
 
@@ -1407,7 +1426,7 @@ console.log(oldActivityId)
       // Respond after price calculation
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
     });
-    
+
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -1453,7 +1472,7 @@ export const changeTransportModeInCity = async (req, res) => {
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
         },
-        comment: req.comment 
+        comment: req.comment
       }
     );
 
@@ -1481,7 +1500,7 @@ export const replaceFlightInItinerary = async (req, res) => {
   }
 
 
-  console.log("details from frontend",itineraryId,modeDetailsId,selectedFlight)
+  console.log("details from frontend", itineraryId, modeDetailsId, selectedFlight)
   try {
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
@@ -1505,7 +1524,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     };
 
 
-   
+
 
 
     // Create the new flight
@@ -1522,16 +1541,16 @@ export const replaceFlightInItinerary = async (req, res) => {
         // Combine the departureDate with departureTime and arrivalTime to create a full date-time
         const departureDateTimeString = `${selectedFlight.departureDate} ${segment.departureTime}`;
         const arrivalDateTimeString = `${selectedFlight.departureDate} ${segment.arrivalTime}`;
-    
+
         // Create valid Date objects
         const departureTime = new Date(departureDateTimeString);
         const arrivalTime = new Date(arrivalDateTimeString);
-    
+
         // Validate that the dates are valid
         if (isNaN(departureTime.getTime()) || isNaN(arrivalTime.getTime())) {
           throw new Error("Invalid date format for departure or arrival time");
         }
-    
+
         return {
           departureTime,
           arrivalTime,
@@ -1552,11 +1571,11 @@ export const replaceFlightInItinerary = async (req, res) => {
         flightReplaced = true;
       }
     });
-    
+
     if (!flightReplaced) {
       return res.status(404).json({ message: 'Old flight not found in itinerary', success: false });
     }
-    
+
 
     // Delete the old flight from the Flight table
     await Flight.findByIdAndDelete(modeDetailsId);
@@ -1571,7 +1590,7 @@ export const replaceFlightInItinerary = async (req, res) => {
         changedBy: {
           userId: req.user.userId // Use req.user.userId directly for tracking the change
         },
-        comment: req.comment 
+        comment: req.comment
       }
     );
 
@@ -1689,22 +1708,22 @@ export const replaceHotelInItinerary = async (req, res) => {
 
 export const getTotalTripsByUsers = async (req, res) => {
   try {
-    console.log("Fetching total trips for users..."); 
+    console.log("Fetching total trips for users...");
 
     const itinerariesCount = await Itinerary.aggregate([
       {
         $group: {
-          _id: "$createdBy", 
-          totalTrips: { $sum: 1 } 
+          _id: "$createdBy",
+          totalTrips: { $sum: 1 }
         }
       }
     ]);
 
-    console.log("Aggregated itineraries count:", itinerariesCount); 
+    console.log("Aggregated itineraries count:", itinerariesCount);
 
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerariesCount }, 'Total trips counted successfully', true));
   } catch (error) {
-    console.error('Error counting itineraries by user:', error); 
+    console.error('Error counting itineraries by user:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
@@ -1751,28 +1770,28 @@ export const deleteItinerary = async (req, res) => {
 
     // Extract all Flight, Taxi, and Ferry IDs from the itinerary
     const flightIds = itinerary.enrichedItinerary.itinerary
-    .flatMap(city => {
-      return city.transport && city.transport.mode === "Flight"
-        ? [city.transport.modeDetails] // Return flight ID if transport is a flight
-        : []; // Return an empty array if not a flight
-    })
-    .filter(id => id !== null);
+      .flatMap(city => {
+        return city.transport && city.transport.mode === "Flight"
+          ? [city.transport.modeDetails] // Return flight ID if transport is a flight
+          : []; // Return an empty array if not a flight
+      })
+      .filter(id => id !== null);
 
     const taxiIds = itinerary.enrichedItinerary.itinerary
-    .flatMap(city => {
-      return city.transport && city.transport.mode === "Car"
-        ? [city.transport.modeDetails] 
-        : []; 
-    })
-    .filter(id => id !== null);
+      .flatMap(city => {
+        return city.transport && city.transport.mode === "Car"
+          ? [city.transport.modeDetails]
+          : [];
+      })
+      .filter(id => id !== null);
 
     const ferryIds = itinerary.enrichedItinerary.itinerary
-    .flatMap(city => {
-      return city.transport && city.transport.mode === "Ferry"
-        ? [city.transport.modeDetails] 
-        : []; 
-    })
-    .filter(id => id !== null);
+      .flatMap(city => {
+        return city.transport && city.transport.mode === "Ferry"
+          ? [city.transport.modeDetails]
+          : [];
+      })
+      .filter(id => id !== null);
 
     // Delete all associated GptActivities, Flights, Taxis, and Ferries
     await GptActivity.deleteMany({ _id: { $in: gptActivityIds } });
@@ -1847,12 +1866,12 @@ export const getItineraryHistories = async (req, res) => {
           }
         }
       }
-      
+
       return {
         comment: history.comment,
         createdAt: history.createdAt,
         changedBy: userName, // Return the username
-        historyId:history._id
+        historyId: history._id
       };
     }));
 
@@ -1900,7 +1919,7 @@ export const replaceCityInItinerary = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json(httpFormatter({}, `City '${newCity}' already exists in the itinerary`, false));
     }
-    
+
     // Find the new city by name to get its ObjectId
     const newCityData = await City.findOne({ name: newCity }).lean();
     if (!newCityData) {
