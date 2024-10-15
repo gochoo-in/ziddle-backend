@@ -20,7 +20,7 @@ const transportSchema = new mongoose.Schema({
     type: String,
     enum: ['Flight', 'Taxi', 'Ferry', null],
     required: false,
-    default:null
+    default: null
   }
 }, { _id: false });
 
@@ -63,8 +63,11 @@ const itinerarySchema = new mongoose.Schema({
   childrenAges: [{ type: Number, required: true }],
   rooms: { type: [roomSchema], required: true },
   travellingWith: { type: String, required: true },
-  totalPrice: { type: String, required: true, default: "0" } // Added totalPrice as a String
+  totalPrice: { type: String, required: true, default: "0" }, // Added totalPrice as a String
+  currentTotalPrice: { type: String, required: true, default: "0" }, // New field for current total price
+  totalPriceWithoutMarkup: { type: String, required: true, default: "0" } // New field for final total price
 }, { timestamps: true, versionKey: false });
+
 
 // Middleware to create a version before updating
 itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {
