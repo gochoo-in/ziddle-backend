@@ -22,7 +22,7 @@ router.post('/package/details', casbinMiddleware, addDetailsToAdminPackage);
 router.patch('/package/:adminPackageId/addDays/:cityIndex', casbinMiddleware, addDaysToAdminPackage);
 router.patch('/package/:adminPackageId/deleteDays/:cityIndex', casbinMiddleware, deleteDaysFromAdminPackage);
 router.patch('/package/:adminPackageId/toggleAdminPackageStatus', toggleAdminPackageActiveStatus);
-router.get('/package/activity/:gptActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
+router.get('/package/activity/:AdminPackageActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
 router.get('/package/:adminPackageId', casbinMiddleware, getAdminPackageById);
 router.get('/packages/category/:category', getAdminPackagesByCategory);
 

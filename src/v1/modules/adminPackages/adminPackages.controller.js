@@ -189,17 +189,17 @@ export const getAdminPackageActivityDetailsById = async (req, res) => {
   const { AdminPackageActivityId } = req.params;
 
   try {
-    const AdminPackageActivity = await AdminPackageActivity.findById(AdminPackageActivityId);
-    if (!AdminPackageActivity) {
+    const AdminPackageActivities = await AdminPackageActivity.findById(AdminPackageActivityId);
+    if (!AdminPackageActivities) {
       return res.status(404).json({ message: 'AdminPackageActivity not found' });
     }
 
-    const detailedActivity = await Activity.findOne({ name: AdminPackageActivity.name });
+    const detailedActivity = await Activity.findOne({ name: AdminPackageActivities.name });
 
     return res.status(200).json({
       message: 'AdminPackageActivity details retrieved successfully',
       data: {
-        AdminPackageActivity,
+        AdminPackageActivities,
         detailedActivity: detailedActivity || null,
       },
     });
