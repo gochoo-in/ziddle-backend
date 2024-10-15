@@ -509,3 +509,40 @@ export const getAdminPackagesByCategory = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const getAllAdminPackageActivities = async (req, res) => {
+  try {
+    const { packageId } = req.params;
+
+    const adminPackage = await AdminPackage.findById(packageId).select('cities.days.activities');
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    const activityIds = adminPackage.cities
+      .flatMap(city => city.days)
+      .flatMap(day => day.activities)
+      .filter(Boolean); 
+
+    const adminActivities = await AdminPackageActivity.find({ _id: { $in: activityIds } });
+
+    const activityNames = adminActivities.map(activity => activity.name);
+
+    const activityDetails = await Activity.find({ name: { $in: activityNames } });
+
+    const activityDetailsMap = activityDetails.reduce((acc, activity) => {
+      acc[activity.name] = activity;
+      return acc;
+    }, {});
+
+    const detailedActivities = adminActivities.map(activity => ({
+      activity,
+      detailedActivity: activityDetailsMap[activity.name] || null, 
+    }));
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ activities: detailedActivities }, 'Activities retrieved successfully', true));
+  } catch (error) {
+    console.error('Error retrieving activities from admin package:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};

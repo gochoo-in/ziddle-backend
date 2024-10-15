@@ -10,7 +10,8 @@ import {
   getAdminPackageById,
   toggleAdminPackageActiveStatus,
   getAdminPackagesByDestinationId,
-  getAdminPackagesByCategory
+  getAdminPackagesByCategory,
+  getAllAdminPackageActivities
 } from './adminPackages.controller.js';
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.patch('/package/:adminPackageId/toggleAdminPackageStatus', toggleAdminPac
 router.get('/package/activity/:AdminPackageActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
 router.get('/package/:adminPackageId', casbinMiddleware, getAdminPackageById);
 router.get('/packages/category/:category', getAdminPackagesByCategory);
+router.get('/package/:packageId/activities', getAllAdminPackageActivities )
 
 
 export default router;
