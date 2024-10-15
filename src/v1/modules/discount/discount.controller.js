@@ -219,3 +219,30 @@ export const getDiscounts = async (req, res) => {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+
+// Get discounts by destination ID
+export const getDiscountsByDestination = async (req, res) => {
+    try {
+        const { destinationId } = req.params;
+
+        // Check if destinationId is provided
+        if (!destinationId) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Destination ID is required', false));
+        }
+
+        // Find discounts associated with the given destination
+        const discounts = await Discount.find({ destination: destinationId });
+
+        // If no discounts found, return a message
+        if (discounts.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No discounts found for this destination', false));
+        }
+
+        // Return the found discounts
+        return res.status(StatusCodes.OK).json(httpFormatter({ data: discounts }, 'Discounts retrieved successfully', true));
+    } catch (error) {
+        logger.error('Error retrieving discounts by destination:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
