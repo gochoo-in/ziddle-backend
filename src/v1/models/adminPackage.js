@@ -98,7 +98,7 @@ const adminPackageSchema = new mongoose.Schema({
     default: true 
   },
   category: {
-    type: String,
+    type: [String],
     enum: ['AerialSports', 'MountainAdventures', 'WaterSports', 'OutdoorAdventures'],
     required: true
   }
