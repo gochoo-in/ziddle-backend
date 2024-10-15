@@ -546,3 +546,24 @@ export const getAllAdminPackageActivities = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+export const deleteAdminPackageById = async (req, res) => {
+  const { adminPackageId } = req.params; // Extract adminPackageId from params
+
+  try {
+    // Find the admin package by ID and remove it
+    const deletedPackage = await AdminPackage.findByIdAndDelete(adminPackageId);
+
+    if (!deletedPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Admin package deleted successfully',
+      deletedPackageId: deletedPackage._id,
+    });
+  } catch (error) {
+    console.error('Error deleting admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
