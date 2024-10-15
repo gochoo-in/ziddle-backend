@@ -1,13 +1,30 @@
 import express from 'express';
-import { createPackageTemplate , getFilteredPackages,updatePackageTemplate,deletePackageTemplate } from './adminPackages.controller.js';
+import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
+import { 
+  createBasicAdminPackage,
+  addDaysToAdminPackage,
+  deleteDaysFromAdminPackage,
+  getAllAdminPackages,
+  addDetailsToAdminPackage,
+  getAdminPackageActivityDetailsById,
+  getAdminPackageById,
+  toggleAdminPackageActiveStatus,
+  getAdminPackagesByDestinationId,
+  getAdminPackagesByCategory
+} from './adminPackages.controller.js';
 
 const router = express.Router();
 
-// Route to create a new package template
-router.post('/:employeeId/package', createPackageTemplate);
-router.get('/packages', getFilteredPackages);
-router.patch('/:employeeId/package/:packageId', updatePackageTemplate);
+router.get('/packages', getAllAdminPackages);
+router.get('/packages/destination/:destinationId', getAdminPackagesByDestinationId); 
+router.post('/package/basic', casbinMiddleware, createBasicAdminPackage);
+router.post('/package/details', casbinMiddleware, addDetailsToAdminPackage);
+router.patch('/package/:adminPackageId/addDays/:cityIndex', casbinMiddleware, addDaysToAdminPackage);
+router.patch('/package/:adminPackageId/deleteDays/:cityIndex', casbinMiddleware, deleteDaysFromAdminPackage);
+router.patch('/package/:adminPackageId/toggleAdminPackageStatus', toggleAdminPackageActiveStatus);
+router.get('/package/activity/:gptActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
+router.get('/package/:adminPackageId', casbinMiddleware, getAdminPackageById);
+router.get('/packages/category/:category', getAdminPackagesByCategory);
 
-router.delete('/:employeeId/package/:packageId', deletePackageTemplate);
 
 export default router;

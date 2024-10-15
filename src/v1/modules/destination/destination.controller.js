@@ -12,7 +12,7 @@ export const addDestination = async (req, res) => {
         const {
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude
+            latitude, longitude,markup
         } = req.body;
 
         // Validate required fields
@@ -67,7 +67,7 @@ export const addDestination = async (req, res) => {
         const data = await Destination.create({
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude
+            latitude, longitude,markup
         });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 

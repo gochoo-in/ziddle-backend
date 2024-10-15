@@ -1,5 +1,14 @@
 import mongoose from 'mongoose';
 
+
+const counterSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 }
+  });
+  
+  // Check if the 'Counter' model is already defined, and reuse it if it exists
+  const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
+
 const destinationSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -74,7 +83,38 @@ const destinationSchema = new mongoose.Schema({
     active:{
         type: Boolean,
         default: true
-    }
+    },
+    markup: {
+        type: Number,
+        required: true
+    },
+    smallId: {
+        type: String,
+        unique: true
+    },
 }, { timestamps: true, versionKey: false });
+
+destinationSchema.pre('save', async function (next) {
+    if (this.isNew) {
+        try {
+            // Find and increment the counter for 'destination' collection
+            const counter = await Counter.findByIdAndUpdate(
+                { _id: 'destination' },
+                { $inc: { seq: 1 } },
+                { new: true, upsert: true }  // Upsert in case counter doesn't exist
+            );
+
+            // Generate the smallId in the format 'D00001'
+            const sequenceNumber = String(counter.seq).padStart(5, '0'); // Pad with zeros to get 5 digits
+            this.smallId = `D${sequenceNumber}`;
+            
+            next();
+        } catch (err) {
+            next(err);
+        }
+    } else {
+        next();
+    }
+});
 
 export default mongoose.model('Destination', destinationSchema);

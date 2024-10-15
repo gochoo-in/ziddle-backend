@@ -14,14 +14,14 @@ export function settransformItinerary(itineraryData) {
                 delete city.transfer_duration;
                 delete city.transfer_cost_per_person_inr;
             }
-
             // Adjust activities within each city for a 1-hour gap and ensure chronological order
             city.days.forEach(day => {
+                console.log(day.activities)
                 // Sort activities by startTime in 12-hour format
                 day.activities.sort((a, b) => moment(a.startTime, 'hh:mm A') - moment(b.startTime, 'hh:mm A'));
             
                 let previousEndTime = null;
-            
+                // console.log("dataaa",parseFloat(activity.duration.split(' ')[0]))
                 day.activities.forEach(activity => {
                     const durationHours = parseFloat(activity.duration.split(' ')[0]);
                     const startTime = moment(activity.startTime, 'hh:mm A');
@@ -38,7 +38,7 @@ export function settransformItinerary(itineraryData) {
                             activity.endTime = newEndTime.format('hh:mm A');
                         }
             
-                        previousEndTime = moment(activity.endTime, 'hh:mm A');
+                        previousEndTime = moment(activity.endTime, 'hh:mm A'); 
                     } else {
                         const newEndTime = startTime.clone().add(durationHours, 'hours');
                         activity.endTime = newEndTime.format('hh:mm A');

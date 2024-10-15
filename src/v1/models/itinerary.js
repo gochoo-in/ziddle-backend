@@ -10,7 +10,7 @@ const activitySchema = new mongoose.Schema({
 
 // Transport Schema
 const transportSchema = new mongoose.Schema({
-  mode: { type: String, required: true, enum: ['Flight', 'Car', 'Ferry'] },
+  mode: { type: String, enum: ['Flight', 'Car', 'Ferry', null], required: false, default: null },
   modeDetails: {
     type: mongoose.Schema.Types.ObjectId,
     refPath: 'transport.modeDetailsModel',
@@ -18,7 +18,9 @@ const transportSchema = new mongoose.Schema({
   },
   modeDetailsModel: {
     type: String,
-    enum: ['Flight', 'Taxi', 'Ferry']
+    enum: ['Flight', 'Taxi', 'Ferry', null],
+    required: false,
+    default: null
   }
 }, { _id: false });
 
@@ -35,7 +37,7 @@ const itineraryDaySchema = new mongoose.Schema({
   nextCity: { type: String, default: null },
   stayDays: { type: Number, required: true },
   transport: { type: transportSchema, default: null },
-  transferCostPerPersonINR: { type: Number, default: null },
+  transferCostPerPersonINR: { type: String, default: null },
   transferDuration: { type: String, default: null },
   days: [activitySchema],
   hotelDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', default: null }
@@ -60,8 +62,12 @@ const itinerarySchema = new mongoose.Schema({
   children: { type: Number, required: true },
   childrenAges: [{ type: Number, required: true }],
   rooms: { type: [roomSchema], required: true },
-  travellingWith: { type: String, required: true }
+  travellingWith: { type: String, required: true },
+  totalPrice: { type: String, required: true, default: "0" }, // Added totalPrice as a String
+  currentTotalPrice: { type: String, required: true, default: "0" }, // New field for current total price
+  totalPriceWithoutMarkup: { type: String, required: true, default: "0" } // New field for final total price
 }, { timestamps: true, versionKey: false });
+
 
 // Middleware to create a version before updating
 itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {

@@ -1,152 +1,511 @@
-import PackageTemplate from '../../models/adminPackage.js';
+import AdminPackage from '../../models/adminPackage.js';
+import AdminPackageActivity from '../../models/adminPackageActivity.js';
+import Destination from '../../models/destination.js';
+import City from '../../models/city.js';
+import Activity from '../../models/activity.js';
+import Hotel from '../../models/hotel.js';
+import fetchHotelDetails from '../../services/hotelDetails.js';
+import mongoose from 'mongoose';
+import { addDatesToItinerary } from '../../../utils/dateUtils.js'; 
+import moment from 'moment'
+import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
-import logger from '../../../config/logger.js';
 
-// Create Package Template
-export const createPackageTemplate = async (req, res) => {
-    try {
-        const { employeeId } = req.params;
 
-        const {
-            destinationId,
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Added tripDuration
-        } = req.body;
+export const createBasicAdminPackage = async (req, res) => {
+  try {
+    const {
+      packageName,
+      description,
+      destinationId,
+      totalDays,
+      startDate,
+      startsAt,
+      endDate,
+      price,
+      createdBy,
+      category
+    } = req.body;
 
-        // Validate required fields
-        if (!templateName || !destinationId || !basePrice || !cityIds || !activityIds || !transportationIds || !packageType || !travelCompanion || !tripDuration) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
-        }
-
-        const packageTemplate = new PackageTemplate({
-            destinationId,
-            employeeId, // Employee ID from route parameters
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Ensure tripDuration is included in the package
-        });
-
-        const savedPackageTemplate = await packageTemplate.save();
-
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ savedPackageTemplate }, 'Package template created successfully', true));
-    } catch (error) {
-        logger.error('Error creating package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    const destination = await Destination.findById(destinationId);
+    if (!destination) {
+      return res.status(404).json({ message: 'Destination not found' });
     }
+
+    const newAdminPackage = new AdminPackage({
+      packageName,
+      description,
+      destination: destination._id,
+      totalDays,
+      startDate: startDate,
+      startsAt: startsAt,
+      endDate: endDate,
+      price,
+      createdBy,
+      category
+    });
+
+    const savedPackage = await newAdminPackage.save();
+
+    return res.status(201).json({
+      message: 'Basic admin package created successfully',
+      adminPackageId: savedPackage._id,
+    });
+  } catch (error) {
+    console.error('Error creating basic admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Get Filtered Packages
-export const getFilteredPackages = async (req, res) => {
-    try {
-        const { destinationId, minPrice, maxPrice, duration, hotelRating, travelCompanion, packageType, tripDuration } = req.query;
+export const addDetailsToAdminPackage = async (req, res) => {
+  try {
+    const { adminPackageId, cities } = req.body; 
 
-        const query = {};
-
-        if (destinationId) query.destinationId = destinationId;
-        if (minPrice && maxPrice) query.basePrice = { $gte: minPrice, $lte: maxPrice };
-        if (duration) query.duration = duration;
-        if (hotelRating) query.hotelRating = { $in: hotelRating.split(',').map(Number) };
-        if (packageType) query.packageType = packageType;
-        if (travelCompanion) query.travelCompanion = { $in: travelCompanion.split(',') };
-        if (tripDuration) query.tripDuration = tripDuration;  // Filter by tripDuration
-
-        const packages = await PackageTemplate.find(query);
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ packages }, 'Filtered packages fetched successfully', true));
-    } catch (error) {
-        logger.error('Error fetching filtered packages:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
     }
+
+    // Process each city and its details
+    const citiesWithDetails = await Promise.all(
+      cities.map(async (city, index) => {
+        const cityRecord = await City.findById(city.cityId);
+        if (!cityRecord) {
+          throw new Error(`City with ID ${city.cityId} not found`);
+        }
+
+        const updatedDays = [];
+        const normalActivities = await Promise.all(
+          city.days.map(async (day) => {
+            const processedActivities = await Promise.all(
+              day.activities.map(async ({ activityId, startTime, endTime }) => {
+                const activityDetails = await Activity.findById(activityId);
+                if (!activityDetails) {
+                  throw new Error(`Activity with ID ${activityId} not found`);
+                }
+
+                const newActivity = new AdminPackageActivity({
+                  name: activityDetails.name,
+                  duration: activityDetails.duration,
+                  category: activityDetails.category,
+                  cityId: city.cityId,
+                  startTime,
+                  endTime,
+                });
+
+                const savedActivity = await newActivity.save();
+                return savedActivity._id;
+              })
+            );
+
+            const dayEntry = {
+              // Only include date if startsAt exists
+              ...(adminPackage.startsAt ? { date: moment(day.date).format('YYYY-MM-DD') } : {}),
+              activities: processedActivities,
+            };
+
+            updatedDays.push(dayEntry);
+            return dayEntry;
+          })
+        );
+
+        // If not the first city, add travel activity
+        if (index > 0) {
+          const prevCity = await City.findById(cities[index - 1].cityId);
+          const travelActivity = new AdminPackageActivity({
+            name: `Travel from ${prevCity.name} to ${cityRecord.name}`,
+            duration: '3 hours', // Hardcoded duration
+            category: 'Travel',
+            cityId: city.cityId,
+            startTime: '09:00 AM', // Hardcoded start time
+            endTime: '12:00 PM',   // Hardcoded end time
+          });
+          const savedTravelActivity = await travelActivity.save();
+
+          updatedDays.unshift({
+            // Previous date for travel activity only if startsAt exists
+            ...(adminPackage.startsAt ? { date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            activities: [savedTravelActivity._id],
+          });
+        }
+
+        return {
+          city: city.cityId,
+          stayDays: updatedDays.length,
+          days: updatedDays,
+          transportToNextCity: {
+            mode: city.transportToNextCity.mode,
+          },
+          hotelDetails: null, // Placeholder, to be filled later
+        };
+      })
+    );
+
+    // Now that we have the base city details, we can proceed with adding hotel details.
+    let itineraryWithHotelDetails = {
+      itinerary: citiesWithDetails
+    };
+
+    const adults = 1; 
+    const childrenAges = [];
+    const rooms = 1;
+
+    itineraryWithHotelDetails = await addHotelDetailsToItinerary(
+      itineraryWithHotelDetails,
+      adults,
+      childrenAges,
+      rooms
+    );
+
+    const startsAt = adminPackage.startsAt;
+    const updatedItineraryData = startsAt 
+  ? addDatesToItinerary(itineraryWithHotelDetails, startsAt) 
+  : itineraryWithHotelDetails; 
+
+
+    let dayCounter = 1;
+    for (const city of updatedItineraryData.itinerary) {
+      for (const day of city.days) {
+        day.day = dayCounter++; 
+      }
+    }
+
+    adminPackage.cities = updatedItineraryData.itinerary;
+    await adminPackage.save();
+
+    return res.status(200).json({
+      message: 'Admin package updated with details and hotel information successfully',
+      adminPackage,
+    });
+  } catch (error) {
+    console.error('Error adding details to admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Update Package Template
-export const updatePackageTemplate = async (req, res) => {
-    try {
-        const { packageId } = req.params;
-        const {
-            destinationId,
-            templateName,
-            imageUrls,
-            duration,
-            basePrice,
-            hotelRating,
-            cityIds,
-            activityIds,
-            transportationIds,
-            isCustomizable,
-            packageType,
-            travelCompanion,
-            tripDuration  // Added tripDuration
-        } = req.body;
 
-        // Check if at least one field is provided for update
-        if (!destinationId && !templateName && !imageUrls && !duration && basePrice === undefined && hotelRating === undefined && !cityIds && !activityIds && !transportationIds && isCustomizable === undefined && !packageType && !travelCompanion && !tripDuration) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
-        }
+export const getAdminPackageActivityDetailsById = async (req, res) => {
+  const { AdminPackageActivityId } = req.params;
 
-        const packageTemplate = await PackageTemplate.findById(packageId);
-        if (!packageTemplate) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Package not found', false));
-        }
-
-        // Update fields if they are provided
-        if (destinationId) packageTemplate.destinationId = destinationId;
-        if (templateName) packageTemplate.templateName = templateName;
-        if (imageUrls) packageTemplate.imageUrls = imageUrls;
-        if (duration) packageTemplate.duration = duration;
-        if (basePrice !== undefined) packageTemplate.basePrice = basePrice;
-        if (hotelRating !== undefined) packageTemplate.hotelRating = hotelRating;
-        if (cityIds) packageTemplate.cityIds = cityIds;
-        if (activityIds) packageTemplate.activityIds = activityIds;
-        if (transportationIds) packageTemplate.transportationIds = transportationIds;
-        if (isCustomizable !== undefined) packageTemplate.isCustomizable = isCustomizable;
-        if (packageType) packageTemplate.packageType = packageType;
-        if (travelCompanion) packageTemplate.travelCompanion = travelCompanion;
-        if (tripDuration) packageTemplate.tripDuration = tripDuration;  // Update tripDuration
-
-        await packageTemplate.save();
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ packageTemplate }, 'Package template updated successfully', true));
-    } catch (error) {
-        logger.error('Error updating package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  try {
+    const AdminPackageActivity = await AdminPackageActivity.findById(AdminPackageActivityId);
+    if (!AdminPackageActivity) {
+      return res.status(404).json({ message: 'AdminPackageActivity not found' });
     }
+
+    const detailedActivity = await Activity.findOne({ name: AdminPackageActivity.name });
+
+    return res.status(200).json({
+      message: 'AdminPackageActivity details retrieved successfully',
+      data: {
+        AdminPackageActivity,
+        detailedActivity: detailedActivity || null,
+      },
+    });
+  } catch (error) {
+    console.error('Error retrieving AdminPackageActivity details:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// Delete Package Template
-export const deletePackageTemplate = async (req, res) => {
-    try {
-        const { packageId } = req.params;
+export const getAdminPackageById = async (req, res) => {
+  const { adminPackageId } = req.params;
 
-        const deletedPackage = await PackageTemplate.findByIdAndDelete(packageId);
+  try {
+    const adminPackage = await AdminPackage.findById(adminPackageId)
+      .populate({
+        path: 'cities.city',
+        select: '_id',
+      })
+      .populate({
+        path: 'cities.days.activities',
+        model: 'AdminPackageActivity',
+      })
+      .populate({
+        path: 'cities.hotelDetails',
+        model: 'Hotel',
+      });
 
-        if (!deletedPackage) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Package not found', false));
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({}, 'Package template deleted successfully', true));
-    } catch (error) {
-        logger.error('Error deleting package template:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
     }
+
+    const transformedCities = adminPackage.cities.map(city => ({
+      transportToNextCity: city.transportToNextCity,
+      hotelDetails: city.hotelDetails,
+      city: {
+        cityId: city.city._id,
+      },
+      stayDays: city.stayDays,
+      days: city.days.map(day => ({
+        day: day.day,
+        date: day.date,
+        activities: day.activities.map(activity => activity._id),
+      })),
+    }));
+
+    const response = {
+      startDate: adminPackage.startDate,
+      category: adminPackage.category,
+      startsAt: adminPackage.startsAt,
+      endDate: adminPackage.endDate,
+      id: adminPackage._id,
+      packageName: adminPackage.packageName,
+      description: adminPackage.description,
+      destination: adminPackage.destination,
+      totalDays: adminPackage.totalDays,
+      price: adminPackage.price,
+      cities: transformedCities,
+      imageUrls: adminPackage.imageUrls,
+      createdAt: adminPackage.createdAt,
+      updatedAt: adminPackage.updatedAt,
+      createdBy: adminPackage.createdBy, 
+    };
+    return res.status(200).json({
+      message: 'Admin package retrieved successfully',
+      data: response,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin package:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getAllAdminPackages = async (req, res) => {
+  try {
+    const { active } = req.query;
+
+    let query = {};
+
+    if (active === 'true') {
+      query.active = true;
+    } else if (active === 'false') {
+      query.active = false;
+    }
+
+    const adminPackages = await AdminPackage.find(query);
+
+    return res.status(200).json({
+      data: adminPackages,
+      message: 'Admin packages retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+export const toggleAdminPackageActiveStatus = async (req, res) => {
+  const { adminPackageId } = req.params;
+
+  try {
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    
+    if (!adminPackage) {
+      return res.status(404).json({ message: 'Admin package not found' });
+    }
+
+    adminPackage.active = !adminPackage.active;
+
+    await adminPackage.updateOne({ active: adminPackage.active }); 
+
+    return res.status(200).json({
+      success: true,
+      message: `Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`,
+      active: adminPackage.active,
+    });
+  } catch (error) {
+    console.error('Error toggling admin package status:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getAdminPackagesByDestinationId = async (req, res) => {
+  const { destinationId } = req.params; 
+
+  try {
+    const adminPackages = await AdminPackage.find({ destination: destinationId });
+
+    if (adminPackages.length === 0) {
+      return res.status(404).json({ message: 'No admin packages found for this destination' });
+    }
+
+    return res.status(200).json({
+      message: 'Admin packages retrieved successfully',
+      data: adminPackages,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages by destination ID:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+export const addDaysToAdminPackage = async (req, res) => {
+  const { adminPackageId, cityIndex } = req.params; // Extract adminPackageId and cityIndex from params
+  const { additionalDays } = req.body; // Expect additionalDays in the body
+
+  try {
+    // Fetch the admin package from the database
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    // Validate additionalDays
+    if (typeof additionalDays !== 'number' || additionalDays <= 0) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Additional days must be a positive number.', false));
+    }
+
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex);
+    if (isNaN(parsedCityIndex) || parsedCityIndex < 0 || parsedCityIndex >= adminPackage.cities.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
+
+    // Get the specified city from the admin package
+    const city = adminPackage.cities[parsedCityIndex];
+
+    // Use the city ObjectId directly
+    const cityId = city.city; // Assuming city.city holds the ObjectId for the city
+
+    // Determine the last date in the current days array
+    const lastDay = city.days[city.days.length - 1];
+    const lastDate = lastDay ? moment(lastDay.date) : moment(); // Default to now if no days exist
+
+    // Adding leisure activities for the new days
+    for (let i = 0; i < additionalDays; i++) {
+      const leisureActivity = await AdminPackageActivity.create({
+        name: 'Leisure',
+        startTime: '10:00 AM',
+        endTime: '5:00 PM',
+        duration: '7 hours',
+        timeStamp: 'All day',
+        category: 'Leisure',
+        cityId: cityId, // Use the fetched cityId directly
+      });
+
+      // Calculate the new date for the day
+      const newDate = lastDate.clone().add(i + 1, 'days'); // Increment the date by i + 1
+
+      city.days.push({
+        day: city.days.length + 1, // Set the day number
+        date: newDate.format('YYYY-MM-DD'), // Format the date to string
+        activities: [leisureActivity._id],
+      });
+    }
+
+    // Update the stayDays for this city
+    city.stayDays = city.days.length; // Adjust stayDays to the new total
+
+    // Update the admin package with the modified city details
+    adminPackage.cities[parsedCityIndex] = city;
+
+    // ** NEW CODE: Recalculate days and dates for the entire admin package **
+    let currentDayCount = 1; // Initialize day count for all cities
+    let currentDate = moment(adminPackage.startsAt); // Start from the package's start date
+
+    for (const city of adminPackage.cities) {
+      for (let i = 0; i < city.days.length; i++) {
+        city.days[i].day = currentDayCount; // Set the correct day number
+        city.days[i].date = currentDate.format('YYYY-MM-DD'); // Set the date based on currentDate
+        currentDayCount++; // Increment the day count for the next day
+        currentDate.add(1, 'days'); // Increment the date for the next day
+      }
+    }
+
+    // Update the total days for the admin package
+    adminPackage.totalDays = currentDayCount - 1; // Total days is one less than the final count
+
+    // Save the updated admin package in the database
+    const updatedPackage = await adminPackage.save(); // Save the updated admin package
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ updatedPackage }, 'Days added successfully', true));
+  } catch (error) {
+    console.error('Error adding days to admin package:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+
+export const deleteDaysFromAdminPackage = async (req, res) => {
+  const { adminPackageId, cityIndex } = req.params; // Get adminPackageId and cityIndex from params
+  const { daysToDelete } = req.body; // Expect daysToDelete in the body
+
+  try {
+    // Fetch the admin package from the database
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    // Validate city index
+    const parsedCityIndex = parseInt(cityIndex, 10);
+    if (isNaN(parsedCityIndex) || parsedCityIndex < 0 || parsedCityIndex >= adminPackage.cities.length) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid city index', false));
+    }
+
+    // Get the specified city from the admin package
+    const city = adminPackage.cities[parsedCityIndex];
+
+    // Prevent deletion of the first day
+    if (city.days.length < 2) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cannot delete the first day of the city. At least one day must remain.', false));
+    }
+
+    // Validate the number of days to delete
+    if (daysToDelete > city.days.length - 1) { // Only allow deleting days except the first
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cannot delete more days than available in the city (excluding the first day).', false));
+    }
+
+    // Remove the specified number of days from the end of the city's days array
+    city.days.splice(-daysToDelete, daysToDelete);
+
+    // Recalculate day numbers for remaining days in the city
+    city.days = city.days.map((day, index) => ({
+      ...day,
+      day: index + 1, // Update the day number
+    }));
+
+    // Update the stayDays property based on remaining days in the city
+    city.stayDays = city.days.length;
+
+    // Update the admin package with the modified city details
+    adminPackage.cities[parsedCityIndex] = city;
+
+    // Update total days for the admin package
+    adminPackage.totalDays = adminPackage.cities.reduce((total, city) => total + city.days.length, 0);
+
+    // Save the updated admin package in the database
+    await adminPackage.save();
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ adminPackage }, 'Days deleted successfully', true));
+  } catch (error) {
+    console.error('Error deleting days from admin package:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
+  }
+};
+
+
+export const getAdminPackagesByCategory = async (req, res) => {
+  const { category } = req.params; // Get the category from the request parameters
+
+  try {
+    // Find admin packages that match the specified category
+    const adminPackages = await AdminPackage.find({ category });
+
+    if (adminPackages.length === 0) {
+      return res.status(404).json({ message: 'No admin packages found for this category' });
+    }
+
+    return res.status(200).json({
+      message: 'Admin packages retrieved successfully',
+      data: adminPackages,
+    });
+  } catch (error) {
+    console.error('Error retrieving admin packages by category:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };

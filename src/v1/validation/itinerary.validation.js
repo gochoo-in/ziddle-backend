@@ -40,6 +40,30 @@ const activitySchema = Joi.object({
     }),
 });
 
+// Transport Schema
+const transportSchema = Joi.object({
+  mode: Joi.string()
+    .valid('Flight', 'Car', 'Ferry', null) 
+    .allow(null)
+    .messages({
+      'string.base': 'Transport mode must be a string',
+      'any.only': 'Transport mode must be Flight, Car, Ferry, or null',
+    }),
+  modeDetails: Joi.string()
+    .allow(null)
+    .messages({
+      'string.base': 'Mode details must be a string or null',
+    }),
+  modeDetailsModel: Joi.string()
+    .valid('Flight', 'Taxi', 'Ferry', null)
+    .allow(null)
+    .messages({
+      'string.base': 'Mode details model must be a string',
+      'any.only': 'Mode details model must be Flight, Taxi, Ferry, or null',
+    }),
+});
+
+
 // City Schema
 const citySchema = Joi.object({
   _id: Joi.string()
@@ -72,8 +96,12 @@ const citySchema = Joi.object({
       'array.items': 'Each activity must follow the defined schema',
       'any.required': 'Activities are required',
     }),
+  transport: transportSchema.allow(null).messages({
+    'object.base': 'Transport details must be a valid object',
+  }),
 });
 
+// Room Schema
 const roomSchema = Joi.object({
   adults: Joi.number()
     .integer()
@@ -102,7 +130,6 @@ const roomSchema = Joi.object({
       'array.items': 'Each child age must be a non-negative number',
     }),
 });
-
 
 // Itinerary Validation Schema
 const itineraryValidation = {
