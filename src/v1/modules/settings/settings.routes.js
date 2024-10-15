@@ -7,6 +7,6 @@ router.post('/', casbinMiddleware, addSettings);
 
 router.patch('/:id', casbinMiddleware, updateSettings); 
 
-router.get('/', casbinMiddleware, getSettings);
+router.get('/', getSettings);
 
 export default router;

@@ -84,15 +84,6 @@ export const applyDiscount = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
         }
 
-        // Check how many times this user has used the discount
-        const userUsageCount = await DiscountUsage.countDocuments({ userId, discountId });
-        console.log("User Usage Count for User ID", userId, ": ", userUsageCount); // Log user usage count
-
-        // Check user specific limit
-        if (discount.noOfUsesPerUser && userUsageCount >= discount.noOfUsesPerUser) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'User has exceeded the usage limit for this discount', false));
-        }
-
         // Check user type eligibility
         const isNewUser = !(await Itinerary.exists({ createdBy: user._id }));
         const isOldUser = await Itinerary.exists({ createdBy: user._id });
@@ -108,6 +99,22 @@ export const applyDiscount = async (req, res) => {
 
         if (!userTypeEligible) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'User is not eligible for this discount', false));
+        }
+
+        // Check total unique users who have used the discount
+        const uniqueUserIds = await DiscountUsage.distinct('userId', { discountId });
+        const uniqueUserCount = uniqueUserIds.length;
+
+        // Check how many times this user has used the discount
+        const userUsageCount = await DiscountUsage.countDocuments({ userId, discountId });
+
+        // Check limits
+        if (uniqueUserCount >= discount.noOfUsersTotal && userUsageCount === 0) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'The discount has reached its maximum usage limit for users', false));
+        }
+
+        if (userUsageCount >= discount.noOfUsesPerUser) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'User has exceeded the usage limit for this discount', false));
         }
 
         // Calculate the discount amount
@@ -132,7 +139,6 @@ export const applyDiscount = async (req, res) => {
 
         // Log total usage for all users
         const totalUsageCount = await DiscountUsage.countDocuments({ discountId });
-        console.log("Total usage count for Discount ID", discountId, ": ", totalUsageCount); // Log total usage count
 
         return res.status(StatusCodes.OK).json(httpFormatter({ discount: discountAmount }, 'Discount applied successfully', true));
     } catch (error) {
@@ -140,7 +146,6 @@ export const applyDiscount = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
-
 
 
 
