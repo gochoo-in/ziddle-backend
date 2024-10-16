@@ -101,7 +101,11 @@ export const createItinerary = async (req, res) => {
         .json(httpFormatter({}, 'Invalid country ID.', false));
     }
 
-    const discount = await Discount.findOne({ destination: countryId}).sort({ createdAt: -1 });
+    const discount = await Discount.findOne({
+      destination: countryId,
+      discountType: 'couponless' 
+    }).sort({ createdAt: -1 });
+    
 
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
