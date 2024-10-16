@@ -332,3 +332,49 @@ export const getDiscountsByDestination = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+export const toggleArchivedStatus = async (req, res) => {
+    const {id} = req.params; // Get the discount ID from the URL
+
+    try {
+        // Find the discount by ID
+        const discount = await Discount.findById(id);
+        
+        // Check if the discount exists
+        if (!discount) {
+            return res.status(404).json({ message: 'Discount not found' });
+        }
+
+        // Toggle the archived value
+        discount.archived = !discount.archived; 
+
+        // Save the updated discount
+        await discount.save();
+
+        // Send back the updated discount
+        res.status(200).json(discount);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+export const toggleActiveStatus = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const discount = await Discount.findById(id);
+        if (!discount) {
+            return res.status(404).json({ message: 'Discount not found' });
+        }
+
+        // Toggle the active status
+        discount.active = !discount.active;
+        await discount.save();
+
+        res.status(200).json({ message: 'Active status updated', discount });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
