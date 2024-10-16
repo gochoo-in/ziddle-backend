@@ -57,6 +57,92 @@ export const addDiscount = async (req, res) => {
     }
 };
 
+export const applyDiscountFunction = async (payload, res) => {
+    try {
+        const { userId, discountId, totalAmount } = payload;
+
+        // Validate input
+        if (!userId || !discountId || totalAmount === undefined) {
+            return  'User ID, discount ID, and total amount are required'
+        }
+
+        // Find the discount by ID
+        const discount = await Discount.findById(discountId);
+        if (!discount) {
+            return  'Discount not found'
+        }
+
+        // Check if the discount is active
+        if (!discount.active) {
+            return 'This discount is not active'
+        }
+
+        // Check if this user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return 'User not found'
+        }
+
+        // Check user type eligibility
+        const isNewUser = !(await Itinerary.exists({ createdBy: user._id }));
+        const isOldUser = await Itinerary.exists({ createdBy: user._id });
+
+        let userTypeEligible = false;
+        if (discount.userType === 'all') {
+            userTypeEligible = true; // All users are eligible
+        } else if (discount.userType === 'new users') {
+            userTypeEligible = isNewUser; // Eligible if no itineraries exist
+        } else if (discount.userType === 'old users') {
+            userTypeEligible = isOldUser; // Eligible if at least one itinerary exists
+        }
+
+        if (!userTypeEligible) {
+            return 'User is not eligible for this discount'
+        }
+
+        // Check total unique users who have used the discount
+        const uniqueUserIds = await DiscountUsage.distinct('userId', { discountId });
+        const uniqueUserCount = uniqueUserIds.length;
+
+        // Check how many times this user has used the discount
+        const userUsageCount = await DiscountUsage.countDocuments({ userId, discountId });
+
+        // Check limits
+        if (uniqueUserCount >= discount.noOfUsersTotal && userUsageCount === 0) {
+            return 'The discount has reached its maximum usage limit for users'
+        }
+
+        if (userUsageCount >= discount.noOfUsesPerUser) {
+            return 'User has exceeded the usage limit for this discount'
+        }
+
+        // Calculate the discount amount
+        let discountAmount;
+        if (discount.maxDiscount) {
+            discountAmount = (totalAmount * discount.discountPercentage) / 100;
+            // Ensure discountAmount does not exceed maxDiscount if it's defined
+            if (discountAmount > discount.maxDiscount) {
+                discountAmount = discount.maxDiscount;
+            }
+        } else {
+            discountAmount = (totalAmount * discount.discountPercentage) / 100; // Default calculation
+        }
+
+        // Record the discount usage
+        const discountUsage = new DiscountUsage({
+            userId,
+            discountId,
+        });
+        await discountUsage.save();
+
+        // Return the calculated discount amount
+        return discountAmount
+    } catch (error) {
+        logger.error('Error applying discount:', error);
+        return error
+    }
+};
+
 
 export const applyDiscount = async (req, res) => {
     try {

@@ -31,11 +31,13 @@ import User from '../../models/user.js';
 import { generateTransportDetails } from '../../services/gptTransfer.js';
 import { calculateTotalPriceMiddleware } from '../../../utils/calculateCostMiddleware.js';
 import Settings from '../../models/settings.js'
-
+import axios from 'axios';
+import Discount from '../../models/discount.js'; 
+import { applyDiscountFunction } from '../discount/discount.controller.js';
 
 export const createItinerary = async (req, res) => {
   try {
-    const userId = req.user?.userId;
+    var userId = req.user?.userId;
 
     if (!userId) {
       return res
@@ -98,6 +100,8 @@ export const createItinerary = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json(httpFormatter({}, 'Invalid country ID.', false));
     }
+
+    const discount = await Discount.findOne({ destination: countryId}).sort({ createdAt: -1 });
 
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
@@ -286,8 +290,8 @@ export const createItinerary = async (req, res) => {
 
     // Sum up the prices from flights, hotels, and activities
     let totalPrice = 0;
+    let priceWithoutCoupon = 0;
     let price = 0;
-
     const settings = await Settings.findOne();
     if (!settings) {
       return res.status(404).json({ message: 'Settings not found' });
@@ -295,6 +299,7 @@ export const createItinerary = async (req, res) => {
     // Add transport prices if available from modeDetails
     for (const city of enrichedItinerary.itinerary) {
       let transferPrice = 0;
+      let transferPriceWithoutCoupon = 0;
 
       if (city.transport && city.transport.mode && city.transport.modeDetails) {
         const modeId = city.transport.modeDetails;
@@ -306,19 +311,33 @@ export const createItinerary = async (req, res) => {
           modeDetails = await Flight.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
-            // Apply flight markup
             price += transferPrice;
             transferPrice += transferPrice * (settings.flightMarkup / 100);
+            transferPriceWithoutCoupon = transferPrice;
+
+            // Apply flight markup
+            
+            if(discount.discountType === 'couponless' && discount.applicableOn.flights===true)
+              {
+                let response = await applyDiscountFunction({
+                  discountId: discount._id,
+                  userId: userId,
+                  totalAmount: transferPrice
+                });
+                transferPrice -= response
+              }
+            
           }
-        } else if (mode === 'Car') {
+        } if (mode === 'Car') {
           modeDetails = await Taxi.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
             price += transferPrice;
             // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
+            transferPriceWithoutCoupon = transferPrice
           }
-        } else if (mode === 'Ferry') {
+        } if (mode === 'Ferry') {
           modeDetails = await Ferry.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
@@ -326,11 +345,13 @@ export const createItinerary = async (req, res) => {
 
             // Apply ferry markup
             transferPrice += transferPrice * (settings.ferryMarkup / 100);
+            transferPriceWithoutCoupon = transferPrice
           }
         }
       }
 
       totalPrice += transferPrice;
+      priceWithoutCoupon += transferPriceWithoutCoupon;
     }
 
     // Add hotel prices if available
@@ -338,13 +359,43 @@ export const createItinerary = async (req, res) => {
       if (city.hotelDetails && city.hotelDetails.price) {
         const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
+        priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
+        
+
         price += hotelPrice;
+        if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
+          {
+            let response = await applyDiscountFunction({
+              discountId: discount._id,
+              userId: userId,
+              totalAmount: hotelPrice
+            });
+            hotelPrice -= response
+          }
         totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
     }
-
-    // Calculate total activity prices
+    const activityPricesPromisesWithoutCoupon = enrichedItinerary.itinerary.flatMap(city =>
+      city.days.flatMap(day =>
+        day.activities.map(async (activityId) => {
+          const gptActivity = await GptActivity.findById(activityId);
+          if (gptActivity) {
+            const originalActivity = await Activity.findOne({ name: gptActivity.name });
+            if (originalActivity && originalActivity.price) {
+              const activityPricePerPerson = parseFloat(originalActivity.price);
+              let totalActivityPrice = activityPricePerPerson * (adults + children); 
+              return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
+            } else {
+              return 0;
+              logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
+              return 0;
+            }
+          }
+          return 0;
+        })
+      )
+    );
     const activityPricesPromises = enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
         day.activities.map(async (activityId) => {
@@ -353,8 +404,16 @@ export const createItinerary = async (req, res) => {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
-              const totalActivityPrice = activityPricePerPerson * (adults + children); // Multiply by both adults and children
-
+              let totalActivityPrice = activityPricePerPerson * (adults + children); 
+              if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
+                {
+                  let response = await applyDiscountFunction({
+                    discountId: discount._id,
+                    userId: userId,
+                    totalAmount: totalActivityPrice
+                  });
+                  totalActivityPrice -= response
+                }
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               return 0;
@@ -368,22 +427,35 @@ export const createItinerary = async (req, res) => {
     );
 
     const activityPrices = await Promise.all(activityPricesPromises);
+    const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     price += activityPrices.reduce((acc, price) => acc + price, 0);
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
-
-    // Apply the destination's markup to the total price
+    priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
+    priceWithoutCoupon += priceWithoutCoupon  * (country.markup / 100);
     totalPrice += totalPrice * (country.markup / 100);
+    if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
+      {
+        let response = await applyDiscountFunction({
+          discountId: discount._id,
+          userId: userId,
+          totalAmount: totalPrice
+        });
+        totalPrice -= response
+      }
+    // Apply the destination's markup to the total price
+    
 
-    const currentTotalPrice = totalPrice;
-
+    let currentTotalPrice = priceWithoutCoupon;
+    const disc = currentTotalPrice - totalPrice;
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
-    totalPrice += taxAmount;
+    
+    currentTotalPrice += taxAmount;
 
     // Add service fee
-    totalPrice += settings.serviceFee;
+    currentTotalPrice += settings.serviceFee;
+    currentTotalPrice -=disc;
     // Convert totalPrice to a string
-    const totalPriceString = totalPrice.toFixed(2).toString();
 
     // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
@@ -394,9 +466,10 @@ export const createItinerary = async (req, res) => {
       childrenAges: childrenAges,
       rooms: rooms,
       travellingWith: travellingWith,
-      totalPrice: totalPriceString,
+      totalPrice: totalPrice.toFixed(2),
       currentTotalPrice: currentTotalPrice.toFixed(2),
-      totalPriceWithoutMarkup: price.toFixed(2)
+      totalPriceWithoutMarkup: price.toFixed(2),
+      couponlessDiscount: disc.toFixed(2)
     });
     await newItinerary.save();
 
@@ -470,7 +543,6 @@ export const getItineraryDetails = async (req, res) => {
       }
     }
 
-    console.log("destinationId", destinationId)
 
     // Add destinationId to enrichedItinerary without altering the existing response structure
     if (destinationId) {
@@ -1301,10 +1373,8 @@ export const replaceActivityInItinerary = async (req, res) => {
     // Extract the first number from newActivity.duration (e.g., "7 hours", "3-5 hours")
     const durationMatch = newActivity.duration.match(/\d+/);
     const durationInHours = durationMatch ? Number(durationMatch[0]) : 4; // Default to 1 hour if no match
-    console.log(startDate);
     // Add the duration to the start time
     const endDate = new Date(startDate.getTime() + durationInHours * 60 * 60000);
-    console.log(endDate);
     // Format the end time to "10:00 AM" format
     const endTime = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
 
@@ -1366,7 +1436,6 @@ export const replaceActivityInItinerary = async (req, res) => {
 
 export const deleteActivityInItinerary = async (req, res) => {
   const { itineraryId, oldActivityId } = req.params;
-  console.log(itineraryId, oldActivityId)
 
   try {
     // Fetch the itinerary
@@ -1380,7 +1449,6 @@ export const deleteActivityInItinerary = async (req, res) => {
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
-    console.log(oldActivityId)
     // Fetch the old activity from the GptActivity table
     const oldGptActivity = await GptActivity.findById(oldActivityId);
     if (!oldGptActivity) {
@@ -1500,7 +1568,6 @@ export const replaceFlightInItinerary = async (req, res) => {
   }
 
 
-  console.log("details from frontend", itineraryId, modeDetailsId, selectedFlight)
   try {
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
@@ -1708,7 +1775,6 @@ export const replaceHotelInItinerary = async (req, res) => {
 
 export const getTotalTripsByUsers = async (req, res) => {
   try {
-    console.log("Fetching total trips for users...");
 
     const itinerariesCount = await Itinerary.aggregate([
       {
@@ -1719,7 +1785,6 @@ export const getTotalTripsByUsers = async (req, res) => {
       }
     ]);
 
-    console.log("Aggregated itineraries count:", itinerariesCount);
 
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerariesCount }, 'Total trips counted successfully', true));
   } catch (error) {

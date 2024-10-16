@@ -27,7 +27,7 @@ export const getCasbinEnforcer = async () => {
 
         return enforcer;
     } catch (error) {
-        logger.error('Error creating Casbin enforcer or loading policy', { error: error.message });
+        logger.error('Error creating Casbin enforcer or loading policy', { error: error });
         throw new Error('Failed to create Casbin enforcer');
     }
 };

@@ -19,7 +19,7 @@ router.post('/apply', applyDiscount);
 
 router.get('/', casbinMiddleware, getAllDiscounts);
 
-router.get('/:id?', casbinMiddleware, getDiscounts);
+router.get('/:id', casbinMiddleware, getDiscounts);
 
 router.get('/destination/:destinationId', getDiscountsByDestination);
 
