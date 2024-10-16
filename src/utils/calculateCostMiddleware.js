@@ -35,6 +35,12 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     let priceWithoutCoupon = 0;
     let price = 0;
 
+    // Initialize total price variables for different transport modes and hotels
+    let totalFlightsPrice = 0;
+    let totalTaxisPrice = 0;
+    let totalFerriesPrice = 0;
+    let totalHotelsPrice = 0;
+
     // Fetch settings to access markup values and service fee
     const settings = await Settings.findOne();
     if (!settings) {
@@ -56,41 +62,40 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
           modeDetails = await Flight.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
+            totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100); // Include markup
             price += transferPrice;
             transferPrice += transferPrice * (settings.flightMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
 
             // Apply flight markup
-            
-            if(discount.discountType === 'couponless' && discount.applicableOn.flights===true)
-              {
-                let response = await applyDiscountFunction({
-                  discountId: discount._id,
-                  userId: userId,
-                  totalAmount: transferPrice
-                });
-                transferPrice -= response
-              }
-            
+            if (discount.discountType === 'couponless' && discount.applicableOn.flights === true) {
+              let response = await applyDiscountFunction({
+                discountId: discount._id,
+                userId: userId,
+                totalAmount: transferPrice
+              });
+              transferPrice -= response;
+            }
           }
-        } if (mode === 'Car') {
+        } else if (mode === 'Car') {
           modeDetails = await Taxi.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
+            totalTaxisPrice += transferPrice * (1 + settings.taxiMarkup / 100); // Include markup
             price += transferPrice;
             // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
-            transferPriceWithoutCoupon = transferPrice
+            transferPriceWithoutCoupon = transferPrice;
           }
-        } if (mode === 'Ferry') {
+        } else if (mode === 'Ferry') {
           modeDetails = await Ferry.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
+            totalFerriesPrice += transferPrice * (1 + settings.ferryMarkup / 100); // Include markup
             price += transferPrice;
-
             // Apply ferry markup
             transferPrice += transferPrice * (settings.ferryMarkup / 100);
-            transferPriceWithoutCoupon = transferPrice
+            transferPriceWithoutCoupon = transferPrice;
           }
         }
       }
@@ -109,21 +114,20 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
 
           // Calculate total hotel price for this city
           const totalHotelPrice = hotelPricePerNight * stayDays;
+          totalHotelsPrice += totalHotelPrice * (1 + settings.stayMarkup / 100); // Include markup
           priceWithoutCoupon += totalHotelPrice + (totalHotelPrice * (settings.stayMarkup / 100));
           price += totalHotelPrice;
 
           // Apply stay markup
-          
-          if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
-            {
-              let response = await applyDiscountFunction({
-                discountId: discount._id,
-                userId: userId,
-                totalAmount: totalHotelPrice
-              });
-              totalHotelPrice -= response
-            }
-          totalPrice += totalHotelPrice + (totalHotelPrice * (settings.stayMarkup / 100));; // Add to the overall total price
+          if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
+            let response = await applyDiscountFunction({
+              discountId: discount._id,
+              userId: userId,
+              totalAmount: totalHotelPrice
+            });
+            totalHotelPrice -= response;
+          }
+          totalPrice += totalHotelPrice + (totalHotelPrice * (settings.stayMarkup / 100)); // Add to the overall total price
         }
       }
     }
@@ -191,18 +195,19 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       priceWithoutCoupon += priceWithoutCoupon * (destination.markup / 100);
     }
 
-    if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
-      {
-        let response = await applyDiscountFunction({
-          discountId: discount._id,
-          userId: userId,
-          totalAmount: totalPrice
-        });
-        totalPrice -= response
-      }
+    if (discount.discountType === 'couponless' && discount.applicableOn.package === true) {
+      let response = await applyDiscountFunction({
+        discountId: discount._id,
+        userId: userId,
+        totalAmount: totalPrice
+      });
+      totalPrice -= response;
+    }
+
     // Store current total price before tax and service fee
     let currentTotalPrice = priceWithoutCoupon;
     const disc = currentTotalPrice - totalPrice;
+
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
     
@@ -210,7 +215,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
 
     // Add service fee
     currentTotalPrice += settings.serviceFee;
-    currentTotalPrice -=disc;
+    currentTotalPrice -= disc;
 
     // Store both current total price and final total price in the itinerary
     itinerary.currentTotalPrice = currentTotalPrice.toFixed(2);
@@ -218,15 +223,23 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
 
     // Update the total price in the itinerary
     itinerary.totalPrice = totalPrice.toFixed(2);
-    itinerary.couponlessDiscount = disc.toFixed(2)
+    itinerary.couponlessDiscount = disc.toFixed(2);
+
+    // Storing totals for transport and hotels
+    itinerary.totalFlightsPrice = totalFlightsPrice.toFixed(2);
+    itinerary.totalTaxisPrice = totalTaxisPrice.toFixed(2);
+    itinerary.totalFerriesPrice = totalFerriesPrice.toFixed(2);
+    itinerary.totalHotelsPrice = totalHotelsPrice.toFixed(2);
+    
     await itinerary.save();
 
     next();
   } catch (error) {
     console.error('Error calculating total price:', error);
-    res.status(500).json({ message: 'Error calculating total price' });
+    res.status(500).json({ message: 'Error calculating total price', error });
   }
 };
+
 
 export const recalculateTotalPriceForItinerary = async (itinerary) => {
   try {

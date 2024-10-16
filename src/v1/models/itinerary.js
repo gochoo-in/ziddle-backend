@@ -66,7 +66,11 @@ const itinerarySchema = new mongoose.Schema({
   totalPrice: { type: String, required: true, default: "0" }, // Added totalPrice as a String
   currentTotalPrice: { type: String, required: true, default: "0" }, // New field for current total price
   totalPriceWithoutMarkup: { type: String, required: true, default: "0" }, // New field for final total price
-  couponlessDiscount: { type: String, required: true, default: "0"}
+  couponlessDiscount: { type: String, required: true, default: "0"},
+  totalFlightsPrice: { type: String, required: true, default: "0" }, 
+  totalFerriesPrice: { type: String, required: true, default: "0" }, 
+  totalTaxisPrice: { type: String, required: true, default: "0" }, 
+  totalHotelsPrice: { type: String, required: true, default: "0" }
 }, { timestamps: true, versionKey: false });
 
 

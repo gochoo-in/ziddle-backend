@@ -65,7 +65,7 @@ const discountSchema = new mongoose.Schema({
     usedByUsers: [{ 
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
     }]
-});
+}, { timestamps: true, versionKey: false });
 
 // Middleware to set destinations based on user input
 discountSchema.pre('save', async function(next) {

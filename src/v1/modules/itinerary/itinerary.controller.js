@@ -106,7 +106,7 @@ export const createItinerary = async (req, res) => {
       discountType: 'couponless' 
     }).sort({ createdAt: -1 });
     
-
+    console.log("disc",discount)
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
 
@@ -296,6 +296,10 @@ export const createItinerary = async (req, res) => {
     let totalPrice = 0;
     let priceWithoutCoupon = 0;
     let price = 0;
+    let totalFlightsPrice = 0;
+    let totalTaxisPrice = 0;
+    let totalFerriesPrice = 0;
+    let totalHotelsPrice = 0;
     const settings = await Settings.findOne();
     if (!settings) {
       return res.status(404).json({ message: 'Settings not found' });
@@ -316,6 +320,7 @@ export const createItinerary = async (req, res) => {
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
             price += transferPrice;
+            totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100); 
             transferPrice += transferPrice * (settings.flightMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
 
@@ -328,6 +333,7 @@ export const createItinerary = async (req, res) => {
                   userId: userId,
                   totalAmount: transferPrice
                 });
+                console.log("resp", response)
                 transferPrice -= response
               }
             
@@ -336,6 +342,7 @@ export const createItinerary = async (req, res) => {
           modeDetails = await Taxi.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
+            totalTaxisPrice += transferPrice * (1 + settings.taxiMarkup / 100); 
             price += transferPrice;
             // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
@@ -345,6 +352,7 @@ export const createItinerary = async (req, res) => {
           modeDetails = await Ferry.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
+            totalFerriesPrice += transferPrice * (1 + settings.ferryMarkup / 100);
             price += transferPrice;
 
             // Apply ferry markup
@@ -362,6 +370,7 @@ export const createItinerary = async (req, res) => {
     for (const city of enrichedItinerary.itinerary) {
       if (city.hotelDetails && city.hotelDetails.price) {
         const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
+        totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
         priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         
@@ -473,7 +482,11 @@ export const createItinerary = async (req, res) => {
       totalPrice: totalPrice.toFixed(2),
       currentTotalPrice: currentTotalPrice.toFixed(2),
       totalPriceWithoutMarkup: price.toFixed(2),
-      couponlessDiscount: disc.toFixed(2)
+      couponlessDiscount: disc.toFixed(2),
+      totalFlightsPrice: totalFlightsPrice.toFixed(2),
+      totalHotelsPrice: totalHotelsPrice.toFixed(2),
+      totalFerriesPrice: totalFerriesPrice.toFixed(2),
+      totalTaxisPrice: totalTaxisPrice.toFixed(2)
     });
     await newItinerary.save();
 
