@@ -212,3 +212,33 @@ export const updateEmployee = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
+
+
+export const togglestatus = async (req, res) => {
+  const { employeeId } = req.params;
+
+  try {
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Toggle the blocked status if the request body has the blocked field
+    if (req.body.hasOwnProperty('blocked')) {
+      employee.blocked = !employee.blocked; // Toggle blocked status
+    }
+
+
+
+    // Save the updated employee document
+    await employee.save();
+
+    res.status(200).json({ message: 'Employee updated successfully', employee });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
