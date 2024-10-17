@@ -335,7 +335,6 @@ export const createItinerary = async (req, res) => {
                   userId: userId,
                   totalAmount: transferPrice
                 });
-                console.log("resp", response)
                 transferPrice -= response
               }
             
@@ -491,7 +490,8 @@ export const createItinerary = async (req, res) => {
       totalHotelsPrice: totalHotelsPrice.toFixed(2),
       totalFerriesPrice: totalFerriesPrice.toFixed(2),
       totalTaxisPrice: totalTaxisPrice.toFixed(2),
-      totalActivitiesPrice: totalActivitiesPrice.toFixed(2)
+      totalActivitiesPrice: totalActivitiesPrice.toFixed(2),
+      discounts: [discount?discount._id: '']
     });
     await newItinerary.save();
 
@@ -2285,7 +2285,6 @@ export const addGeneralCoupon = async (req, res) => {
           userId: userId,
           totalAmount: itinerary.totalFlightsPrice
         });
-        console.log("resp", response);
         
         // Adjust the total price of the itinerary
         const beforeDiscount = itinerary.totalPrice;
@@ -2293,7 +2292,7 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = itinerary.totalPrice - itinerary.totalFlightsPrice + (itinerary.totalFlightsPrice - response);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-  
+        itinerary.discounts.push(discountId)
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2306,7 +2305,6 @@ export const addGeneralCoupon = async (req, res) => {
           userId: userId,
           totalAmount: itinerary.totalHotelsPrice
         });
-        console.log("resp", response);
         
         // Adjust the total price of the itinerary
         const beforeDiscount = itinerary.totalPrice;
@@ -2314,6 +2312,7 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+        itinerary.discounts.push(discountId)
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2326,13 +2325,13 @@ export const addGeneralCoupon = async (req, res) => {
           userId: userId,
           totalAmount: itinerary.totalActivitiesPrice
         });
-        console.log("resp", response);
         const beforeDiscount = itinerary.totalPrice;
         // Adjust the total price of the itinerary
         const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalActivitiesPrice + (itinerary.totalActivitiesPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice = (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+        itinerary.discounts.push(discountId)
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2352,6 +2351,7 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalPrice + (itinerary.totalPrice - response)).toFixed(2);
         itinerary.generalDiscount = (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+        itinerary.discounts.push(discountId)
   
         // Save the updated itinerary
         await itinerary.save();

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import ItineraryVersion from './itineraryVersion.js'; // Import ItineraryVersion model
+import Discount from './discount.js';
+import User from './user.js';
 
 // Activity Schema
 const activitySchema = new mongoose.Schema({
@@ -72,7 +74,8 @@ const itinerarySchema = new mongoose.Schema({
   totalTaxisPrice: { type: String, required: true, default: "0" }, 
   totalHotelsPrice: { type: String, required: true, default: "0" },
   totalActivitiesPrice: { type: String, required: true, default: "0" },
-  generalDiscount: { type: String, reuired: true, default: "0" }
+  generalDiscount: { type: String, reuired: true, default: "0" },
+  discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }]
 }, { timestamps: true, versionKey: false });
 
 
