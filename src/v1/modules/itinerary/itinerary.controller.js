@@ -35,10 +35,11 @@ import axios from 'axios';
 import Discount from '../../models/discount.js'; 
 import { applyDiscountFunction } from '../discount/discount.controller.js';
 
+
 export const createItinerary = async (req, res) => {
   try {
     var userId = req.user?.userId;
-
+    console.log("user",userId)
     if (!userId) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -2252,5 +2253,117 @@ export const getItineraryHistoryById = async (req, res) => {
   } catch (error) {
     console.error('Error retrieving itinerary history:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+export const addGeneralCoupon = async (req, res) => {
+  try {
+    const { itineraryId, discountId } = req.params;
+    const userId = req.user.userId;
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(404).json({ message: 'Settings not found' });
+    }
+
+    // Fetch the itinerary using the itineraryId
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(404).json({ message: "Itinerary not found" });
+    }
+
+    // Fetch the discount using the discountId
+    const discount = await Discount.findById(discountId);
+    if (!discount) {
+      return res.status(404).json({ message: "Discount not found" });
+    }
+
+    if(discount.discountType === 'general')
+    {
+      if (discount.applicableOn.flights === true) {
+        let response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: itinerary.totalFlightsPrice
+        });
+        console.log("resp", response);
+        
+        // Adjust the total price of the itinerary
+        const beforeDiscount = itinerary.totalPrice;
+        const tripPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
+        itinerary.totalPrice = itinerary.totalPrice - itinerary.totalFlightsPrice + (itinerary.totalFlightsPrice - response);
+        itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
+        itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+  
+        // Save the updated itinerary
+        await itinerary.save();
+  
+        return res.status(200).json({ message: "Discount on flights applied successfully", itinerary });
+      }
+  
+      else if (discount.applicableOn.hotels === true) {
+        let response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: itinerary.totalHotelsPrice
+        });
+        console.log("resp", response);
+        
+        // Adjust the total price of the itinerary
+        const beforeDiscount = itinerary.totalPrice;
+        const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
+        itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
+        itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
+        itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+        // Save the updated itinerary
+        await itinerary.save();
+  
+        return res.status(200).json({ message: "Discount on hotels applied successfully", itinerary });
+      }
+  
+      else if (discount.applicableOn.activities === true) {
+        let response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: itinerary.totalActivitiesPrice
+        });
+        console.log("resp", response);
+        const beforeDiscount = itinerary.totalPrice;
+        // Adjust the total price of the itinerary
+        const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
+        itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalActivitiesPrice + (itinerary.totalActivitiesPrice - response)).toFixed(2);
+        itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
+        itinerary.currentTotalPrice = (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+        // Save the updated itinerary
+        await itinerary.save();
+  
+        return res.status(200).json({ message: "Discount on activities applied successfully", itinerary });
+      }
+  
+      else if (discount.applicableOn.package === true) {
+        let response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: itinerary.totalPrice
+        });
+        
+        // Adjust the total price of the itinerary
+        const beforeDiscount = itinerary.totalPrice;
+        const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
+        itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalPrice + (itinerary.totalPrice - response)).toFixed(2);
+        itinerary.generalDiscount = (beforeDiscount - itinerary.totalPrice).toFixed(2);
+        itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
+  
+        // Save the updated itinerary
+        await itinerary.save();
+  
+        return res.status(200).json({ message: "Discount on package applied successfully", itinerary });
+      }
+      
+    }
+
+    return res.status(400).json({ message: "Discount not applicable" });
+  } catch (error) {
+    console.error("Error applying discount:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -21,8 +21,9 @@ import {
   replaceCityInItinerary,
   getItineraryHistoryById,
   getAllActivitiesForHistory,
-  changeTransportModeInCity, // New controller for transport mode
-  deleteActivityInItinerary
+  changeTransportModeInCity, 
+  deleteActivityInItinerary,
+  addGeneralCoupon
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -109,6 +110,7 @@ router.patch('/:itineraryId/cities/:cityIndex/transport-mode', verifyToken, addU
 router.get('/:itineraryId/full-histories', casbinMiddleware, getFullItineraryWithHistories);
 router.get('/:itineraryId/histories', casbinMiddleware, getItineraryHistories);
 router.get("/:itineraryId/history/:historyId", casbinMiddleware, getItineraryHistoryById);
+router.patch("/:itineraryId/addCoupon/:discountId", verifyToken, addGeneralCoupon )
 
 router.patch('/:itineraryId/activity/:oldActivityId/replaceLeisure', verifyToken, deleteActivityInItinerary);
 
