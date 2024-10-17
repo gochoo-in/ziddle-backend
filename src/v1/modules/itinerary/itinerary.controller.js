@@ -300,6 +300,7 @@ export const createItinerary = async (req, res) => {
     let totalTaxisPrice = 0;
     let totalFerriesPrice = 0;
     let totalHotelsPrice = 0;
+    let totalActivitiesPrice = 0;
     const settings = await Settings.findOne();
     if (!settings) {
       return res.status(404).json({ message: 'Settings not found' });
@@ -444,8 +445,10 @@ export const createItinerary = async (req, res) => {
     price += activityPrices.reduce((acc, price) => acc + price, 0);
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
+    totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     priceWithoutCoupon += priceWithoutCoupon  * (country.markup / 100);
     totalPrice += totalPrice * (country.markup / 100);
+
     if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
       {
         let response = await applyDiscountFunction({
@@ -486,7 +489,8 @@ export const createItinerary = async (req, res) => {
       totalFlightsPrice: totalFlightsPrice.toFixed(2),
       totalHotelsPrice: totalHotelsPrice.toFixed(2),
       totalFerriesPrice: totalFerriesPrice.toFixed(2),
-      totalTaxisPrice: totalTaxisPrice.toFixed(2)
+      totalTaxisPrice: totalTaxisPrice.toFixed(2),
+      totalActivitiesPrice: totalActivitiesPrice.toFixed(2)
     });
     await newItinerary.save();
 

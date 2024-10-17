@@ -40,6 +40,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     let totalTaxisPrice = 0;
     let totalFerriesPrice = 0;
     let totalHotelsPrice = 0;
+    let totalActivitiesPrice = 0;
 
     // Fetch settings to access markup values and service fee
     const settings = await Settings.findOne();
@@ -187,6 +188,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
 
     totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
+    totalActivitiesPrice = activityPrices.reduce((acc, price) => acc + price, 0);
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     // Apply destination markup
     const destination = await Destination.findOne({ name: itinerary.enrichedItinerary.destination });
@@ -230,6 +232,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     itinerary.totalTaxisPrice = totalTaxisPrice.toFixed(2);
     itinerary.totalFerriesPrice = totalFerriesPrice.toFixed(2);
     itinerary.totalHotelsPrice = totalHotelsPrice.toFixed(2);
+    itinerary.totalActivitiesPrice = totalActivitiesPrice.toFixed(2);
     
     await itinerary.save();
 

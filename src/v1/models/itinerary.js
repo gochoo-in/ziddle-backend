@@ -70,7 +70,8 @@ const itinerarySchema = new mongoose.Schema({
   totalFlightsPrice: { type: String, required: true, default: "0" }, 
   totalFerriesPrice: { type: String, required: true, default: "0" }, 
   totalTaxisPrice: { type: String, required: true, default: "0" }, 
-  totalHotelsPrice: { type: String, required: true, default: "0" }
+  totalHotelsPrice: { type: String, required: true, default: "0" },
+  totalActivitiesPrice: { type: String, required: true, default: "0" }
 }, { timestamps: true, versionKey: false });
 
 
