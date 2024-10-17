@@ -421,7 +421,9 @@ export const applyGeneralDiscount = async (payload, res) => {
         itinerary.totalPrice = itinerary.totalPrice - itinerary.totalFlightsPrice + (itinerary.totalFlightsPrice - response);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discId)
+        if (!itinerary.discounts.includes(discId)) {
+            itinerary.discounts.push(discId);
+          }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -441,7 +443,9 @@ export const applyGeneralDiscount = async (payload, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discId)
+        if (!itinerary.discounts.includes(discId)) {
+            itinerary.discounts.push(discId);
+          }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -460,7 +464,9 @@ export const applyGeneralDiscount = async (payload, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalActivitiesPrice + (itinerary.totalActivitiesPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice = (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discId)
+        if (!itinerary.discounts.includes(discId)) {
+            itinerary.discounts.push(discId);
+          }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -480,7 +486,9 @@ export const applyGeneralDiscount = async (payload, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalPrice + (itinerary.totalPrice - response)).toFixed(2);
         itinerary.generalDiscount = (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discId)
+        if (!itinerary.discounts.includes(discId)) {
+            itinerary.discounts.push(discId);
+          }
   
         // Save the updated itinerary
         await itinerary.save();
