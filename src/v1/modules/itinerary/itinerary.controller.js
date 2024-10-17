@@ -417,15 +417,17 @@ export const createItinerary = async (req, res) => {
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     price += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
-      {
-        let response = await applyDiscountFunction({
-          discountId: discount._id,
-          userId: userId,
-          totalAmount: activityPrices
-        });
-        activityPrices -= response
-      }
+    if(discount && discountType!=null){
+      if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
+        {
+          let response = await applyDiscountFunction({
+            discountId: discount._id,
+            userId: userId,
+            totalAmount: activityPrices
+          });
+          activityPrices -= response
+        }
+    }
     totalPrice += activityPrices
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);

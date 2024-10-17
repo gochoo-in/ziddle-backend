@@ -149,13 +149,15 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
               let totalActivityPrice = activityPricePerPerson * (adults + children); 
               
               // Apply discount logic if applicable
-              if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
-                const response = await applyDiscountFunction({
-                  discountId: discount._id,
-                  userId: userId,
-                  totalAmount: totalActivityPrice
-                });
-                totalActivityPrice -= response;
+              if(discount && discount.discountType!=null){
+                if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
+                  const response = await applyDiscountFunction({
+                    discountId: discount._id,
+                    userId: userId,
+                    totalAmount: totalActivityPrice
+                  });
+                  totalActivityPrice -= response;
+                }
               }
     
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
@@ -190,13 +192,15 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     );
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    if (discount.discountType === 'couponless' && discount.applicableOn.activities === true) {
-      let response = await applyDiscountFunction({
-        discountId: discount._id,
-        userId: userId,
-        totalAmount: activityPrices
-      });
-      activityPrices -= response;
+    if(discount && discount.discountType!=null){
+      if (discount.discountType === 'couponless' && discount.applicableOn.activities === true) {
+        let response = await applyDiscountFunction({
+          discountId: discount._id,
+          userId: userId,
+          totalAmount: activityPrices
+        });
+        activityPrices -= response;
+      }
     }
     totalPrice += activityPrices;
     totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
