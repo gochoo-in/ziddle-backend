@@ -39,7 +39,6 @@ import { applyDiscountFunction } from '../discount/discount.controller.js';
 export const createItinerary = async (req, res) => {
   try {
     var userId = req.user?.userId;
-    console.log("user",userId)
     if (!userId) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -107,7 +106,6 @@ export const createItinerary = async (req, res) => {
       discountType: 'couponless' 
     }).sort({ createdAt: -1 });
     
-    console.log("disc",discount)
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
 
@@ -410,40 +408,20 @@ export const createItinerary = async (req, res) => {
         })
       )
     );
-    const activityPricesPromises = enrichedItinerary.itinerary.flatMap(city =>
-      city.days.flatMap(day =>
-        day.activities.map(async (activityId) => {
-          const gptActivity = await GptActivity.findById(activityId);
-          if (gptActivity) {
-            const originalActivity = await Activity.findOne({ name: gptActivity.name });
-            if (originalActivity && originalActivity.price) {
-              const activityPricePerPerson = parseFloat(originalActivity.price);
-              let totalActivityPrice = activityPricePerPerson * (adults + children); 
-              if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
-                {
-                  let response = await applyDiscountFunction({
-                    discountId: discount._id,
-                    userId: userId,
-                    totalAmount: totalActivityPrice
-                  });
-                  totalActivityPrice -= response
-                }
-              return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
-            } else {
-              return 0;
-              logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
-              return 0;
-            }
-          }
-          return 0;
-        })
-      )
-    );
-
-    const activityPrices = await Promise.all(activityPricesPromises);
+    
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
-    price += activityPrices.reduce((acc, price) => acc + price, 0);
-    totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
+    price += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
+    let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
+    if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
+      {
+        let response = await applyDiscountFunction({
+          discountId: discount._id,
+          userId: userId,
+          totalAmount: activityPrices
+        });
+        activityPrices -= response
+      }
+    totalPrice += activityPrices
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     priceWithoutCoupon += priceWithoutCoupon  * (country.markup / 100);
@@ -1178,6 +1156,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
+      console.log("res shwdbjw  bd", req, res)
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added and price updated successfully', true));
     });
   } catch (error) {
@@ -2292,7 +2271,9 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = itinerary.totalPrice - itinerary.totalFlightsPrice + (itinerary.totalFlightsPrice - response);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discountId)
+        if (!itinerary.discounts.includes(discountId)) {
+          itinerary.discounts.push(discountId);
+        }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2312,7 +2293,9 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discountId)
+        if (!itinerary.discounts.includes(discountId)) {
+          itinerary.discounts.push(discountId);
+        }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2331,7 +2314,9 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalActivitiesPrice + (itinerary.totalActivitiesPrice - response)).toFixed(2);
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice = (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discountId)
+        if (!itinerary.discounts.includes(discountId)) {
+          itinerary.discounts.push(discountId);
+        }
         // Save the updated itinerary
         await itinerary.save();
   
@@ -2351,7 +2336,9 @@ export const addGeneralCoupon = async (req, res) => {
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalPrice + (itinerary.totalPrice - response)).toFixed(2);
         itinerary.generalDiscount = (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
-        itinerary.discounts.push(discountId)
+        if (!itinerary.discounts.includes(discountId)) {
+          itinerary.discounts.push(discountId);
+        }
   
         // Save the updated itinerary
         await itinerary.save();
