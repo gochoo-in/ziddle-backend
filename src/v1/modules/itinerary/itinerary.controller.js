@@ -328,15 +328,18 @@ export const createItinerary = async (req, res) => {
 
             // Apply flight markup
             
-            if(discount.discountType === 'couponless' && discount.applicableOn.flights===true)
-              {
-                let response = await applyDiscountFunction({
-                  discountId: discount._id,
-                  userId: userId,
-                  totalAmount: transferPrice
-                });
-                transferPrice -= response
-              }
+            if(discount && discount.discountType!=null)
+            {
+              if(discount.discountType === 'couponless' && discount.applicableOn.flights===true)
+                {
+                  let response = await applyDiscountFunction({
+                    discountId: discount._id,
+                    userId: userId,
+                    totalAmount: transferPrice
+                  });
+                  transferPrice -= response
+                }
+            }
             
           }
         } if (mode === 'Car') {
@@ -377,15 +380,17 @@ export const createItinerary = async (req, res) => {
         
 
         price += hotelPrice;
-        if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
-          {
-            let response = await applyDiscountFunction({
-              discountId: discount._id,
-              userId: userId,
-              totalAmount: hotelPrice
-            });
-            hotelPrice -= response
-          }
+        if(discount && discount.discountType!=null){
+          if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
+            {
+              let response = await applyDiscountFunction({
+                discountId: discount._id,
+                userId: userId,
+                totalAmount: hotelPrice
+              });
+              hotelPrice -= response
+            }
+        }
         totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
@@ -419,15 +424,17 @@ export const createItinerary = async (req, res) => {
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
               let totalActivityPrice = activityPricePerPerson * (adults + children); 
-              if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
-                {
-                  let response = await applyDiscountFunction({
-                    discountId: discount._id,
-                    userId: userId,
-                    totalAmount: totalActivityPrice
-                  });
-                  totalActivityPrice -= response
-                }
+              if(discount && discount.discountType!=null){
+                if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
+                  {
+                    let response = await applyDiscountFunction({
+                      discountId: discount._id,
+                      userId: userId,
+                      totalAmount: totalActivityPrice
+                    });
+                    totalActivityPrice -= response
+                  }
+              }
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               return 0;
@@ -449,15 +456,17 @@ export const createItinerary = async (req, res) => {
     priceWithoutCoupon += priceWithoutCoupon  * (country.markup / 100);
     totalPrice += totalPrice * (country.markup / 100);
 
-    if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
-      {
-        let response = await applyDiscountFunction({
-          discountId: discount._id,
-          userId: userId,
-          totalAmount: totalPrice
-        });
-        totalPrice -= response
-      }
+    if(discount && discount.discountType!=null){
+      if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
+        {
+          let response = await applyDiscountFunction({
+            discountId: discount._id,
+            userId: userId,
+            totalAmount: totalPrice
+          });
+          totalPrice -= response
+        }
+    }
     // Apply the destination's markup to the total price
     
 
@@ -491,7 +500,7 @@ export const createItinerary = async (req, res) => {
       totalFerriesPrice: totalFerriesPrice.toFixed(2),
       totalTaxisPrice: totalTaxisPrice.toFixed(2),
       totalActivitiesPrice: totalActivitiesPrice.toFixed(2),
-      discounts: [discount?discount._id: '']
+      discounts: discount ? [discount._id] : []
     });
     await newItinerary.save();
 
