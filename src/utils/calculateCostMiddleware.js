@@ -8,7 +8,7 @@ import Ferry from '../v1/models/ferry.js';
 import Taxi from '../v1/models/taxi.js';
 import Settings from '../v1/models/settings.js';
 import Discount from '../v1/models/discount.js';
-import { applyDiscountFunction } from '../v1/modules/discount/discount.controller.js';
+import {  applyDiscountFunction, applyGeneralDiscount } from '../v1/modules/discount/discount.controller.js';
 import logger from '../config/logger.js';
 
 export const calculateTotalPriceMiddleware = async (req, res, next) => {
@@ -149,15 +149,13 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
               let totalActivityPrice = activityPricePerPerson * (adults + children); 
               
               // Apply discount logic if applicable
-              if(discount && discount.discountType!=null){
-                if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
-                  const response = await applyDiscountFunction({
-                    discountId: discount._id,
-                    userId: userId,
-                    totalAmount: totalActivityPrice
-                  });
-                  totalActivityPrice -= response;
-                }
+              if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
+                const response = await applyDiscountFunction({
+                  discountId: discount._id,
+                  userId: userId,
+                  totalAmount: totalActivityPrice
+                });
+                totalActivityPrice -= response;
               }
     
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
@@ -190,11 +188,18 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
         })
       )
     );
-    const activityPrices = await Promise.all(activityPricesPromises);
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
-
-    totalPrice += activityPrices.reduce((acc, price) => acc + price, 0);
-    totalActivitiesPrice = activityPrices.reduce((acc, price) => acc + price, 0);
+    let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
+    if (discount.discountType === 'couponless' && discount.applicableOn.activities === true) {
+      let response = await applyDiscountFunction({
+        discountId: discount._id,
+        userId: userId,
+        totalAmount: activityPrices
+      });
+      activityPrices -= response;
+    }
+    totalPrice += activityPrices;
+    totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     // Apply destination markup
     const destination = await Destination.findOne({ name: itinerary.enrichedItinerary.destination });
@@ -243,7 +248,20 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     itinerary.totalActivitiesPrice = totalActivitiesPrice.toFixed(2);
     
     await itinerary.save();
-
+    console.log("1", itinerary)
+    for (const discountIds of itinerary.discounts) {
+      const discountObject = await Discount.findById(discountIds);
+      if (discountObject && discountObject.discountType === 'general') {
+        const discId = discountIds.toString()
+        await applyGeneralDiscount({
+          userId,
+          discId,
+          itineraryId
+        });
+      }
+    }
+    await itinerary.save();
+    console.log("2", itinerary)
     next();
   } catch (error) {
     console.error('Error calculating total price:', error);
