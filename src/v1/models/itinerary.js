@@ -75,7 +75,9 @@ const itinerarySchema = new mongoose.Schema({
   totalHotelsPrice: { type: String, required: true, default: "0" },
   totalActivitiesPrice: { type: String, required: true, default: "0" },
   generalDiscount: { type: String, reuired: true, default: "0" },
-  discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }]
+  discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }],
+  tax: { type: String },
+  serviceFee: { type: String }
 }, { timestamps: true, versionKey: false });
 
 

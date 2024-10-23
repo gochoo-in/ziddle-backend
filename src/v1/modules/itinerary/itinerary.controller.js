@@ -458,6 +458,9 @@ export const createItinerary = async (req, res) => {
     // Add service fee
     currentTotalPrice += settings.serviceFee;
     currentTotalPrice -=disc;
+
+    const serviceFee = settings.serviceFee;
+    const tax = totalPrice * 0.18;
     // Convert totalPrice to a string
 
     // Save the new itinerary with totalPrice as a string
@@ -478,7 +481,9 @@ export const createItinerary = async (req, res) => {
       totalFerriesPrice: totalFerriesPrice.toFixed(2),
       totalTaxisPrice: totalTaxisPrice.toFixed(2),
       totalActivitiesPrice: totalActivitiesPrice.toFixed(2),
-      discounts: discount ? [discount._id] : []
+      discounts: discount ? [discount._id] : [],
+      tax: tax.toFixed(2),
+      serviceFee: serviceFee.toFixed(2)
     });
     await newItinerary.save();
 

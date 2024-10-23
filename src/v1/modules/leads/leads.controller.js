@@ -10,7 +10,7 @@ import Employee from '../../models/employee.js';
 // Get all leads
 export const getAllLeads = async (req, res) => {
   try {
-    const leads = await Lead.find({}).populate('itineraryId');
+    const leads = await Lead.find({}).populate('itineraryId').populate('createdBy', 'firstName'); 
     if (leads.length === 0) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No leads found', false));
     }
@@ -25,7 +25,7 @@ export const getAllLeads = async (req, res) => {
 export const getLeadById = async (req, res) => {
   try {
     const { leadId } = req.params;
-    const lead = await Lead.findById(leadId).populate('itineraryId');
+    const lead = await Lead.findById(leadId).populate('itineraryId').populate('createdBy', 'firstName');
     if (!lead) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Lead not found', false));
     }
