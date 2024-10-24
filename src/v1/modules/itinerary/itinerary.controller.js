@@ -417,7 +417,7 @@ export const createItinerary = async (req, res) => {
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     price += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    if(discount && discountType!=null){
+    if(discount){
       if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
         {
           let response = await applyDiscountFunction({
@@ -1823,6 +1823,197 @@ export const getItinerariesByUserId = async (req, res) => {
     return res.status(StatusCodes.OK).json(httpFormatter({ itineraries }, 'Itineraries retrieved successfully', true));
   } catch (error) {
     console.error('Error fetching itineraries for user:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+export const getAllUsersStatistics = async (req, res) => {
+  try {
+    const statistics = await Itinerary.aggregate([
+      {
+        $group: {
+          _id: "$createdBy", 
+          totalItineraries: { $sum: 1 },
+          uniqueDestinations: { $addToSet: "$enrichedItinerary.destination" },
+          totalFlights: {
+            $sum: {
+              $size: {
+                $ifNull: [
+                  {
+                    $filter: {
+                      input: "$enrichedItinerary.itinerary",
+                      cond: { $eq: ["$$this.transport.mode", 'Flight'] }
+                    }
+                  },
+                  [] // Provide an empty array if the field is missing
+                ]
+              }
+            }
+          },
+          totalActivitiesIds: {
+            $addToSet: {
+              $reduce: {
+                input: "$enrichedItinerary.itinerary.days",
+                initialValue: [],
+                in: { $concatArrays: ["$$value", "$$this.activities"] }
+              }
+            }
+          },
+          totalPricePaid: { $sum: { $ifNull: [{ $toDouble: "$currentTotalPrice" }, 0] } },
+          totalTripPrice: { $sum: { $ifNull: [{ $toDouble: "$totalPrice" }, 0] } },
+          totalDiscount: { $sum: { $add: [{ $toDouble: "$couponlessDiscount" }, { $toDouble: "$generalDiscount" }] } },
+          totalServiceFee: { $sum: { $ifNull: [{ $toDouble: "$serviceFee" }, 0] } },
+          totalTaxes: { $sum: { $ifNull: [{ $toDouble: "$tax" }, 0] } }
+        }
+      },
+      {
+        // Flatten the array completely using $reduce and $concatArrays recursively
+        $addFields: {
+          totalActivitiesIds: {
+            $reduce: {
+              input: {
+                $reduce: {
+                  input: "$totalActivitiesIds",
+                  initialValue: [],
+                  in: { $concatArrays: ["$$value", "$$this"] }
+                }
+              },
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
+        }
+      },
+      {
+        // Convert the flattened IDs to ObjectId using $toObjectId
+        $addFields: {
+          totalActivitiesIds: {
+            $map: {
+              input: "$totalActivitiesIds",  // The fully flattened array
+              as: "id",
+              in: {
+                $cond: {
+                  if: { $eq: [{ $type: "$$id" }, "string"] }, // Convert only if it's a string
+                  then: { $toObjectId: "$$id" },  // Convert to ObjectId
+                  else: "$$id"  // Leave it as is if it's already an ObjectId
+                }
+              }
+            }
+          },
+          
+        }
+      },
+      {
+        // Perform the lookup after converting the IDs
+        $lookup: {
+          from: "gptactivities", // The activities collection
+          localField: "totalActivitiesIds",
+          foreignField: "_id",
+          as: "validActivities"
+        }
+      },
+      
+      {
+        // Filter valid activities and log filtered activities for debugging
+        $addFields: {
+          filteredActivities: {
+            $filter: {
+              input: "$validActivities",
+              as: "activity",
+              cond: {
+                $and: [
+                  { $ne: ["$$activity.category", "Travel"] },
+                  { $ne: ["$$activity.category", "Leisure"] }
+                ]
+              }
+            }
+          },
+          
+          totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
+        }
+      },
+      {
+        $addFields: {
+          filteredActivities: {
+            $filter: {
+              input: "$validActivities",
+              as: "activity",
+              cond: {
+                $and: [
+                  { $ne: ["$$activity.category", "Travel"] },
+                  { $ne: ["$$activity.category", "Leisure"] }
+                ]
+              }
+            }
+          },
+          totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
+        }
+      },
+      {
+        // Perform the user lookup and join
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+      {
+        $unwind: "$userDetails"
+      },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          userName: { $concat: ["$userDetails.firstName", " ", "$userDetails.lastName"] },
+          totalItineraries: 1,
+          totalDestinations: { $size: "$uniqueDestinations" },
+          totalFlights: 1,
+          totalActivities: 1,
+          totalPricePaid: 1,
+          totalTripPrice: 1,
+          totalDiscount: 1,
+          totalServiceFee: 1,
+          totalTaxes: 1,
+          
+        }
+      }
+    ]);
+
+    if (!statistics.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No statistics found for any user', false));
+    }
+
+    return res.status(StatusCodes.OK).json(httpFormatter(statistics, 'User statistics retrieved successfully', true));
+  } catch (error) {
+    console.error('Error fetching user statistics:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+export const getAllItineraries = async (req, res) => {
+  try {
+    // Fetch all itineraries from the database and sort by 'createdBy'
+    const itineraries = await Itinerary.find().populate('createdBy', 'firstName lastName').sort({ createdBy: 1 }); // 1 for ascending order
+
+    if (!itineraries.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No itineraries found', false));
+    }
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ itineraries }, 'All itineraries retrieved successfully', true));
+  } catch (error) {
+    console.error('Error fetching all itineraries:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };

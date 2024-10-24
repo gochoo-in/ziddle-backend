@@ -23,7 +23,9 @@ import {
   getAllActivitiesForHistory,
   changeTransportModeInCity, 
   deleteActivityInItinerary,
-  addGeneralCoupon
+  addGeneralCoupon,
+  getAllItineraries,
+  getAllUsersStatistics
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -91,6 +93,8 @@ const addUpdateComment = async (req, res, next) => {
 // Define all routes
 router.post('/', verifyToken, createItinerary);
 router.get('/user/:userId', verifyToken, getItinerariesByUserId);
+router.get('/all', verifyToken, getAllItineraries);
+router.get('/statistics', verifyToken, getAllUsersStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
 router.get('/:itineraryId', getItineraryDetails);
 router.get('/:itineraryId/flights', getFlightsInItinerary);
@@ -111,6 +115,7 @@ router.get('/:itineraryId/full-histories', casbinMiddleware, getFullItineraryWit
 router.get('/:itineraryId/histories', casbinMiddleware, getItineraryHistories);
 router.get("/:itineraryId/history/:historyId", casbinMiddleware, getItineraryHistoryById);
 router.patch("/:itineraryId/addCoupon/:discountId", verifyToken, addGeneralCoupon )
+
 
 router.patch('/:itineraryId/activity/:oldActivityId/replaceLeisure', verifyToken, deleteActivityInItinerary);
 
