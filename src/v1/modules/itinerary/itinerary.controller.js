@@ -450,8 +450,10 @@ export const createItinerary = async (req, res) => {
 
     let currentTotalPrice = priceWithoutCoupon;
     const disc = currentTotalPrice - totalPrice;
+    totalPrice+=disc
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
+    const tax = currentTotalPrice * 0.18;
     
     currentTotalPrice += taxAmount;
 
@@ -460,7 +462,7 @@ export const createItinerary = async (req, res) => {
     currentTotalPrice -=disc;
 
     const serviceFee = settings.serviceFee;
-    const tax = totalPrice * 0.18;
+    
     // Convert totalPrice to a string
 
     // Save the new itinerary with totalPrice as a string
