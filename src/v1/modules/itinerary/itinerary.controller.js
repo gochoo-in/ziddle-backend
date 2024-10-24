@@ -1935,6 +1935,24 @@ export const getAllUsersStatistics = async (req, res) => {
               }
             }
           },
+          
+          totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
+        }
+      },
+      {
+        $addFields: {
+          filteredActivities: {
+            $filter: {
+              input: "$validActivities",
+              as: "activity",
+              cond: {
+                $and: [
+                  { $ne: ["$$activity.category", "Travel"] },
+                  { $ne: ["$$activity.category", "Leisure"] }
+                ]
+              }
+            }
+          },
           totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
         }
       },
