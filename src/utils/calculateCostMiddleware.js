@@ -226,9 +226,10 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     // Store current total price before tax and service fee
     let currentTotalPrice = priceWithoutCoupon;
     const disc = currentTotalPrice - totalPrice;
-
+    totalPrice+=disc;
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
+    const tax = currentTotalPrice * 0.18;
     
     currentTotalPrice += taxAmount;
 
@@ -250,6 +251,8 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     itinerary.totalFerriesPrice = totalFerriesPrice.toFixed(2);
     itinerary.totalHotelsPrice = totalHotelsPrice.toFixed(2);
     itinerary.totalActivitiesPrice = totalActivitiesPrice.toFixed(2);
+    itinerary.tax = tax.toFixed(2);
+  
     
     await itinerary.save();
     console.log("1", itinerary)
