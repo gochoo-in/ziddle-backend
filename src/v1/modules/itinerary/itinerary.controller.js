@@ -1863,7 +1863,16 @@ export const getAllUsersStatistics = async (req, res) => {
           totalTripPrice: { $sum: { $ifNull: [{ $toDouble: "$totalPrice" }, 0] } },
           totalDiscount: { $sum: { $add: [{ $toDouble: "$couponlessDiscount" }, { $toDouble: "$generalDiscount" }] } },
           totalServiceFee: { $sum: { $ifNull: [{ $toDouble: "$serviceFee" }, 0] } },
-          totalTaxes: { $sum: { $ifNull: [{ $toDouble: "$tax" }, 0] } }
+          totalTaxes: { $sum: { $ifNull: [{ $toDouble: "$tax" }, 0] } },
+          groupedPackages: {
+            $sum: {
+              $cond: {
+                if: { $ne: ["$travellingWith", "Solo"] },
+                then: 1,
+                else: 0
+              }
+            }
+          }
         }
       },
       {
@@ -1900,7 +1909,6 @@ export const getAllUsersStatistics = async (req, res) => {
               }
             }
           },
-          
         }
       },
       {
@@ -1912,27 +1920,8 @@ export const getAllUsersStatistics = async (req, res) => {
           as: "validActivities"
         }
       },
-      
       {
         // Filter valid activities and log filtered activities for debugging
-        $addFields: {
-          filteredActivities: {
-            $filter: {
-              input: "$validActivities",
-              as: "activity",
-              cond: {
-                $and: [
-                  { $ne: ["$$activity.category", "Travel"] },
-                  { $ne: ["$$activity.category", "Leisure"] }
-                ]
-              }
-            }
-          },
-          
-          totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
-        }
-      },
-      {
         $addFields: {
           filteredActivities: {
             $filter: {
@@ -1975,7 +1964,7 @@ export const getAllUsersStatistics = async (req, res) => {
           totalDiscount: 1,
           totalServiceFee: 1,
           totalTaxes: 1,
-          
+          groupedPackages: 1 // Include the new field in the projection
         }
       }
     ]);
@@ -1990,6 +1979,7 @@ export const getAllUsersStatistics = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 
