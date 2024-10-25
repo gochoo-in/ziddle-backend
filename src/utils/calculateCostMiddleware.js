@@ -229,7 +229,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     totalPrice+=disc;
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
-    const tax = currentTotalPrice * 0.18;
+    const tax = totalPrice * 0.18;
     
     currentTotalPrice += taxAmount;
 
