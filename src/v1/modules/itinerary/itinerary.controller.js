@@ -2121,6 +2121,117 @@ export const getDestinationStatistics = async (req, res) => {
   }
 };
 
+export const getActivityStatistics = async (req, res) => {
+  try {
+    const statistics = await Itinerary.aggregate([
+      {
+        // Unwind itineraries to access each city's activities individually
+        $unwind: "$enrichedItinerary.itinerary"
+      },
+      {
+        $unwind: "$enrichedItinerary.itinerary.days"
+      },
+      {
+        $unwind: "$enrichedItinerary.itinerary.days.activities"
+      },
+      {
+        // Lookup the GptActivity details
+        $lookup: {
+          from: "gptactivities", // assuming GptActivity collection
+          localField: "enrichedItinerary.itinerary.days.activities",
+          foreignField: "_id",
+          as: "activityDetails"
+        }
+      },
+      {
+        $unwind: "$activityDetails" // Unwind activity details array
+      },
+      {
+        $match: {
+          "activityDetails.activityId": { $ne: null } // Ensure activity is present in Activities table
+        }
+      },
+      {
+        // Lookup activity details from the Activities collection using activityId from GptActivity
+        $lookup: {
+          from: "activities",
+          localField: "activityDetails.activityId", // activityId in GptActivity
+          foreignField: "_id", // matching with _id in Activities table
+          as: "originalActivity"
+        }
+      },
+      {
+        $unwind: "$originalActivity" // Unwind original activity array
+      },
+      {
+        // Group by original activityId to calculate stats per activity
+        $group: {
+          _id: "$originalActivity._id", // Group by original activity ID
+          activityName: { $first: "$originalActivity.name" },
+          destinationName: { $first: "$enrichedItinerary.destination" },
+          cityName: { $first: "$enrichedItinerary.itinerary.currentCity" },
+          totalActivityPrice: {
+            $sum: {
+              $multiply: [
+                { $toDouble: "$originalActivity.price" }, // Multiply by price
+                {
+                  $cond: {
+                    if: { $isArray: "$enrichedItinerary.itinerary.days.activities" }, // Check if activities is an array
+                    then: { $size: "$enrichedItinerary.itinerary.days.activities" }, // Get the size if it's an array
+                    else: 1 // Otherwise assume 1 (for a single object like ObjectId)
+                  }
+                }
+              ]
+            }
+          },
+          totalTripPrice: {
+            $sum: {
+              $toDouble: "$totalPrice"
+            }
+          },
+          totalDiscount: {
+            $sum: {
+              $add: [
+                { $toDouble: { $ifNull: ["$couponlessDiscount", 0] } },
+                { $toDouble: { $ifNull: ["$generalDiscount", 0] } }
+              ]
+            }
+          },
+          totalServiceFee: {
+            $sum: { $toDouble: "$serviceFee" }
+          },
+          totalTaxes: {
+            $sum: { $toDouble: "$tax" }
+          }
+        }
+      },
+      {
+        // Final projection of required fields
+        $project: {
+          _id: 0,
+          activityName: 1,
+          destinationName: 1,
+          cityName: 1,
+          totalActivityPrice: 1,
+          totalTripPrice: 1,
+          totalDiscount: 1,
+          totalServiceFee: 1,
+          totalTaxes: 1
+        }
+      }
+    ]);
+
+    if (!statistics.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activity statistics found', false));
+    }
+
+    return res.status(StatusCodes.OK).json(httpFormatter(statistics, 'Activity statistics retrieved successfully', true));
+  } catch (error) {
+    console.error('Error fetching activity statistics:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
 export const getAllItineraries = async (req, res) => {
   try {
     // Fetch all itineraries from the database and sort by 'createdBy'
