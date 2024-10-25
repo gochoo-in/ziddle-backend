@@ -25,7 +25,8 @@ import {
   deleteActivityInItinerary,
   addGeneralCoupon,
   getAllItineraries,
-  getAllUsersStatistics
+  getAllUsersStatistics,
+  getDestinationStatistics
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -95,6 +96,7 @@ router.post('/', verifyToken, createItinerary);
 router.get('/user/:userId', verifyToken, getItinerariesByUserId);
 router.get('/all', verifyToken, getAllItineraries);
 router.get('/statistics', verifyToken, getAllUsersStatistics);
+router.get('/destination-statistics', verifyToken, getDestinationStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
 router.get('/:itineraryId', getItineraryDetails);
 router.get('/:itineraryId/flights', getFlightsInItinerary);

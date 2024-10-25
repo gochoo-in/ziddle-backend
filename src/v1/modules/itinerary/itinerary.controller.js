@@ -2000,17 +2000,124 @@ export const getAllUsersStatistics = async (req, res) => {
   }
 };
 
+export const getDestinationStatistics = async (req, res) => {
+  try {
+    const statistics = await Itinerary.aggregate([
+      {
+        // Group by destination
+        $group: {
+          _id: "$enrichedItinerary.destination", // Group by destination name
+          totalItineraries: { $sum: 1 }, // Count total itineraries per destination
+          groupedPackages: {
+            $sum: {
+              $cond: {
+                if: { 
+                  $and: [
+                    { $ne: ["$travellingWith", "Solo"] }, // Check at root level if not "Solo"
+                    { $ne: ["$travellingWith", null] },    // Not null
+                    { $ne: ["$travellingWith", ""] }       // Not empty string
+                  ]
+                },
+                then: 1,
+                else: 0
+              }
+            }
+          },
+          totalPricePaid: { 
+            $sum: { 
+              $ifNull: [{ $toDouble: "$currentTotalPrice" }, 0] 
+            } 
+          }, // Sum of currentTotalPrice for this destination
+          totalTripPrice: { 
+            $sum: { 
+              $ifNull: [{ $toDouble: "$totalPrice" }, 0] 
+            } 
+          }, // Sum of totalPrice for this destination
+          totalDiscount: { 
+            $sum: { 
+              $add: [
+                { $toDouble: { $ifNull: ["$couponlessDiscount", 0] } }, 
+                { $toDouble: { $ifNull: ["$generalDiscount", 0] } }
+              ]
+            } 
+          }, // Sum of both couponlessDiscount and generalDiscount for this destination
+          totalServiceFee: { 
+            $sum: { 
+              $ifNull: [{ $toDouble: "$serviceFee" }, 0] 
+            } 
+          }, // Sum of serviceFee for this destination
+          totalTaxes: { 
+            $sum: { 
+              $ifNull: [{ $toDouble: "$tax" }, 0] 
+            } 
+          }, // Sum of tax for this destination
+        }
+      },
+      {
+        // Lookup for cities based on the destination name
+        $lookup: {
+          from: "cities", // The cities collection
+          localField: "_id", // Match with the destination name
+          foreignField: "country", // Match the country field in cities
+          as: "destinationCities"
+        }
+      },
+      {
+        // Lookup for activities based on the cities
+        $lookup: {
+          from: "activities", // The activities collection
+          localField: "destinationCities._id", // Match the city _id field from cities
+          foreignField: "city", // Match the activities based on city ObjectId
+          as: "activities"
+        }
+      },
+      {
+        // Add a field to count the number of cities and activities
+        $addFields: {
+          totalCities: { $size: "$destinationCities" }, // Count the number of cities in the destination
+          totalActivities: { $size: "$activities" } // Count the total number of activities for the destination
+        }
+      },
+      {
+        // Lookup the destination details from the destinations collection
+        $lookup: {
+          from: "destinations", // Assuming you have a separate destinations collection
+          localField: "_id", // Match by destination name
+          foreignField: "name", // The field in the destinations collection holding the destination name
+          as: "destinationDetails"
+        }
+      },
+      {
+        $unwind: "$destinationDetails" // Unwind the array to get destination details
+      },
+      {
+        // Final projection to include required fields
+        $project: {
+          _id: 0,
+          destinationName: "$_id", // The destination name
+          totalItineraries: 1,
+          groupedPackages: 1,
+          totalCities: 1, // Count of cities
+          totalActivities: 1, // Total activities based on the cities
+          totalPricePaid: 1, // Sum of currentTotalPrice for all itineraries of the destination
+          totalTripPrice: 1, // Sum of totalPrice for all itineraries of the destination
+          totalDiscount: 1, // Sum of couponlessDiscount + generalDiscount
+          totalServiceFee: 1, // Sum of serviceFee for all itineraries of the destination
+          totalTaxes: 1, // Sum of taxes for all itineraries of the destination
+        }
+      }
+    ]);
 
+    if (!statistics.length) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No destination statistics found', false));
+    }
 
-
-
-
-
-
-
-
-
-
+    return res.status(StatusCodes.OK).json(httpFormatter(statistics, 'Destination statistics retrieved successfully', true));
+  } catch (error) {
+    console.error('Error fetching destination statistics:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
 
 export const getAllItineraries = async (req, res) => {
   try {
@@ -2027,9 +2134,6 @@ export const getAllItineraries = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
-
-
-
 
 
 
