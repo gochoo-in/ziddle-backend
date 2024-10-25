@@ -8,6 +8,7 @@ const gptActivitySchema = new mongoose.Schema({
   timeStamp: { type: String },
   category: { type: String },
   cityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
+  activityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.models.GptActivity || mongoose.model('GptActivity', gptActivitySchema);

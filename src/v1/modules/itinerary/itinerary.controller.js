@@ -226,6 +226,7 @@ export const createItinerary = async (req, res) => {
 
           if (cityId) {
             try {
+              const originalActivity = await Activity.findOne({ name: activity.name });
               const newActivity = await GptActivity.create({
                 name: activity.name,
                 startTime: activity.startTime || '00:00',
@@ -234,6 +235,7 @@ export const createItinerary = async (req, res) => {
                 timeStamp: activity.timeStamp || new Date().toISOString(),
                 category: activity.category || 'General',
                 cityId: cityId,
+                activityId: originalActivity ? originalActivity._id : null,
               });
 
               logger.info(`New Activity Created: ${JSON.stringify(newActivity)}`);
