@@ -455,7 +455,7 @@ export const createItinerary = async (req, res) => {
     totalPrice+=disc
     // Calculate and add 18% tax
     const taxAmount = currentTotalPrice * 0.18; // 18% tax
-    const tax = currentTotalPrice * 0.18;
+    const tax = totalPrice * 0.18;
     
     currentTotalPrice += taxAmount;
 
@@ -2701,6 +2701,9 @@ export const addGeneralCoupon = async (req, res) => {
         const beforeDiscount = itinerary.totalPrice;
         const tripPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
         itinerary.totalPrice = itinerary.totalPrice - itinerary.totalFlightsPrice + (itinerary.totalFlightsPrice - response);
+        const disc = itinerary.currentTotalPrice - itinerary.totalPrice;
+        itinerary.totalPrice += disc;
+        itinerary.tax = itinerary.totalPrice * 0.18;
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
         if (!itinerary.discounts.includes(discountId)) {
@@ -2723,6 +2726,9 @@ export const addGeneralCoupon = async (req, res) => {
         const beforeDiscount = itinerary.totalPrice;
         const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response)).toFixed(2);
+        const disc = itinerary.currentTotalPrice - itinerary.totalPrice;
+        itinerary.totalPrice += disc;
+        itinerary.tax = itinerary.totalPrice * 0.18;
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
         if (!itinerary.discounts.includes(discountId)) {
@@ -2744,6 +2750,9 @@ export const addGeneralCoupon = async (req, res) => {
         // Adjust the total price of the itinerary
         const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalActivitiesPrice + (itinerary.totalActivitiesPrice - response)).toFixed(2);
+        const disc = itinerary.currentTotalPrice - itinerary.totalPrice;
+        itinerary.totalPrice += disc;
+        itinerary.tax = itinerary.totalPrice * 0.18;
         itinerary.generalDiscount =  (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice = (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
         if (!itinerary.discounts.includes(discountId)) {
@@ -2766,6 +2775,9 @@ export const addGeneralCoupon = async (req, res) => {
         const beforeDiscount = itinerary.totalPrice;
         const tripPrice = itinerary.totalPrice - itinerary.totalHotelsPrice + (itinerary.totalHotelsPrice - response);
         itinerary.totalPrice = (itinerary.totalPrice - itinerary.totalPrice + (itinerary.totalPrice - response)).toFixed(2);
+        const disc = itinerary.currentTotalPrice - itinerary.totalPrice;
+        itinerary.totalPrice += disc;
+        itinerary.tax = itinerary.totalPrice * 0.18;
         itinerary.generalDiscount = (beforeDiscount - itinerary.totalPrice).toFixed(2);
         itinerary.currentTotalPrice =  (tripPrice * (1 + 0.18) + settings.serviceFee).toFixed(2);
         if (!itinerary.discounts.includes(discountId)) {
