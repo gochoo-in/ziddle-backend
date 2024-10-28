@@ -2710,14 +2710,17 @@ export const addGeneralCoupon = async (req, res) => {
 
         // Proper calculation of totalPrice
         totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response)).toFixed(2));
-        let tripPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
 
         // Calculate the discount and taxes properly
-        const disc = parseFloat(currentTotalPrice) - totalPrice;
+        let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
+        totalPrice = parseFloat(totalPrice)
+        disc = parseFloat(disc)
+        totalPrice+=disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
-        itinerary.generalDiscount = parseFloat((beforeDiscount - totalPrice).toFixed(2));
-        itinerary.totalPrice = parseFloat(totalPrice); 
-        itinerary.currentTotalPrice = parseFloat((tripPrice * (1 + 0.18) + serviceFee).toFixed(2));
+        itinerary.generalDiscount = disc;
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        const couponless = parseFloat(itinerary.couponlessDiscount)
+        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
@@ -2736,13 +2739,17 @@ export const addGeneralCoupon = async (req, res) => {
         });
 
         totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
-        let tripPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
 
-        const disc = parseFloat(currentTotalPrice) - totalPrice;
+        // Calculate the discount and taxes properly
+        let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
+        totalPrice = parseFloat(totalPrice)
+        disc = parseFloat(disc)
+        totalPrice+=disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
-        itinerary.generalDiscount = parseFloat((beforeDiscount - totalPrice).toFixed(2)); 
-        itinerary.totalPrice = parseFloat(totalPrice);
-        itinerary.currentTotalPrice = parseFloat((tripPrice * (1 + 0.18) + serviceFee).toFixed(2));
+        itinerary.generalDiscount = disc;
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        const couponless = parseFloat(itinerary.couponlessDiscount)
+        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
@@ -2761,13 +2768,17 @@ export const addGeneralCoupon = async (req, res) => {
         });
 
         totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response)).toFixed(2));
-        let tripPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
 
-        const disc = parseFloat(currentTotalPrice) - totalPrice;
+        // Calculate the discount and taxes properly
+        let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
+        totalPrice = parseFloat(totalPrice)
+        disc = parseFloat(disc)
+        totalPrice+=disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
-        itinerary.generalDiscount = parseFloat((beforeDiscount - totalPrice).toFixed(2)); 
-        itinerary.totalPrice = parseFloat(totalPrice);
-        itinerary.currentTotalPrice = parseFloat((tripPrice * (1 + 0.18) + serviceFee).toFixed(2));
+        itinerary.generalDiscount = disc;
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        const couponless = parseFloat(itinerary.couponlessDiscount)
+        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
@@ -2785,14 +2796,18 @@ export const addGeneralCoupon = async (req, res) => {
           totalAmount: totalPrice
         });
 
-        totalPrice = parseFloat((totalPrice - response).toFixed(2));
-        let tripPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response)).toFixed(2));
 
-        const disc = parseFloat(currentTotalPrice) - totalPrice;
+        // Calculate the discount and taxes properly
+        let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
+        totalPrice = parseFloat(totalPrice)
+        disc = parseFloat(disc)
+        totalPrice+=disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
-        itinerary.generalDiscount = parseFloat((beforeDiscount - totalPrice).toFixed(2)); 
-        itinerary.totalPrice = parseFloat(totalPrice);
-        itinerary.currentTotalPrice = parseFloat((tripPrice * (1 + 0.18) + serviceFee).toFixed(2));
+        itinerary.generalDiscount = disc;
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        const couponless = parseFloat(itinerary.couponlessDiscount)
+        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless ).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
