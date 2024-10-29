@@ -748,3 +748,42 @@ export const createUserItinerary = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+export const addGeneralDiscount = async(req,res) => {
+  try{
+    const { adminPackageId, itineraryId, discountId } = req.params;
+    const userId = req.user.userId;
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(404).json({ message: "Itinerary not found" });
+    }
+    console.log(itinerary.totalPrice)
+
+    // Fetch the discount using the discountId
+    const discount = await Discount.findById(discountId);
+    if (!discount) {
+      return res.status(404).json({ message: "Discount not found" });
+    }
+    let totalPrice = itinerary.totalPrice;
+    let response = 0;
+    if(discount.discountType === 'general'){
+
+      if (discount.applicableOn.predefinedPackages === true) {
+        response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: totalPrice
+        });
+    }
+  }
+  itinerary.currentTotalPrice -= response;
+  itinerary.generalDiscount = response.toString();
+  await itinerary.save();
+  return res.status(200).json({ message: "Discount on package applied successfully", itinerary });
+  }
+  catch(error){
+    console.error("Error applying discount:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+}

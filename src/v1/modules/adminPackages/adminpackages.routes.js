@@ -13,7 +13,8 @@ import {
   getAdminPackagesByCategory,
   getAllAdminPackageActivities,
   deleteAdminPackageById,
-  createUserItinerary
+  createUserItinerary,
+  addGeneralDiscount
 } from './adminPackages.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 
@@ -32,6 +33,7 @@ router.get('/packages/category/:category', getAdminPackagesByCategory);
 router.get('/package/:packageId/activities', getAllAdminPackageActivities );
 router.delete('/packages/:adminPackageId', deleteAdminPackageById);
 router.post('/package/:adminPackageId/createUserItinerary', verifyToken, createUserItinerary);
+router.patch('/package/:adminPackageId/itinerary/:itineraryId/addCoupon/:discountId', verifyToken, addGeneralDiscount)
 
 
 export default router;
