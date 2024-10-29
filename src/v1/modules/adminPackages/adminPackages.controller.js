@@ -586,7 +586,7 @@ export const createUserItinerary = async (req, res) => {
     // Fetch the admin package details
     const adminPackage = await AdminPackage.findById(adminPackageId).populate('cities.city');
     if (!adminPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     // Calculate total persons and total price
@@ -674,7 +674,7 @@ export const createUserItinerary = async (req, res) => {
 
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
     const serviceFee = settings.serviceFee
@@ -737,15 +737,10 @@ export const createUserItinerary = async (req, res) => {
       contactNumber: user.phoneNumber || user.phone,
     });
     await newLead.save();
-
-    return res.status(201).json({
-      message: 'User itinerary created successfully',
-      itinerary: savedItinerary,
-      lead: newLead
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary: savedItinerary, lead: newLead }, 'User admin package itinerary created successfully', true));
   } catch (error) {
     console.error('Error creating user itinerary:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
 
@@ -753,12 +748,15 @@ export const createUserItinerary = async (req, res) => {
 export const addGeneralDiscount = async(req,res) => {
   try{
     const { adminPackageId, itineraryId, discountId } = req.params;
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if(!adminPackage){
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
     const userId = req.user.userId;
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
-      return res.status(404).json({ message: "Itinerary not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
-    console.log(itinerary.totalPrice)
 
     // Fetch the discount using the discountId
     const discount = await Discount.findById(discountId);
@@ -780,10 +778,10 @@ export const addGeneralDiscount = async(req,res) => {
   itinerary.currentTotalPrice -= response;
   itinerary.generalDiscount = response.toString();
   await itinerary.save();
-  return res.status(200).json({ message: "Discount on package applied successfully", itinerary });
+  return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
   }
   catch(error){
     console.error("Error applying discount:", error);
-      return res.status(500).json({ message: "Internal server error" });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 }
