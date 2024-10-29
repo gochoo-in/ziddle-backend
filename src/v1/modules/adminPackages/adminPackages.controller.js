@@ -11,6 +11,9 @@ import Itinerary from '../../models/itinerary.js';
 import GptActivity from '../../models/gptactivity.js';
 import User from '../../models/user.js'
 import Lead from '../../models/lead.js';
+import Discount from '../../models/discount.js';
+import { applyDiscountFunction } from '../discount/discount.controller.js';
+import Settings from '../../models/settings.js';
 
 
 export const createBasicAdminPackage = async (req, res) => {
@@ -652,6 +655,34 @@ export const createUserItinerary = async (req, res) => {
 
     // Calculate total days from itinerary data
     const totalDays = itineraryWithDates.reduce((sum, city) => sum + city.stayDays, 0);
+
+    const discount = await Discount.findOne({
+      destination: adminPackage.destination,
+      discountType: 'couponless',
+      'applicableOn.predefinedPackages': true
+    }).sort({ createdAt: -1 });
+
+    let response = 0;
+
+    if (discount && discount.discountType =='couponless') {
+       response = await applyDiscountFunction({
+        discountId: discount._id,
+        userId: req.user.userId,
+        totalAmount: totalPrice
+      });
+    }
+
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(404).json({ message: 'Settings not found' });
+    }
+
+    const serviceFee = settings.serviceFee
+    const tax = parseFloat(totalPrice * 0.18)
+
+    let discountedPrice = parseFloat(totalPrice - response);
+    discountedPrice += (serviceFee + tax);
+    
     // Create a new user itinerary document
     const newUserItinerary = new Itinerary({
       type: 'Admin',
@@ -673,9 +704,9 @@ export const createUserItinerary = async (req, res) => {
       startDate: startsAt,
       endDate: moment(startsAt).add(totalDays - 1, 'days').format('YYYY-MM-DD'),
       totalPrice: totalPrice.toString(),
-      currentTotalPrice: totalPrice.toString(),
+      currentTotalPrice: discountedPrice.toString(),
       totalPriceWithoutMarkup: "0",
-      couponlessDiscount: "0",
+      couponlessDiscount: response,
       totalFlightsPrice: "0",
       totalFerriesPrice: "0",
       totalTaxisPrice: "0",
@@ -683,7 +714,9 @@ export const createUserItinerary = async (req, res) => {
       totalActivitiesPrice: "0",
       generalDiscount: "0",
       departureCity: departureCity,
-      arrivalCity: arrivalCity
+      arrivalCity: arrivalCity,
+      serviceFee: serviceFee,
+      tax: tax
     });
 
     const savedItinerary = await newUserItinerary.save();
