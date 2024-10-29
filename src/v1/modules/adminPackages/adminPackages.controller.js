@@ -3,14 +3,17 @@ import AdminPackageActivity from '../../models/adminPackageActivity.js';
 import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
-import Hotel from '../../models/hotel.js';
-import fetchHotelDetails from '../../services/hotelDetails.js';
-import mongoose from 'mongoose';
-import { addDatesToItinerary } from '../../../utils/dateUtils.js'; 
 import moment from 'moment'
 import { addHotelDetailsToItinerary } from '../../services/hotelDetails.js';
 import { StatusCodes } from 'http-status-codes';
 import httpFormatter from '../../../utils/formatter.js';
+import Itinerary from '../../models/itinerary.js';
+import GptActivity from '../../models/gptactivity.js';
+import User from '../../models/user.js'
+import Lead from '../../models/lead.js';
+import Discount from '../../models/discount.js';
+import { applyDiscountFunction } from '../discount/discount.controller.js';
+import Settings from '../../models/settings.js';
 
 
 export const createBasicAdminPackage = async (req, res) => {
@@ -567,3 +570,218 @@ export const deleteAdminPackageById = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+export const createUserItinerary = async (req, res) => {
+  try {
+    const { adminPackageId } = req.params;
+    const {
+      startsAt,
+      travellingWith,
+      rooms,
+      departureCity,
+      arrivalCity
+    } = req.body;
+
+    // Fetch the admin package details
+    const adminPackage = await AdminPackage.findById(adminPackageId).populate('cities.city');
+    if (!adminPackage) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+
+    // Calculate total persons and total price
+    const totalPersons = rooms.reduce((sum, room) => sum + room.adults + (room.children ? room.children.length : 0), 0);
+    const totalPrice = totalPersons * parseFloat(adminPackage.price);
+
+    // Helper function to retrieve or create GptActivity based on AdminPackageActivity
+    const getOrCreateGptActivity = async (activityId, cityId) => {
+      // Check if activity is already in GptActivity
+      const existingGptActivity = await GptActivity.findOne({ activityId });
+      if (existingGptActivity) {
+        return existingGptActivity._id;
+      }
+
+      // Fetch activity details from AdminPackageActivity model
+      const adminPackageActivity = await AdminPackageActivity.findById(activityId);
+      if (!adminPackageActivity) {
+        throw new Error(`Activity with ID ${activityId} not found in AdminPackageActivity`);
+      }
+
+      // Create new GptActivity with default values for missing fields
+      const newActivity = await GptActivity.create({
+        name: adminPackageActivity.name,
+        startTime: adminPackageActivity.startTime || '00:00',
+        endTime: adminPackageActivity.endTime || '23:59',
+        duration: adminPackageActivity.duration || 'Full day',
+        timeStamp: adminPackageActivity.timeStamp || new Date().toISOString(),
+        category: adminPackageActivity.category || 'General',
+        cityId: cityId,
+        activityId: adminPackageActivity._id, // Store reference to original AdminPackageActivity ID
+      });
+
+      return newActivity._id;
+    };
+
+    // Generate itinerary with dates and GptActivity references
+    const itineraryWithDates = await Promise.all(
+      adminPackage.cities.map(async (cityData, cityIndex, citiesArray) => {
+        const daysWithDates = await Promise.all(
+          cityData.days.map(async (day, dayIndex) => {
+            // Map each activity ID in the day to a GptActivity ID
+            const gptActivityIds = await Promise.all(
+              day.activities.map(activityId => getOrCreateGptActivity(activityId, cityData.city._id))
+            );
+
+            return {
+              day: day.day,
+              date: moment(startsAt).add(dayIndex + cityIndex * cityData.stayDays, 'days').format('YYYY-MM-DD'),
+              activities: gptActivityIds // Use GptActivity IDs
+            };
+          })
+        );
+
+        return {
+          currentCity: cityData.city._id,
+          nextCity: cityIndex < citiesArray.length - 1 ? citiesArray[cityIndex + 1].city._id : null,
+          stayDays: cityData.stayDays,
+          transport: cityData.transportToNextCity,
+          transferCostPerPersonINR: cityData.transferCostPerPersonINR || null,
+          transferDuration: cityData.transferDuration || null,
+          days: daysWithDates,
+          hotelDetails: cityData.hotelDetails || null,
+        };
+      })
+    );
+
+    // Calculate total days from itinerary data
+    const totalDays = itineraryWithDates.reduce((sum, city) => sum + city.stayDays, 0);
+
+    const discount = await Discount.findOne({
+      destination: adminPackage.destination,
+      discountType: 'couponless',
+      'applicableOn.predefinedPackages': true
+    }).sort({ createdAt: -1 });
+
+    let response = 0;
+
+    if (discount && discount.discountType =='couponless') {
+       response = await applyDiscountFunction({
+        discountId: discount._id,
+        userId: req.user.userId,
+        totalAmount: totalPrice
+      });
+    }
+
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
+    }
+
+    const serviceFee = settings.serviceFee
+    const tax = parseFloat(totalPrice * 0.18)
+
+    let discountedPrice = parseFloat(totalPrice - response);
+    discountedPrice += (serviceFee + tax);
+    
+    // Create a new user itinerary document
+    const newUserItinerary = new Itinerary({
+      type: 'Admin',
+      createdBy: req.user.userId,
+      enrichedItinerary: {
+        title: adminPackage.packageName,
+        subtitle: adminPackage.description,
+        destination: adminPackage.destination,
+        destinationId: adminPackage.destination._id,
+        itinerary: itineraryWithDates,
+        totalDays: totalDays,
+        totalNights: totalDays - 1,
+      },
+      adults: totalPersons,
+      children: rooms.reduce((sum, room) => sum + room.children, 0),
+      childrenAges: rooms.flatMap(room => room.childrenAges),
+      rooms: rooms,
+      travellingWith: travellingWith,
+      startDate: startsAt,
+      endDate: moment(startsAt).add(totalDays - 1, 'days').format('YYYY-MM-DD'),
+      totalPrice: totalPrice.toString(),
+      currentTotalPrice: discountedPrice.toString(),
+      totalPriceWithoutMarkup: "0",
+      couponlessDiscount: response,
+      totalFlightsPrice: "0",
+      totalFerriesPrice: "0",
+      totalTaxisPrice: "0",
+      totalHotelsPrice: "0",
+      totalActivitiesPrice: "0",
+      generalDiscount: "0",
+      departureCity: departureCity,
+      arrivalCity: arrivalCity,
+      serviceFee: serviceFee,
+      tax: tax
+    });
+
+    const savedItinerary = await newUserItinerary.save();
+    const userId = req.user.userId;
+    let user = await User.findById(userId);
+
+    if (!user || !(user.phoneNumber || user.phone)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'Invalid user ID or missing contact number.', false));
+    }
+
+    // Create the new lead
+    const newLead = new Lead({
+      createdBy: userId,
+      itineraryId: newUserItinerary._id,
+      status: 'ML',
+      contactNumber: user.phoneNumber || user.phone,
+    });
+    await newLead.save();
+    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary: savedItinerary, lead: newLead }, 'User admin package itinerary created successfully', true));
+  } catch (error) {
+    console.error('Error creating user itinerary:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};
+
+
+export const addGeneralDiscount = async(req,res) => {
+  try{
+    const { adminPackageId, itineraryId, discountId } = req.params;
+    const adminPackage = await AdminPackage.findById(adminPackageId);
+    if(!adminPackage){
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+    }
+    const userId = req.user.userId;
+    const itinerary = await Itinerary.findById(itineraryId);
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Fetch the discount using the discountId
+    const discount = await Discount.findById(discountId);
+    if (!discount) {
+      return res.status(404).json({ message: "Discount not found" });
+    }
+    let totalPrice = itinerary.totalPrice;
+    let response = 0;
+    if(discount.discountType === 'general'){
+
+      if (discount.applicableOn.predefinedPackages === true) {
+        response = await applyDiscountFunction({
+          discountId: discountId,
+          userId: userId,
+          totalAmount: totalPrice
+        });
+    }
+  }
+  itinerary.currentTotalPrice -= response;
+  itinerary.generalDiscount = response.toString();
+  await itinerary.save();
+  return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
+  }
+  catch(error){
+    console.error("Error applying discount:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+}

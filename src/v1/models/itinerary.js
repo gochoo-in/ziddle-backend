@@ -58,6 +58,7 @@ const enrichedItinerarySchema = new mongoose.Schema({
 
 // Main Itinerary Schema
 const itinerarySchema = new mongoose.Schema({
+  type: { type: String, enum: ['User', 'Admin'], default: 'User' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   enrichedItinerary: { type: enrichedItinerarySchema, required: true },
   adults: { type: Number, required: true },
