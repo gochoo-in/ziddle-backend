@@ -686,6 +686,7 @@ export const createUserItinerary = async (req, res) => {
     // Create a new user itinerary document
     const newUserItinerary = new Itinerary({
       type: 'Admin',
+      adminPackage: adminPackage._id,
       createdBy: req.user.userId,
       enrichedItinerary: {
         title: adminPackage.packageName,
