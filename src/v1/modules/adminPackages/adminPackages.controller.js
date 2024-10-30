@@ -63,7 +63,7 @@ export const createBasicAdminPackage = async (req, res) => {
 
 export const addDetailsToAdminPackage = async (req, res) => {
   try {
-    const { adminPackageId, cities } = req.body; 
+    const { adminPackageId, cities } = req.body;
 
     const adminPackage = await AdminPackage.findById(adminPackageId);
     if (!adminPackage) {
@@ -150,7 +150,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
       itinerary: citiesWithDetails
     };
 
-    const adults = 1; 
+    const adults = 1;
     const childrenAges = [];
     const rooms = 1;
 
@@ -162,15 +162,15 @@ export const addDetailsToAdminPackage = async (req, res) => {
     );
 
     const startsAt = adminPackage.startsAt;
-    const updatedItineraryData = startsAt 
-  ? addDatesToItinerary(itineraryWithHotelDetails, startsAt) 
-  : itineraryWithHotelDetails; 
+    const updatedItineraryData = startsAt
+      ? addDatesToItinerary(itineraryWithHotelDetails, startsAt)
+      : itineraryWithHotelDetails;
 
 
     let dayCounter = 1;
     for (const city of updatedItineraryData.itinerary) {
       for (const day of city.days) {
-        day.day = dayCounter++; 
+        day.day = dayCounter++;
       }
     }
 
@@ -263,7 +263,7 @@ export const getAdminPackageById = async (req, res) => {
       imageUrls: adminPackage.imageUrls,
       createdAt: adminPackage.createdAt,
       updatedAt: adminPackage.updatedAt,
-      createdBy: adminPackage.createdBy, 
+      createdBy: adminPackage.createdBy,
     };
     return res.status(200).json({
       message: 'Admin package retrieved successfully',
@@ -305,14 +305,14 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
 
   try {
     const adminPackage = await AdminPackage.findById(adminPackageId);
-    
+
     if (!adminPackage) {
       return res.status(404).json({ message: 'Admin package not found' });
     }
 
     adminPackage.active = !adminPackage.active;
 
-    await adminPackage.updateOne({ active: adminPackage.active }); 
+    await adminPackage.updateOne({ active: adminPackage.active });
 
     return res.status(200).json({
       success: true,
@@ -326,7 +326,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
 };
 
 export const getAdminPackagesByDestinationId = async (req, res) => {
-  const { destinationId } = req.params; 
+  const { destinationId } = req.params;
 
   try {
     const adminPackages = await AdminPackage.find({ destination: destinationId });
@@ -525,7 +525,7 @@ export const getAllAdminPackageActivities = async (req, res) => {
     const activityIds = adminPackage.cities
       .flatMap(city => city.days)
       .flatMap(day => day.activities)
-      .filter(Boolean); 
+      .filter(Boolean);
 
     const adminActivities = await AdminPackageActivity.find({ _id: { $in: activityIds } });
 
@@ -540,7 +540,7 @@ export const getAllAdminPackageActivities = async (req, res) => {
 
     const detailedActivities = adminActivities.map(activity => ({
       activity,
-      detailedActivity: activityDetailsMap[activity.name] || null, 
+      detailedActivity: activityDetailsMap[activity.name] || null,
     }));
 
     return res.status(StatusCodes.OK).json(httpFormatter({ activities: detailedActivities }, 'Activities retrieved successfully', true));
@@ -595,19 +595,16 @@ export const createUserItinerary = async (req, res) => {
 
     // Helper function to retrieve or create GptActivity based on AdminPackageActivity
     const getOrCreateGptActivity = async (activityId, cityId) => {
-      // Check if activity is already in GptActivity
       const existingGptActivity = await GptActivity.findOne({ activityId });
       if (existingGptActivity) {
         return existingGptActivity._id;
       }
 
-      // Fetch activity details from AdminPackageActivity model
       const adminPackageActivity = await AdminPackageActivity.findById(activityId);
       if (!adminPackageActivity) {
         throw new Error(`Activity with ID ${activityId} not found in AdminPackageActivity`);
       }
 
-      // Create new GptActivity with default values for missing fields
       const newActivity = await GptActivity.create({
         name: adminPackageActivity.name,
         startTime: adminPackageActivity.startTime || '00:00',
@@ -622,20 +619,18 @@ export const createUserItinerary = async (req, res) => {
       return newActivity._id;
     };
 
-    // Generate itinerary with dates and GptActivity references
+    // Step 1: Build itinerary structure without assigning dates yet
     const itineraryWithDates = await Promise.all(
       adminPackage.cities.map(async (cityData, cityIndex, citiesArray) => {
-        const daysWithDates = await Promise.all(
-          cityData.days.map(async (day, dayIndex) => {
-            // Map each activity ID in the day to a GptActivity ID
+        const daysWithActivities = await Promise.all(
+          cityData.days.map(async (day) => {
             const gptActivityIds = await Promise.all(
               day.activities.map(activityId => getOrCreateGptActivity(activityId, cityData.city._id))
             );
 
             return {
               day: day.day,
-              date: moment(startsAt).add(dayIndex + cityIndex * cityData.stayDays, 'days').format('YYYY-MM-DD'),
-              activities: gptActivityIds // Use GptActivity IDs
+              activities: gptActivityIds
             };
           })
         );
@@ -647,14 +642,24 @@ export const createUserItinerary = async (req, res) => {
           transport: cityData.transportToNextCity,
           transferCostPerPersonINR: cityData.transferCostPerPersonINR || null,
           transferDuration: cityData.transferDuration || null,
-          days: daysWithDates,
+          days: daysWithActivities,
           hotelDetails: cityData.hotelDetails || null,
         };
       })
     );
 
-    // Calculate total days from itinerary data
-    const totalDays = itineraryWithDates.reduce((sum, city) => sum + city.stayDays, 0);
+    const start = moment.utc(startsAt, 'YYYY-MM-DD').startOf('day');
+
+    let cumulativeDays = 0;
+    itineraryWithDates.forEach(city => {
+      city.days.forEach(day => {
+        day.date = start.clone().add(cumulativeDays, 'days').toISOString();
+        cumulativeDays += 1;
+      });
+    });
+
+
+    const totalDays = cumulativeDays;
 
     const discount = await Discount.findOne({
       destination: adminPackage.destination,
@@ -664,8 +669,8 @@ export const createUserItinerary = async (req, res) => {
 
     let response = 0;
 
-    if (discount && discount.discountType =='couponless') {
-       response = await applyDiscountFunction({
+    if (discount && discount.discountType == 'couponless') {
+      response = await applyDiscountFunction({
         discountId: discount._id,
         userId: req.user.userId,
         totalAmount: totalPrice
@@ -677,13 +682,12 @@ export const createUserItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
-    const serviceFee = settings.serviceFee
-    const tax = parseFloat(totalPrice * 0.18)
+    const serviceFee = settings.serviceFee;
+    const tax = parseFloat(totalPrice * 0.18);
 
     let discountedPrice = parseFloat(totalPrice - response);
     discountedPrice += (serviceFee + tax);
-    
-    // Create a new user itinerary document
+
     const newUserItinerary = new Itinerary({
       type: 'Admin',
       adminPackage: adminPackage._id,
@@ -730,7 +734,6 @@ export const createUserItinerary = async (req, res) => {
         .json(httpFormatter({}, 'Invalid user ID or missing contact number.', false));
     }
 
-    // Create the new lead
     const newLead = new Lead({
       createdBy: userId,
       itineraryId: newUserItinerary._id,
@@ -746,11 +749,11 @@ export const createUserItinerary = async (req, res) => {
 };
 
 
-export const addGeneralDiscount = async(req,res) => {
-  try{
+export const addGeneralDiscount = async (req, res) => {
+  try {
     const { adminPackageId, itineraryId, discountId } = req.params;
     const adminPackage = await AdminPackage.findById(adminPackageId);
-    if(!adminPackage){
+    if (!adminPackage) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
     const userId = req.user.userId;
@@ -766,7 +769,7 @@ export const addGeneralDiscount = async(req,res) => {
     }
     let totalPrice = itinerary.totalPrice;
     let response = 0;
-    if(discount.discountType === 'general'){
+    if (discount.discountType === 'general') {
 
       if (discount.applicableOn.predefinedPackages === true) {
         response = await applyDiscountFunction({
@@ -774,14 +777,14 @@ export const addGeneralDiscount = async(req,res) => {
           userId: userId,
           totalAmount: totalPrice
         });
+      }
     }
+    itinerary.currentTotalPrice -= response;
+    itinerary.generalDiscount = response.toString();
+    await itinerary.save();
+    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
   }
-  itinerary.currentTotalPrice -= response;
-  itinerary.generalDiscount = response.toString();
-  await itinerary.save();
-  return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
-  }
-  catch(error){
+  catch (error) {
     console.error("Error applying discount:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
