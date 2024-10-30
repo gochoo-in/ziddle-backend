@@ -32,7 +32,7 @@ router.get('/package/:adminPackageId', getAdminPackageById);
 router.get('/packages/category/:category', getAdminPackagesByCategory);
 router.get('/package/:packageId/activities', getAllAdminPackageActivities );
 router.delete('/packages/:adminPackageId', deleteAdminPackageById);
-router.post('/package/:adminPackageId/createUserItinerary', verifyToken, createUserItinerary);
+router.post('/package/:adminPackageId/itinerary', verifyToken, createUserItinerary);
 router.patch('/package/:adminPackageId/itinerary/:itineraryId/addCoupon/:discountId', verifyToken, addGeneralDiscount)
 
 
