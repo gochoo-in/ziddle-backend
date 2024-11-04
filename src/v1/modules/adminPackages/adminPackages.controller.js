@@ -685,7 +685,7 @@ export const createUserItinerary = async (req, res) => {
     const serviceFee = settings.serviceFee;
     const tax = parseFloat(totalPrice * 0.18);
 
-    let discountedPrice = parseFloat(totalPrice - response);
+    let discountedPrice = parseFloat(totalPrice - response.discountAmount);
     discountedPrice += (serviceFee + tax);
 
     const newUserItinerary = new Itinerary({
@@ -779,7 +779,7 @@ export const addGeneralDiscount = async (req, res) => {
         });
       }
     }
-    itinerary.currentTotalPrice -= response;
+    itinerary.currentTotalPrice -= response.discountAmount;
     itinerary.generalDiscount = response.toString();
     await itinerary.save();
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));

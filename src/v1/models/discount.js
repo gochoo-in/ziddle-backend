@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Destination from './destination.js';
+
 const discountSchema = new mongoose.Schema({
     applicableOn: {
         package: { type: Boolean, default: true },
@@ -64,7 +65,16 @@ const discountSchema = new mongoose.Schema({
     },
     usedByUsers: [{ 
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-    }]
+    }],
+    // New fields to store total usage count and value
+    totalDiscountUsageCount: {
+        type: Number,
+        default: 0 // Initialize with zero
+    },
+    totalDiscountValue: {
+        type: Number,
+        default: 0 // Initialize with zero
+    }
 }, { timestamps: true, versionKey: false });
 
 // Middleware to set destinations based on user input
@@ -84,5 +94,12 @@ discountSchema.pre('save', async function(next) {
         next();
     }
 });
+
+// Method to update discount usage count and total value
+discountSchema.methods.updateUsage = async function(amount) {
+    this.totalDiscountUsageCount += 1;
+    this.totalDiscountValue += amount;
+    await this.save();
+};
 
 export default mongoose.model('Discount', discountSchema);

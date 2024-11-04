@@ -64,24 +64,24 @@ export const applyDiscountFunction = async (payload, res) => {
 
         // Validate input
         if (!userId || !discountId || totalAmount === undefined) {
-            return  'User ID, discount ID, and total amount are required'
+            return 'User ID, discount ID, and total amount are required';
         }
 
         // Find the discount by ID
         const discount = await Discount.findById(discountId);
         if (!discount) {
-            return  'Discount not found'
+            return 'Discount not found';
         }
 
         // Check if the discount is active
         if (!discount.active) {
-            return 'This discount is not active'
+            return 'This discount is not active';
         }
 
         // Check if this user exists
         const user = await User.findById(userId);
         if (!user) {
-            return 'User not found'
+            return 'User not found';
         }
 
         // Check user type eligibility
@@ -98,7 +98,7 @@ export const applyDiscountFunction = async (payload, res) => {
         }
 
         if (!userTypeEligible) {
-            return 'User is not eligible for this discount'
+            return 'User is not eligible for this discount';
         }
 
         // Check total unique users who have used the discount
@@ -110,11 +110,11 @@ export const applyDiscountFunction = async (payload, res) => {
 
         // Check limits
         if (uniqueUserCount >= discount.noOfUsersTotal && userUsageCount === 0) {
-            return 0
+            return 0;
         }
 
         if (userUsageCount >= discount.noOfUsesPerUser) {
-            return 0
+            return 0;
         }
 
         // Calculate the discount amount
@@ -133,16 +133,33 @@ export const applyDiscountFunction = async (payload, res) => {
         const discountUsage = new DiscountUsage({
             userId,
             discountId,
+            discountAmount, // Store the calculated discount amount for tracking
         });
         await discountUsage.save();
 
-        // Return the calculated discount amount
-        return discountAmount
+        await discount.updateUsage(discountAmount);
+
+        // Calculate the total times this discount has been used
+        const totalDiscountUsageCount = await DiscountUsage.countDocuments({ discountId });
+
+        // Calculate the total discount value given for this discount
+        const totalDiscountValue = await DiscountUsage.aggregate([
+            { $match: { discountId } },
+            { $group: { _id: null, totalValue: { $sum: "$discountAmount" } } }
+        ]);
+
+        // Return the calculated discount amount, total usage count, and total discount value
+        return {
+            discountAmount,
+            totalDiscountUsageCount,
+            totalDiscountValue: totalDiscountValue[0] ? totalDiscountValue[0].totalValue : 0
+        };
     } catch (error) {
         logger.error('Error applying discount:', error);
-        return error
+        return error;
     }
 };
+
 
 
 export const applyDiscount = async (req, res) => {
@@ -426,7 +443,7 @@ export const applyGeneralDiscount = async (payload, res) => {
         });
         
         // Adjust the total price of the itinerary
-        totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response.discountAmount)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -455,7 +472,7 @@ export const applyGeneralDiscount = async (payload, res) => {
         });
         
         // Adjust the total price of the itinerary
-        totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response.discountAmount)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -482,7 +499,7 @@ export const applyGeneralDiscount = async (payload, res) => {
           userId: userId,
           totalAmount: itinerary.totalActivitiesPrice
         });
-        totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response.discountAmount)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -511,7 +528,7 @@ export const applyGeneralDiscount = async (payload, res) => {
         });
         
         // Adjust the total price of the itinerary
-        totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response.discountAmount)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
