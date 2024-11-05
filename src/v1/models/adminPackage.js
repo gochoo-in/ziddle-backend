@@ -19,6 +19,10 @@ const adminPackageSchema = new mongoose.Schema({
       ref: 'City',
       required: true,
     },
+    cityName: {
+      type: String,
+      required: true,
+    },
     stayDays: {
       type: Number,
       required: true,

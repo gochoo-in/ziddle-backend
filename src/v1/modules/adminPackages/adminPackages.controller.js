@@ -132,9 +132,9 @@ export const addDetailsToAdminPackage = async (req, res) => {
             activities: [savedTravelActivity._id],
           });
         }
-
         return {
           city: city.cityId,
+          cityName: cityRecord.name,
           stayDays: updatedDays.length,
           days: updatedDays,
           transportToNextCity: {
