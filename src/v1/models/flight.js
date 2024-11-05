@@ -6,8 +6,8 @@ const flightSchema = new mongoose.Schema({
     arrivalCityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
     baggageIncluded: { type: Boolean, required: true },
     baggageDetails: {
-        cabinBag: { type: Number },
-        checkedBag: { type: Number }
+        cabinBag: { type: String },
+        checkedBag: { type: String }
     },
     price: { type: Number, required: true },
     currency: { type: String, required: true },
