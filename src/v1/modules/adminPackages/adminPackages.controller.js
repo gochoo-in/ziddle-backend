@@ -583,8 +583,11 @@ export const createUserItinerary = async (req, res) => {
       arrivalCity
     } = req.body;
 
-    // Fetch the admin package details
-    const adminPackage = await AdminPackage.findById(adminPackageId).populate('cities.city');
+    // Fetch the admin package details and populate destination's name
+    const adminPackage = await AdminPackage.findById(adminPackageId)
+      .populate('cities.city')
+      .populate('destination', 'name'); // Populating only the name of the destination
+
     if (!adminPackage) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
@@ -613,7 +616,7 @@ export const createUserItinerary = async (req, res) => {
         timeStamp: adminPackageActivity.timeStamp || new Date().toISOString(),
         category: adminPackageActivity.category || 'General',
         cityId: cityId,
-        activityId: adminPackageActivity._id, // Store reference to original AdminPackageActivity ID
+        activityId: adminPackageActivity._id,
       });
 
       return newActivity._id;
@@ -636,8 +639,8 @@ export const createUserItinerary = async (req, res) => {
         );
 
         return {
-          currentCity: cityData.city._id,
-          nextCity: cityIndex < citiesArray.length - 1 ? citiesArray[cityIndex + 1].city._id : null,
+          currentCity: cityData.city.name,
+          nextCity: cityIndex < citiesArray.length - 1 ? citiesArray[cityIndex + 1].city.name : null,
           stayDays: cityData.stayDays,
           transport: cityData.transportToNextCity,
           transferCostPerPersonINR: cityData.transferCostPerPersonINR || null,
@@ -658,11 +661,10 @@ export const createUserItinerary = async (req, res) => {
       });
     });
 
-
     const totalDays = cumulativeDays;
 
     const discount = await Discount.findOne({
-      destination: adminPackage.destination,
+      destination: adminPackage.destination._id,
       discountType: 'couponless',
       'applicableOn.predefinedPackages': true
     }).sort({ createdAt: -1 });
@@ -684,8 +686,7 @@ export const createUserItinerary = async (req, res) => {
 
     const serviceFee = settings.serviceFee;
     const tax = parseFloat(totalPrice * 0.18);
-
-    let discountedPrice = parseFloat(totalPrice - response.discountAmount);
+    let discountedPrice = parseFloat(totalPrice - (response.discountAmount ?? 0));
     discountedPrice += (serviceFee + tax);
 
     const newUserItinerary = new Itinerary({
@@ -695,7 +696,7 @@ export const createUserItinerary = async (req, res) => {
       enrichedItinerary: {
         title: adminPackage.packageName,
         subtitle: adminPackage.description,
-        destination: adminPackage.destination,
+        destination: adminPackage.destination.name, 
         destinationId: adminPackage.destination._id,
         itinerary: itineraryWithDates,
         totalDays: totalDays,
@@ -747,6 +748,7 @@ export const createUserItinerary = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
 
 
 export const addGeneralDiscount = async (req, res) => {
