@@ -108,8 +108,8 @@ export const signin = async (req, res) => {
                 await user.save();
 
                 await sendOTPMessage(user.otp, phoneNumber);
-
-                return res.status(StatusCodes.OK).json(httpFormatter({ }, 'OTP sent successfully. Please verify.', true));
+                
+                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
                 if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
                     return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP', false));
