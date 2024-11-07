@@ -1754,6 +1754,7 @@ export const replaceHotelInItinerary = async (req, res) => {
       priceDrop: room.priceDrop,
     }));
 
+    
     // Create the new hotel with multiple rooms
     const newHotel = new Hotel({
       name: selectedHotel.hotelName,
