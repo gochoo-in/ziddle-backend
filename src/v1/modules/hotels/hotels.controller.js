@@ -6,19 +6,24 @@ import httpFormatter from '../../../utils/formatter.js';
 import axios from 'axios';
 
 
-const HOTEL_DETAILS_API_URL = 'http://api.tbotechnology.in/TBOHolidays_HotelAPI/Hoteldetails';
+const HOTEL_DETAILS_API_URL = process.env.HOTEL_DETAILS_API_URL;
 const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
 const PREDEFINED_USERNAME = process.env.TBO_HOTEL_PREDEFINED_USERNAME
 const PREDEFINED_PASSWORD = process.env.TBO_HOTEL_PREDEFINED_PASSWORD
-
+const TBO_HOTEL_USERNAME = process.env.TBO_HOTEL_USERNAME
+const TBO_HOTEL_PASSWORD = process.env.TBO_HOTEL_PASSWORD
+const HOTEL_CODES_API_URL = process.env.HOTEL_CODES_API_URL
+const HOTEL_COUNTRY_API_URL = process.env.HOTEL_COUNTRY_API_URL
+const HOTEL_CITY_API_URL = process.env.HOTEL_CITY_API_URL
+const HOTEL_SEARCH_API_URL = process.env.HOTEL_SEARCH_API_URL
 
 
 async function getHotelCodes(cityCode) {
     
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/TBOHotelCodeList',
+            HOTEL_CODES_API_URL,
             {
                 CityCode: cityCode,
                 IsDetailedResponse: "false"
@@ -49,7 +54,7 @@ async function getHotelCodes(cityCode) {
 async function getCountryCode(countryName) {
    
     try {
-        const response = await axios.get('http://api.tbotechnology.in/TBOHolidays_HotelAPI/CountryList', {
+        const response = await axios.get(HOTEL_COUNTRY_API_URL, {
             auth: {
                 username: PREDEFINED_USERNAME,
                 password: PREDEFINED_PASSWORD
@@ -80,7 +85,7 @@ async function getCityCode(countryCode, cityName) {
    
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/CityList',
+            HOTEL_CITY_API_URL,
             { CountryCode: countryCode },
             {
                 auth: {
@@ -115,7 +120,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
   
     try {
         const response = await axios.post(
-            'https://affiliate.tektravels.com/HotelAPI/Search',
+            HOTEL_SEARCH_API_URL,
             {
                 CheckIn: checkIn,
                 CheckOut: checkOut,
@@ -131,8 +136,8 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
             },
             {
                 auth: {
-                    username: 'Yokuverse',
-                    password: 'Yokuverse@1234'
+                    username: TBO_HOTEL_USERNAME,
+                    password: TBO_HOTEL_PASSWORD
                 }
             }
         );
@@ -156,7 +161,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
 async function getHotelDetails(hotelCode) {
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/Hoteldetails',
+            HOTEL_DETAILS_API_URL,
             {
                 Hotelcodes: hotelCode,
                 Language: "EN"
