@@ -145,7 +145,6 @@ export const addContact = async (req, res) => {
     try {
         const { profileId } = req.params;
         const { salutation, firstName, surname, dob, passport } = req.body;
-        console.log(req.body)
 
         if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
             return res.status(StatusCodes.BAD_REQUEST).json(
