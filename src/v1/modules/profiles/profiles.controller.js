@@ -6,9 +6,10 @@ import logger from '../../../config/logger.js';
 import CommunicationPreference from '../../models/communicationPreference.js'; 
 import SavedContact from '../../models/savedContact.js'; 
 
+// Add or update communication preferences using userId
 export const addOrUpdateCommunicationPreferences = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;  // changed from profileId to userId
         const { preferences } = req.body;
 
         if (!preferences) {
@@ -17,16 +18,14 @@ export const addOrUpdateCommunicationPreferences = async (req, res) => {
             );
         }
 
-        const profile = await Profile.findById(profileId);
+        const profile = await Profile.findOne({ user: userId });
         if (!profile) {
             return res.status(StatusCodes.NOT_FOUND).json(
                 httpFormatter({}, 'Profile not found', false)
             );
         }
 
-        const userId = profile.user;
-
-        let existingPreferences = await CommunicationPreference.findOne({ profile: profileId });
+        let existingPreferences = await CommunicationPreference.findOne({ profile: profile._id });
 
         if (existingPreferences) {
             existingPreferences.preferences = preferences;
@@ -51,14 +50,12 @@ export const addOrUpdateCommunicationPreferences = async (req, res) => {
     }
 };
 
-
-// Add profile details
 export const addProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fullName, email, preferredLanguage, address, profilePhoto, phoneNumber } = req.body;
+        const { preferredLanguage, address, profilePhoto } = req.body;
 
-        if (!fullName || !email || !address || !address.line1 || !address.pincode || !phoneNumber) {
+        if (!address || !address.line1 || !address.pincode) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -67,14 +64,15 @@ export const addProfileDetails = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
         }
 
+        // Use fullName, email, and phoneNumber from the User table
         const profileData = {
-            fullName,
-            email,
+            fullName: `${userExists.firstName} ${userExists.lastName}`,  // assuming full name is a combination of first and last names
+            email: userExists.email,
+            phoneNumber: userExists.phoneNumber,
             preferredLanguage,
             address,
             profilePhoto,
-            user: userId, 
-            phoneNumber
+            user: userId
         };
 
         const savedProfile = await Profile.create(profileData);
@@ -86,12 +84,11 @@ export const addProfileDetails = async (req, res) => {
     }
 };
 
-
-// Get profile by ID
+// Get profile by userId
 export const getProfileById = async (req, res) => {
     try {
-        const { profileId } = req.params;
-        const profile = await Profile.findById(profileId);
+        const { userId } = req.params;
+        const profile = await Profile.findOne({ user: userId });
 
         if (!profile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
@@ -104,16 +101,41 @@ export const getProfileById = async (req, res) => {
     }
 };
 
-// Update profile details
 export const updateProfileDetails = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
         const updates = req.body;
 
-        const updatedProfile = await Profile.findByIdAndUpdate(profileId, updates, { new: true, runValidators: true });
-
-        if (!updatedProfile) {
+        // Check if the profile exists
+        const profile = await Profile.findOne({ user: userId });
+        if (!profile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
+        }
+
+        // Update the Profile document
+        const updatedProfile = await Profile.findOneAndUpdate(
+            { user: userId },
+            updates,
+            { new: true, runValidators: true }
+        );
+
+        // Update User table if specific fields are included in the updates
+        const userUpdates = {};
+        if (updates.fullName) {
+            const [firstName, ...lastName] = updates.fullName.split(' ');
+            userUpdates.firstName = firstName;
+            userUpdates.lastName = lastName.join(' ') || '';
+        }
+        if (updates.email) {
+            userUpdates.email = updates.email;
+        }
+        if (updates.phoneNumber) {
+            userUpdates.phoneNumber = updates.phoneNumber;
+        }
+
+        // If user updates are present, update the User table
+        if (Object.keys(userUpdates).length > 0) {
+            await User.findByIdAndUpdate(userId, userUpdates, { new: true });
         }
 
         return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
@@ -123,12 +145,12 @@ export const updateProfileDetails = async (req, res) => {
     }
 };
 
-// Delete profile by ID
+// Delete profile by userId
 export const deleteProfile = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
 
-        const deletedProfile = await Profile.findByIdAndDelete(profileId);
+        const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
         if (!deletedProfile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
@@ -141,9 +163,10 @@ export const deleteProfile = async (req, res) => {
     }
 };
 
+// Add contact by userId
 export const addContact = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
         const { salutation, firstName, surname, dob, passport } = req.body;
 
         if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
@@ -152,14 +175,12 @@ export const addContact = async (req, res) => {
             );
         }
 
-        const profile = await Profile.findById(profileId);
+        const profile = await Profile.findOne({ user: userId });
         if (!profile) {
             return res.status(StatusCodes.NOT_FOUND).json(
                 httpFormatter({}, 'Profile not found', false)
             );
         }
-
-        const userId = profile.user;
 
         const contactData = {
             user: userId,
@@ -173,7 +194,7 @@ export const addContact = async (req, res) => {
             }
         };
 
-        const savedContact = await SavedContact.create( contactData );
+        const savedContact = await SavedContact.create(contactData);
 
         return res.status(StatusCodes.CREATED).json(
             httpFormatter({ contact: savedContact }, 'Contact saved successfully', true)
