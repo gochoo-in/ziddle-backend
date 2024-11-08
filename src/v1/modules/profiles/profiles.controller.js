@@ -84,22 +84,38 @@ export const addProfileDetails = async (req, res) => {
     }
 };
 
-// Get profile by userId
 export const getProfileById = async (req, res) => {
     try {
         const { userId } = req.params;
+
+        // Try to find the profile by userId
         const profile = await Profile.findOne({ user: userId });
 
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
-        }
+        if (profile) {
+            // Profile exists, return profile details
+            return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
+        } else {
+            // Profile does not exist, return basic user info
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+            }
 
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
+            // Construct basic user info to return
+            const userInfo = {
+                fullName: `${user.firstName} ${user.lastName}`,
+                phoneNumber: user.phoneNumber,
+                email: user.email
+            };
+
+            return res.status(StatusCodes.OK).json(httpFormatter({ user: userInfo }, 'User info retrieved successfully', true));
+        }
     } catch (error) {
         logger.error('Error retrieving profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 export const updateProfileDetails = async (req, res) => {
     try {
