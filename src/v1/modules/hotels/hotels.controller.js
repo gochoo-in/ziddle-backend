@@ -6,19 +6,24 @@ import httpFormatter from '../../../utils/formatter.js';
 import axios from 'axios';
 
 
-
+const HOTEL_DETAILS_API_URL = process.env.HOTEL_DETAILS_API_URL;
 const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
 const PREDEFINED_USERNAME = process.env.TBO_HOTEL_PREDEFINED_USERNAME
 const PREDEFINED_PASSWORD = process.env.TBO_HOTEL_PREDEFINED_PASSWORD
-
+const TBO_HOTEL_USERNAME = process.env.TBO_HOTEL_USERNAME
+const TBO_HOTEL_PASSWORD = process.env.TBO_HOTEL_PASSWORD
+const HOTEL_CODES_API_URL = process.env.HOTEL_CODES_API_URL
+const HOTEL_COUNTRY_API_URL = process.env.HOTEL_COUNTRY_API_URL
+const HOTEL_CITY_API_URL = process.env.HOTEL_CITY_API_URL
+const HOTEL_SEARCH_API_URL = process.env.HOTEL_SEARCH_API_URL
 
 
 async function getHotelCodes(cityCode) {
     
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/TBOHotelCodeList',
+            HOTEL_CODES_API_URL,
             {
                 CityCode: cityCode,
                 IsDetailedResponse: "false"
@@ -49,7 +54,7 @@ async function getHotelCodes(cityCode) {
 async function getCountryCode(countryName) {
    
     try {
-        const response = await axios.get('http://api.tbotechnology.in/TBOHolidays_HotelAPI/CountryList', {
+        const response = await axios.get(HOTEL_COUNTRY_API_URL, {
             auth: {
                 username: PREDEFINED_USERNAME,
                 password: PREDEFINED_PASSWORD
@@ -80,7 +85,7 @@ async function getCityCode(countryCode, cityName) {
    
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/CityList',
+            HOTEL_CITY_API_URL,
             { CountryCode: countryCode },
             {
                 auth: {
@@ -115,7 +120,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
   
     try {
         const response = await axios.post(
-            'https://affiliate.tektravels.com/HotelAPI/Search',
+            HOTEL_SEARCH_API_URL,
             {
                 CheckIn: checkIn,
                 CheckOut: checkOut,
@@ -131,8 +136,8 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
             },
             {
                 auth: {
-                    username: 'Yokuverse',
-                    password: 'Yokuverse@1234'
+                    username: TBO_HOTEL_USERNAME,
+                    password: TBO_HOTEL_PASSWORD
                 }
             }
         );
@@ -156,7 +161,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
 async function getHotelDetails(hotelCode) {
     try {
         const response = await axios.post(
-            'http://api.tbotechnology.in/TBOHolidays_HotelAPI/Hoteldetails',
+            HOTEL_DETAILS_API_URL,
             {
                 Hotelcodes: hotelCode,
                 Language: "EN"
@@ -221,9 +226,13 @@ async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate
         // Combine the results into a final array
         const selectedHotels = [...top2Cheapest, middleHotel, ...top2Expensive];
 
+
+      
+
         // Fetch detailed information for each selected hotel
         const detailedHotels = await Promise.all(selectedHotels.map(async (hotel) => {
             const detailedHotelInfo = await getHotelDetails(hotel.HotelCode);
+            console.log("seleced hotels aka data",detailedHotelInfo)
             const room = hotel.Rooms[0];
             return {
                 name: detailedHotelInfo?.HotelDetails[0]?.HotelName || 'Unknown Name',
@@ -237,7 +246,8 @@ async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate
                 checkout: `${departureDate} ${detailedHotelInfo?.HotelDetails[0]?.CheckOutTime ?? '12:00 PM'}`,
                 roomType: room.Name[0],
                 refundable: room.IsRefundable,
-                cityId: cityId 
+                cityId: cityId,
+                hotelcode:detailedHotelInfo?.HotelDetails[0]?.HotelCode
             };
         }));
 
@@ -322,3 +332,60 @@ export const getTopHotels = async (req, res) => {
     }
 };
  
+
+
+
+
+
+export const getSpecificHotelDetails = async (req, res) => {
+    const { cityId, hotelCode } = req.params;
+
+    try {
+        logger.info(`Fetching hotel details for cityId: ${cityId}, hotelCode: ${hotelCode}`);
+
+        // Validate city existence in the database
+        const city = await City.findById(cityId);
+        if (!city) {
+            logger.warn(`City with ID ${cityId} not found`);
+            return res
+                .status(StatusCodes.NOT_FOUND)
+                .json(httpFormatter({}, 'City not found.', false));
+        }
+
+        // Prepare request body for the hotel details API call
+        const requestBody = {
+            Hotelcodes: hotelCode,
+            Language: "EN"
+        };
+
+        // Make the API call to fetch hotel details
+        const response = await axios.post(
+            HOTEL_DETAILS_API_URL,
+            requestBody,
+            {
+                auth: {
+                    username: PREDEFINED_USERNAME,
+                    password: PREDEFINED_PASSWORD
+                }
+            }
+        );
+
+        // Check and process the response data
+        if (response.data && response.data.HotelDetails) {
+            logger.info(`Successfully fetched details for hotelCode: ${hotelCode}`);
+            return res
+                .status(StatusCodes.OK)
+                .json(httpFormatter(response.data.HotelDetails[0], 'Hotel details fetched successfully.', true));
+        } else {
+            logger.warn(`No details found for hotelCode: ${hotelCode}`);
+            return res
+                .status(StatusCodes.NOT_FOUND)
+                .json(httpFormatter({}, 'No hotel details found for the specified hotel code.', false));
+        }
+    } catch (error) {
+        logger.error(`Error fetching hotel details: ${error.message}`);
+        return res
+            .status(StatusCodes.INTERNAL_SERVER_ERROR)
+            .json(httpFormatter({}, 'Internal server error.', false));
+    }
+};
