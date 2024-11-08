@@ -11,8 +11,6 @@ import { cookieManager } from "./utils/middleware.js";
 import cors from 'cors';
 import expressListEndpoints from 'express-list-endpoints';
 import { routeDescriptions } from "./utils/routeDescriptions.js";
-import './v1/services/updatedPricesService.js';
-import { startItineraryUpdateJob, agenda } from './v1/services/updatedPricesService.js';
 
 dotenv.config();
 const { port } = Config;
@@ -106,10 +104,6 @@ async function startServer() {
     const server = app.listen(port, '0.0.0.0', async () => {
       logger.info(`Listening on port ${port}`);
       await connectMongoDB();
-
-      // Start the Agenda job scheduler
-      await startItineraryUpdateJob();
-      logger.info("Agenda job scheduler started.");
     });
 
     // Error handling for EADDRINUSE
@@ -133,8 +127,6 @@ startServer();
 // Gracefully shut down server and Agenda
 const exitHandler = async () => {
   logger.info('Shutting down server...');
-  await agenda.stop();  // Stop Agenda before exiting
-  logger.info('Agenda stopped successfully.');
   process.exit(0);
 };
 
