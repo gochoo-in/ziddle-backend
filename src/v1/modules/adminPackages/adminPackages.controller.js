@@ -114,6 +114,23 @@ export const addDetailsToAdminPackage = async (req, res) => {
         );
 
         // If not the first city, add travel activity
+        if(index==0){
+          const travelActivity = new AdminPackageActivity({
+            name: `Arrival in  ${cityRecord.name}`,
+            duration: '3 hours', // H ardcoded duration
+            category: 'Travel',
+            cityId: city.cityId,
+            startTime: '09:00 AM', 
+            endTime: '12:00 PM',  
+          });
+          const savedTravelActivity = await travelActivity.save();
+
+          updatedDays.unshift({
+            // Previous date for travel activity only if startsAt exists
+            ...(adminPackage.startsAt ? { date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            activities: [savedTravelActivity._id],
+          });
+        }
         if (index > 0) {
           const prevCity = await City.findById(cities[index - 1].cityId);
           const travelActivity = new AdminPackageActivity({
@@ -121,8 +138,8 @@ export const addDetailsToAdminPackage = async (req, res) => {
             duration: '3 hours', // Hardcoded duration
             category: 'Travel',
             cityId: city.cityId,
-            startTime: '09:00 AM', // Hardcoded start time
-            endTime: '12:00 PM',   // Hardcoded end time
+            startTime: '09:00 AM', 
+            endTime: '12:00 PM',  
           });
           const savedTravelActivity = await travelActivity.save();
 
