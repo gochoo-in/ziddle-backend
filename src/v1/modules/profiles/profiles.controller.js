@@ -3,6 +3,54 @@ import Profile from '../../models/profile.js';
 import User from '../../models/user.js'; 
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
+import CommunicationPreference from '../../models/communicationPreference.js'; 
+
+export const addOrUpdateCommunicationPreferences = async (req, res) => {
+    try {
+        const { profileId } = req.params;
+        const { preferences } = req.body;
+
+        if (!preferences) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Preferences are required', false)
+            );
+        }
+
+        const profile = await Profile.findById(profileId);
+        if (!profile) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Profile not found', false)
+            );
+        }
+
+        const userId = profile.user;
+
+        let existingPreferences = await CommunicationPreference.findOne({ profile: profileId });
+
+        if (existingPreferences) {
+            existingPreferences.preferences = preferences;
+            await existingPreferences.save();
+
+            return res.status(StatusCodes.OK).json(
+                httpFormatter({ preferences: existingPreferences }, 'Preferences updated successfully', true)
+            );
+        } else {
+            const newPreferences = await CommunicationPreference.create({ user: userId, preferences });
+
+            return res.status(StatusCodes.CREATED).json(
+                httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
+            );
+        }
+
+    } catch (error) {
+        logger.error('Error adding or updating communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+
 // Add profile details
 export const addProfileDetails = async (req, res) => {
     try {
