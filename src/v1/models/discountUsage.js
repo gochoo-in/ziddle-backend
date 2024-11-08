@@ -15,6 +15,10 @@ const discountUsageSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    discountAmount: { 
+        type: Number,
+        required: true,
+    }
 });
 
 export default mongoose.model('DiscountUsage', discountUsageSchema);

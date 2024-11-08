@@ -3,13 +3,59 @@ import Profile from '../../models/profile.js';
 import User from '../../models/user.js'; 
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
-// Add profile details
+import CommunicationPreference from '../../models/communicationPreference.js'; 
+import SavedContact from '../../models/savedContact.js'; 
+
+// Add or update communication preferences using userId
+export const addOrUpdateCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params;  // changed from profileId to userId
+        const { preferences } = req.body;
+
+        if (!preferences) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Preferences are required', false)
+            );
+        }
+
+        const profile = await Profile.findOne({ user: userId });
+        if (!profile) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Profile not found', false)
+            );
+        }
+
+        let existingPreferences = await CommunicationPreference.findOne({ profile: profile._id });
+
+        if (existingPreferences) {
+            existingPreferences.preferences = preferences;
+            await existingPreferences.save();
+
+            return res.status(StatusCodes.OK).json(
+                httpFormatter({ preferences: existingPreferences }, 'Preferences updated successfully', true)
+            );
+        } else {
+            const newPreferences = await CommunicationPreference.create({ user: userId, preferences });
+
+            return res.status(StatusCodes.CREATED).json(
+                httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
+            );
+        }
+
+    } catch (error) {
+        logger.error('Error adding or updating communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
 export const addProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fullName, email, preferredLanguage, address, profilePhoto, phoneNumber } = req.body;
+        const { preferredLanguage, address, profilePhoto } = req.body;
 
-        if (!fullName || !email || !address || !address.line1 || !address.pincode || !phoneNumber) {
+        if (!address || !address.line1 || !address.pincode) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -18,14 +64,15 @@ export const addProfileDetails = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
         }
 
+        // Use fullName, email, and phoneNumber from the User table
         const profileData = {
-            fullName,
-            email,
+            fullName: `${userExists.firstName} ${userExists.lastName}`,  // assuming full name is a combination of first and last names
+            email: userExists.email,
+            phoneNumber: userExists.phoneNumber,
             preferredLanguage,
             address,
             profilePhoto,
-            user: userId, 
-            phoneNumber
+            user: userId
         };
 
         const savedProfile = await Profile.create(profileData);
@@ -37,34 +84,74 @@ export const addProfileDetails = async (req, res) => {
     }
 };
 
-
-// Get profile by ID
 export const getProfileById = async (req, res) => {
     try {
-        const { profileId } = req.params;
-        const profile = await Profile.findById(profileId);
+        const { userId } = req.params;
 
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
+        // Try to find the profile by userId
+        const profile = await Profile.findOne({ user: userId });
+
+        if (profile) {
+            // Profile exists, return profile details
+            return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
+        } else {
+            // Profile does not exist, return basic user info
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+            }
+
+            // Construct basic user info to return
+            const userInfo = {
+                fullName: `${user.firstName} ${user.lastName}`,
+                phoneNumber: user.phoneNumber,
+                email: user.email
+            };
+
+            return res.status(StatusCodes.OK).json(httpFormatter({ user: userInfo }, 'User info retrieved successfully', true));
         }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
 
-// Update profile details
+
 export const updateProfileDetails = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
         const updates = req.body;
 
-        const updatedProfile = await Profile.findByIdAndUpdate(profileId, updates, { new: true, runValidators: true });
-
-        if (!updatedProfile) {
+        // Check if the profile exists
+        const profile = await Profile.findOne({ user: userId });
+        if (!profile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
+        }
+
+        // Update the Profile document
+        const updatedProfile = await Profile.findOneAndUpdate(
+            { user: userId },
+            updates,
+            { new: true, runValidators: true }
+        );
+
+        // Update User table if specific fields are included in the updates
+        const userUpdates = {};
+        if (updates.fullName) {
+            const [firstName, ...lastName] = updates.fullName.split(' ');
+            userUpdates.firstName = firstName;
+            userUpdates.lastName = lastName.join(' ') || '';
+        }
+        if (updates.email) {
+            userUpdates.email = updates.email;
+        }
+        if (updates.phoneNumber) {
+            userUpdates.phoneNumber = updates.phoneNumber;
+        }
+
+        // If user updates are present, update the User table
+        if (Object.keys(userUpdates).length > 0) {
+            await User.findByIdAndUpdate(userId, userUpdates, { new: true });
         }
 
         return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
@@ -74,12 +161,12 @@ export const updateProfileDetails = async (req, res) => {
     }
 };
 
-// Delete profile by ID
+// Delete profile by userId
 export const deleteProfile = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
 
-        const deletedProfile = await Profile.findByIdAndDelete(profileId);
+        const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
         if (!deletedProfile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
@@ -89,5 +176,50 @@ export const deleteProfile = async (req, res) => {
     } catch (error) {
         logger.error('Error deleting profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+// Add contact by userId
+export const addContact = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { salutation, firstName, surname, dob, passport } = req.body;
+
+        if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Required fields are missing', false)
+            );
+        }
+
+        const profile = await Profile.findOne({ user: userId });
+        if (!profile) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Profile not found', false)
+            );
+        }
+
+        const contactData = {
+            user: userId,
+            salutation,
+            firstName,
+            surname,
+            dob,
+            passport: {
+                passportNumber: passport.passportNumber,
+                expiryDate: passport.expiryDate
+            }
+        };
+
+        const savedContact = await SavedContact.create(contactData);
+
+        return res.status(StatusCodes.CREATED).json(
+            httpFormatter({ contact: savedContact }, 'Contact saved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error adding contact:', error);
+        console.log(error)
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
     }
 };
