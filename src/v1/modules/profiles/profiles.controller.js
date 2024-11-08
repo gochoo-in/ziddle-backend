@@ -4,6 +4,7 @@ import User from '../../models/user.js';
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
 import CommunicationPreference from '../../models/communicationPreference.js'; 
+import SavedContact from '../../models/savedContact.js'; 
 
 export const addOrUpdateCommunicationPreferences = async (req, res) => {
     try {
@@ -137,5 +138,52 @@ export const deleteProfile = async (req, res) => {
     } catch (error) {
         logger.error('Error deleting profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+export const addContact = async (req, res) => {
+    try {
+        const { profileId } = req.params;
+        const { salutation, firstName, surname, dob, passport } = req.body;
+        console.log(req.body)
+
+        if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Required fields are missing', false)
+            );
+        }
+
+        const profile = await Profile.findById(profileId);
+        if (!profile) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Profile not found', false)
+            );
+        }
+
+        const userId = profile.user;
+
+        const contactData = {
+            user: userId,
+            salutation,
+            firstName,
+            surname,
+            dob,
+            passport: {
+                passportNumber: passport.passportNumber,
+                expiryDate: passport.expiryDate
+            }
+        };
+
+        const savedContact = await SavedContact.create( contactData );
+
+        return res.status(StatusCodes.CREATED).json(
+            httpFormatter({ contact: savedContact }, 'Contact saved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error adding contact:', error);
+        console.log(error)
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
     }
 };

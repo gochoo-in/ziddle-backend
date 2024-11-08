@@ -4,7 +4,8 @@ import {
     getProfileById, 
     updateProfileDetails, 
     deleteProfile,
-    addOrUpdateCommunicationPreferences
+    addOrUpdateCommunicationPreferences,
+    addContact
 } from './profiles.controller.js';
 import validate from '../../../utils/validate.js';
 import profileValidation from '../../validation/profile.validation.js';
@@ -16,6 +17,7 @@ router.post('/:userId', validate(profileValidation), addProfileDetails);
 router.get('/:profileId', getProfileById);
 router.patch('/:profileId', updateProfileDetails);
 router.delete('/:profileId', deleteProfile);
-router.post('/:profileId/communication-preferences', addOrUpdateCommunicationPreferences);
+router.post('/:profileId/communicationPreferences', addOrUpdateCommunicationPreferences);
+router.post('/:profileId/addContact', addContact)
 
 export default router;
