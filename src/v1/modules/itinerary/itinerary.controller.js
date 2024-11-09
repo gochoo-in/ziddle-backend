@@ -2907,3 +2907,78 @@ export const updateStartDateInItinerary = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+
+
+export const updateTravellingWithAndRoomsInItinerary = async (req, res) => {
+  const { itineraryId } = req.params;
+  const { travellingWith, rooms } = req.body;
+
+  try {
+    // Fetch the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Check if only rooms should be updated (i.e., `travellingWith` is not provided)
+    if (travellingWith) {
+      itinerary.travellingWith = travellingWith;
+    }
+
+    // Update the rooms if provided
+    if (rooms) {
+      itinerary.rooms = rooms;
+
+      // Calculate updated counts for adults, children, and childrenAges based on the new rooms data
+      let adults = 0;
+      let children = 0;
+      let childrenAges = [];
+
+      rooms.forEach((room) => {
+        adults += room.adults || 0;
+        children += room.children || 0;
+        if (room.childrenAges && Array.isArray(room.childrenAges)) {
+          childrenAges = childrenAges.concat(room.childrenAges);
+        }
+      });
+
+      // Use the total number of rooms for recalculations
+      const totalRooms = rooms.length;
+
+      // Refetch travel and accommodation details based on updated rooms and travellers
+      const updatedItinerary = await refetchFlightAndHotelDetails(
+        { enrichedItinerary: itinerary.enrichedItinerary },
+        { adults, children, childrenAges, totalRooms }
+      );
+
+      // Save the updated itinerary, including changedBy for tracking purposes
+      await Itinerary.findByIdAndUpdate(
+        itineraryId,
+        {
+          enrichedItinerary: updatedItinerary,
+          adults,
+          children,
+          childrenAges,
+          rooms,
+          ...(travellingWith ? { travellingWith } : {}) // Only update travellingWith if it was provided
+        },
+        {
+          new: true,
+          lean: true,
+          changedBy: { userId: req.user.userId },
+          comment: req.comment
+        }
+      );
+
+      // Call the price calculation middleware to update the total price
+      await calculateTotalPriceMiddleware(req, res, async () => {
+        res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: updatedItinerary }, 'Travelling with and/or rooms updated successfully', true));
+      });
+    } else {
+      res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Rooms information is required to update the itinerary.', false));
+    }
+  } catch (error) {
+    console.error('Error updating travelling with and rooms:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};

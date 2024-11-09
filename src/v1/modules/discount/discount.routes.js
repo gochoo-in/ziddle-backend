@@ -23,7 +23,7 @@ router.patch('/:id', casbinMiddleware, updateDiscount);
 
 router.post('/apply', applyDiscount);
 
-router.get('/', getAllDiscounts);
+router.get('/', casbinMiddleware, getAllDiscounts);
 
 router.get('/:id', getDiscounts);
 
