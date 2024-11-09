@@ -2856,3 +2856,54 @@ export const addGeneralCoupon = async (req, res) => {
   }
 };
 
+export const updateStartDateInItinerary = async (req, res) => {
+  const { itineraryId } = req.params;
+  const { newStartDate } = req.body; // Get newStartDate from request body
+
+  try {
+    // Fetch the itinerary by ID
+    const itinerary = await Itinerary.findById(itineraryId).lean();
+    if (!itinerary) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    // Use values from the itinerary
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length;
+
+    // Update the startDate of the itinerary
+    itinerary.enrichedItinerary.startDate = newStartDate;
+
+    // Update dates for the entire itinerary using addDatesToItinerary
+    const updatedItineraryWithDates = addDatesToItinerary(itinerary.enrichedItinerary, newStartDate);
+
+    // Refetch flight, taxi, ferry, and hotel details based on new dates
+    const enrichedItineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: updatedItineraryWithDates },
+      { adults, children, childrenAges, totalRooms }
+    );
+
+    // Save the updated itinerary with recalculated details
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      { enrichedItinerary: enrichedItineraryWithNewDetails },
+      {
+        new: true,
+        lean: true,
+        changedBy: {
+          userId: req.user.userId
+        },
+        comment: req.comment
+      }
+    );
+
+    // Recalculate the total price after updating travel and accommodation details
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: enrichedItineraryWithNewDetails }, 'Start date updated and itinerary recalculated successfully', true));
+    });
+
+  } catch (error) {
+    console.error('Error updating start date:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+  }
+};

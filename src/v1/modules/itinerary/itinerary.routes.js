@@ -27,7 +27,8 @@ import {
   getAllItineraries,
   getAllUsersStatistics,
   getDestinationStatistics,
-  getActivityStatistics
+  getActivityStatistics,
+  updateStartDateInItinerary
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -101,6 +102,7 @@ router.get('/destination-statistics', verifyToken, getDestinationStatistics);
 router.get('/activity-statistics', verifyToken, getActivityStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
 router.get('/:itineraryId', getItineraryDetails);
+router.patch('/:itineraryId/update-start-date', verifyToken, updateStartDateInItinerary);
 router.get('/:itineraryId/flights', getFlightsInItinerary);
 router.get('/:itineraryId/hotels', getHotelsInItinerary);
 router.get('/:itineraryId/transfer', getTransferDetails);
