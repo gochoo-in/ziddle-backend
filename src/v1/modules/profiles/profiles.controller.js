@@ -88,27 +88,45 @@ export const getProfileById = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        // Try to find the profile by userId
         const profile = await Profile.findOne({ user: userId });
 
         if (profile) {
-            // Profile exists, return profile details
-            return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
+            return res.status(StatusCodes.OK).json(httpFormatter({
+                profile: {
+                    address: profile.address,
+                    _id: profile._id,
+                    fullName: profile.fullName,
+                    email: profile.email,
+                    preferredLanguage: profile.preferredLanguage,
+                    profilePhoto: profile.profilePhoto,
+                    phoneNumber: profile.phoneNumber,
+                    user: profile.user,
+                    createdAt: profile.createdAt,
+                    updatedAt: profile.updatedAt
+                }
+            }, 'Profile retrieved successfully', true));
         } else {
-            // Profile does not exist, return basic user info
             const user = await User.findById(userId);
             if (!user) {
                 return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
             }
 
-            // Construct basic user info to return
-            const userInfo = {
+            const userProfile = {
+                _id: userId,
                 fullName: `${user.firstName} ${user.lastName}`,
                 phoneNumber: user.phoneNumber,
-                email: user.email
+                email: user.email,
+                address: {}, 
+                preferredLanguage: '',
+                profilePhoto: '',
+                user: userId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
             };
 
-            return res.status(StatusCodes.OK).json(httpFormatter({ user: userInfo }, 'User info retrieved successfully', true));
+            return res.status(StatusCodes.OK).json(httpFormatter({
+                profile: userProfile
+            }, 'Profile retrieved successfully', true));
         }
     } catch (error) {
         logger.error('Error retrieving profile:', error);
