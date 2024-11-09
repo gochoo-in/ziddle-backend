@@ -15,17 +15,14 @@ const profileSchema = new mongoose.Schema({
         nationality: { type: String }
     },
     profilePhoto: {
-        type: [{
-            type: {
-                type: String,
-                required: true
-            },
-            url: {
-                type: String,
-                required: true
-            }
-        }],
-        default: []
+        type: {
+            type: String,
+            required: true
+        },
+        url: {
+            type: String,
+            required: true
+        }
     },
     phoneNumber: { type: String, required: true, unique: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
