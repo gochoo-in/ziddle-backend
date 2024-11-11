@@ -203,12 +203,8 @@ export const toggleUserBlockedStatus = async (req, res) => {
       // Toggle the blocked status
       user.blocked = !user.blocked;
       await user.save();
-  
-      return res.status(200).json({
-        success: true,
-        message: `User ${user.blocked ? 'unblocked' : 'blocked'} successfully`,
-        blocked: user.blocked,
-      });
+      return res.status(StatusCodes.OK).json(httpFormatter({ blocked: user.blocked }, `User ${user.blocked ? 'unblocked' : 'blocked'} successfully` , true));
+    
     } catch (error) {
       console.error('Error updating blocked status:', error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

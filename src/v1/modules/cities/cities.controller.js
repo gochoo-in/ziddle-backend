@@ -144,12 +144,9 @@ export const toggleCityActiveStatus = async (req, res) => {
       // Toggle the isActive status
       city.isActive = !city.isActive;
       await city.save();
-  
-      return res.status(200).json({
-        success: true,
-        message: `City ${city.isActive ? 'activated' : 'deactivated'} successfully`,
-        isActive: city.isActive,
-      });
+
+      return res.status(StatusCodes.OK).json(httpFormatter({ isActive: city.isActive }, `City ${city.isActive ? 'activated' : 'deactivated'} successfully` , true));
+      
     } catch (error) {
       console.error('Error updating city status:', error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

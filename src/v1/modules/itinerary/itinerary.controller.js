@@ -2749,7 +2749,7 @@ export const addGeneralCoupon = async (req, res) => {
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on flights applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on flights applied successfully' , true));
       }
 
       // Handle discount on hotels
@@ -2778,7 +2778,7 @@ export const addGeneralCoupon = async (req, res) => {
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on hotels applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on hotels applied successfully' , true));
       }
 
       // Handle discount on activities
@@ -2807,7 +2807,7 @@ export const addGeneralCoupon = async (req, res) => {
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on activities applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on activities applied successfully' , true));
       }
 
       // Handle discount on the entire package
@@ -2836,7 +2836,7 @@ export const addGeneralCoupon = async (req, res) => {
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on package applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on package applied successfully' , true));
       }
     }
 

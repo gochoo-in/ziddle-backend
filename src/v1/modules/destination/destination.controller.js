@@ -97,11 +97,7 @@ export const toggleDestinationActiveStatus = async (req, res) => {
     destination.active = !destination.active;
     await destination.save();
 
-    return res.status(200).json({
-      success: true,
-      message: `Destination ${destination.active ? 'activated' : 'deactivated'} successfully`,
-      active: destination.active,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ active: destination.active }, `Destination ${destination.active ? 'activated' : 'deactivated'} successfully` , true));
   } catch (error) {
     console.error('Error toggling destination status:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

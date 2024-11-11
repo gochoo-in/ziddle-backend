@@ -61,11 +61,8 @@ export const createBasicAdminPackage = async (req, res) => {
     });
 
     const savedPackage = await newAdminPackage.save();
-
-    return res.status(201).json({
-      message: 'Basic admin package created successfully',
-      adminPackageId: savedPackage._id,
-    });
+    return res.status(StatusCodes.CREATED).json(httpFormatter({ adminPackageId: savedPackage._id }, 'Basic admin package created successfully' , true));
+  
   } catch (error) {
     console.error('Error creating basic admin package:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -299,11 +296,8 @@ export const getAllAdminPackages = async (req, res) => {
     }
 
     const adminPackages = await AdminPackage.find(query);
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages }, 'Admin packages retrieved successfully', true));
 
-    return res.status(200).json({
-      data: adminPackages,
-      message: 'Admin packages retrieved successfully',
-    });
   } catch (error) {
     console.error('Error retrieving admin packages:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -324,12 +318,8 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
     adminPackage.active = !adminPackage.active;
 
     await adminPackage.updateOne({ active: adminPackage.active });
+    return res.status(StatusCodes.OK).json(httpFormatter({ active: adminPackage.active },`Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`, true));
 
-    return res.status(200).json({
-      success: true,
-      message: `Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`,
-      active: adminPackage.active,
-    });
   } catch (error) {
     console.error('Error toggling admin package status:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -369,13 +359,10 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     );
 
     const idealDuration = `${mostFrequentTotalDays} days and ${mostFrequentTotalDays - 1} nights`;
-
-    return res.status(200).json({
-      message: 'Admin packages retrieved successfully',
-      data: adminPackages,
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages,
       startingPrice,
-      idealDuration,
-    });
+      idealDuration }, 'Admin packages retrieved successfully', true));
+    
   } catch (error) {
     console.error('Error retrieving admin packages by destination ID:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -540,10 +527,7 @@ export const getAdminPackagesByCategory = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No Admin package found for this category', false));
     }
 
-    return res.status(200).json({
-      message: 'Admin packages retrieved successfully',
-      data: adminPackages,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages }, 'Admin packages retrieved successfully', true));
   } catch (error) {
     console.error('Error retrieving admin packages by category:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -598,10 +582,8 @@ export const deleteAdminPackageById = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
-    return res.status(200).json({
-      message: 'Admin package deleted successfully',
-      deletedPackageId: deletedPackage._id,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ deletedPackageId: deletedPackage._id }, 'Admin package deleted successfully', true));
+
   } catch (error) {
     console.error('Error deleting admin package:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -784,11 +766,8 @@ export const createUserItinerary = async (req, res) => {
     });
     await newLead.save();
 
-    return res.status(200).json({
-      message: 'User admin package itinerary created successfully',
-      itinerary: savedItinerary,
-      lead: newLead
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary: savedItinerary, lead: newLead }, 'User admin package itinerary created successfully', true));
+   
   } catch (error) {
     console.error('Error creating user itinerary:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

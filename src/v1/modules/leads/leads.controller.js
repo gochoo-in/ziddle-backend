@@ -402,8 +402,8 @@ export const assignLeadToEmployee = async (req, res) => {
     lead.assignedTo = employee.name;  // Assigning the employee's name here
     lead.assignedAt = new Date(); 
     await lead.save();
-
-    return res.status(200).json({ message: 'Employee assigned to lead successfully', lead });
+    return res.status(StatusCodes.OK).json(httpFormatter({ lead }, 'Employee assigned to lead successfully' , true));
+    
   } catch (error) {
     logger.error('Error assigning employee to lead:', error.message);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
