@@ -12,4 +12,4 @@ const savedContactSchema = new mongoose.Schema({
     }
 }, { timestamps: true, versionKey: false });
 
-export default mongoose.model('SavedContact', savedContactSchema);
+export default mongoose.model('SavedContact', savedContactSchema); 
