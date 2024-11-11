@@ -44,7 +44,7 @@ export const createBasicAdminPackage = async (req, res) => {
 
     const destination = await Destination.findById(destinationId);
     if (!destination) {
-      return res.status(404).json({ message: 'Destination not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
     }
 
     const newAdminPackage = new AdminPackage({
@@ -68,7 +68,7 @@ export const createBasicAdminPackage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating basic admin package:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
 
@@ -78,7 +78,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
 
     const adminPackage = await AdminPackage.findById(adminPackageId);
     if (!adminPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     // Process each city and its details
@@ -195,13 +195,11 @@ export const addDetailsToAdminPackage = async (req, res) => {
     adminPackage.cities = citiesWithDetails;
     await adminPackage.save();
 
-    return res.status(200).json({
-      message: 'Admin package updated with details and hotel information successfully',
-      adminPackage,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ adminPackage }, 'Admin package updated with details and hotel information successfully', true));
+
   } catch (error) {
     console.error('Error adding details to admin package:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
 
@@ -212,21 +210,18 @@ export const getAdminPackageActivityDetailsById = async (req, res) => {
   try {
     const AdminPackageActivities = await AdminPackageActivity.findById(AdminPackageActivityId);
     if (!AdminPackageActivities) {
-      return res.status(404).json({ message: 'AdminPackageActivity not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package activity not found', false));
     }
 
     const detailedActivity = await Activity.findOne({ name: AdminPackageActivities.name });
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: {
+      AdminPackageActivities,
+      detailedActivity: detailedActivity || null,
+    } }, 'AdminPackageActivity details retrieved successfully', true));
 
-    return res.status(200).json({
-      message: 'AdminPackageActivity details retrieved successfully',
-      data: {
-        AdminPackageActivities,
-        detailedActivity: detailedActivity || null,
-      },
-    });
   } catch (error) {
     console.error('Error retrieving AdminPackageActivity details:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
 
@@ -249,7 +244,7 @@ export const getAdminPackageById = async (req, res) => {
       });
 
     if (!adminPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     const transformedCities = adminPackage.cities.map(city => ({
@@ -283,13 +278,11 @@ export const getAdminPackageById = async (req, res) => {
       updatedAt: adminPackage.updatedAt,
       createdBy: adminPackage.createdBy,
     };
-    return res.status(200).json({
-      message: 'Admin package retrieved successfully',
-      data: response,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: response }, 'Admin package retrieved successfully', true));
+    
   } catch (error) {
     console.error('Error retrieving admin package:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
 
@@ -313,7 +306,7 @@ export const getAllAdminPackages = async (req, res) => {
     });
   } catch (error) {
     console.error('Error retrieving admin packages:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
 };
 
@@ -325,7 +318,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
     const adminPackage = await AdminPackage.findById(adminPackageId);
 
     if (!adminPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     adminPackage.active = !adminPackage.active;
@@ -339,7 +332,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Error toggling admin package status:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
@@ -361,7 +354,7 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     const adminPackages = await AdminPackage.find(query);
 
     if (adminPackages.length === 0) {
-      return res.status(404).json({ message: 'No admin packages found for this destination' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No admin packages found for this destination', false));
     }
 
     const startingPrice = Math.min(...adminPackages.map(pkg => pkg.price));
@@ -385,7 +378,7 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     });
   } catch (error) {
     console.error('Error retrieving admin packages by destination ID:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
@@ -544,7 +537,7 @@ export const getAdminPackagesByCategory = async (req, res) => {
     const adminPackages = await AdminPackage.find({ category });
 
     if (adminPackages.length === 0) {
-      return res.status(404).json({ message: 'No admin packages found for this category' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No Admin package found for this category', false));
     }
 
     return res.status(200).json({
@@ -553,7 +546,7 @@ export const getAdminPackagesByCategory = async (req, res) => {
     });
   } catch (error) {
     console.error('Error retrieving admin packages by category:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
@@ -602,7 +595,7 @@ export const deleteAdminPackageById = async (req, res) => {
     const deletedPackage = await AdminPackage.findByIdAndDelete(adminPackageId);
 
     if (!deletedPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     return res.status(200).json({
@@ -611,7 +604,7 @@ export const deleteAdminPackageById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting admin package:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
@@ -633,7 +626,7 @@ export const createUserItinerary = async (req, res) => {
       .populate('destination', 'name'); 
 
     if (!adminPackage) {
-      return res.status(404).json({ message: 'Admin package not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
     }
 
     let totalPersons = 0;
@@ -730,7 +723,7 @@ export const createUserItinerary = async (req, res) => {
 
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
     const serviceFee = settings.serviceFee;
@@ -780,7 +773,7 @@ export const createUserItinerary = async (req, res) => {
     let user = await User.findById(userId);
 
     if (!user || !(user.phoneNumber || user.phone)) {
-      return res.status(400).json({ message: 'Invalid user ID or missing contact number.' });
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid user ID or missing contact number', false));
     }
 
     const newLead = new Lead({
@@ -798,7 +791,7 @@ export const createUserItinerary = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating user itinerary:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 
@@ -820,7 +813,7 @@ export const addGeneralDiscount = async (req, res) => {
     // Fetch the discount using the discountId
     const discount = await Discount.findById(discountId);
     if (!discount) {
-      return res.status(404).json({ message: "Discount not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
     }
     let totalPrice = itinerary.totalPrice;
     let response = 0;

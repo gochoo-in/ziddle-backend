@@ -138,7 +138,7 @@ export const toggleCityActiveStatus = async (req, res) => {
       const city = await City.findById(id);
   
       if (!city) {
-        return res.status(404).json({ message: 'City not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
       }
   
       // Toggle the isActive status
@@ -152,7 +152,7 @@ export const toggleCityActiveStatus = async (req, res) => {
       });
     } catch (error) {
       console.error('Error updating city status:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
   };
   

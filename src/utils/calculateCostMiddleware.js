@@ -27,7 +27,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     }).sort({ createdAt: -1 });
     
     if (!itinerary) {
-      return res.status(404).json({ message: 'Itinerary not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     const { adults, children } = itinerary;
@@ -45,7 +45,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     // Fetch settings to access markup values and service fee
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
     // Calculate transport prices

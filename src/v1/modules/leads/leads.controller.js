@@ -389,13 +389,13 @@ export const assignLeadToEmployee = async (req, res) => {
     // Find the employee by ID
     const employee = await Employee.findById(employeeId);
     if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Employee not found', false));
     }
 
     // Find the lead by ID
     const lead = await Lead.findById(leadId);
     if (!lead) {
-      return res.status(404).json({ message: 'Lead not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Lead not found', false));
     }
 
     // Assign the employee name to the lead
@@ -406,6 +406,6 @@ export const assignLeadToEmployee = async (req, res) => {
     return res.status(200).json({ message: 'Employee assigned to lead successfully', lead });
   } catch (error) {
     logger.error('Error assigning employee to lead:', error.message);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };

@@ -90,7 +90,7 @@ export const toggleDestinationActiveStatus = async (req, res) => {
     const destination = await Destination.findById(id);
 
     if (!destination) {
-      return res.status(404).json({ message: 'Destination not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
     }
 
     // Toggle the active status
@@ -104,7 +104,7 @@ export const toggleDestinationActiveStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Error toggling destination status:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 

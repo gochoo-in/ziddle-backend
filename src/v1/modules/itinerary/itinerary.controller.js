@@ -303,7 +303,7 @@ export const createItinerary = async (req, res) => {
     let totalActivitiesPrice = 0;
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
     // Add transport prices if available from modeDetails
     for (const city of enrichedItinerary.itinerary) {
@@ -1606,7 +1606,7 @@ export const replaceFlightInItinerary = async (req, res) => {
   const arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
 
   if (!departureCity || !arrivalCity) {
-    return res.status(404).json({ message: 'City not found' });
+    return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
   }
 
 
@@ -1614,7 +1614,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     // Check if the user has ownership or admin access
@@ -1682,7 +1682,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     });
 
     if (!flightReplaced) {
-      return res.status(404).json({ message: 'Old flight not found in itinerary', success: false });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Old flight not found in itinerary', false));
     }
 
 
@@ -2695,19 +2695,19 @@ export const addGeneralCoupon = async (req, res) => {
     const userId = req.user.userId;
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
     // Fetch the itinerary using the itineraryId
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
-      return res.status(404).json({ message: "Itinerary not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     // Fetch the discount using the discountId
     const discount = await Discount.findById(discountId);
     if (!discount) {
-      return res.status(404).json({ message: "Discount not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
     }
 
     if(discount.discountType === 'general') {
@@ -2840,10 +2840,10 @@ export const addGeneralCoupon = async (req, res) => {
       }
     }
 
-    return res.status(400).json({ message: "Discount not applicable" });
+    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Discount not applicable', false));
   } catch (error) {
     console.error("Error applying discount:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
 

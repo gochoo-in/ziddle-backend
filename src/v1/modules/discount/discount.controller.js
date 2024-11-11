@@ -360,7 +360,7 @@ export const toggleArchivedStatus = async (req, res) => {
         
         // Check if the discount exists
         if (!discount) {
-            return res.status(404).json({ message: 'Discount not found' });
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
         }
 
         // Toggle the archived value
@@ -383,7 +383,7 @@ export const toggleActiveStatus = async (req, res) => {
     try {
         const discount = await Discount.findById(id);
         if (!discount) {
-            return res.status(404).json({ message: 'Discount not found' });
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
         }
 
         // Toggle the active status

@@ -197,7 +197,7 @@ export const toggleUserBlockedStatus = async (req, res) => {
       const user = await User.findById(id);
   
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
       }
   
       // Toggle the blocked status
@@ -211,7 +211,7 @@ export const toggleUserBlockedStatus = async (req, res) => {
       });
     } catch (error) {
       console.error('Error updating blocked status:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
   };
 

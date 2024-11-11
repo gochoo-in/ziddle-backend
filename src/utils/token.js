@@ -27,7 +27,9 @@ export const verifyToken = (req, res, next) => {
 
     // Check if the token is present
     if (!token) {
-      return res.status(401).json({ status: false, message: "Unauthorized: No token provided" });
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        message: "Unauthorized!! No token provided.",
+      })
     }
 
     // If the token is in the 'Bearer <token>' format, split and extract the actual token
@@ -39,7 +41,9 @@ export const verifyToken = (req, res, next) => {
     jwt.verify(token, jwtSecret, (err, decoded) => {
       if (err) {
         // Token verification failed; send an unauthorized response
-        return res.status(401).json({ status: false, message: "Unauthorized: Invalid token" });
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          message: "Unauthorized: Invalid token",
+        })
       }
 
       // If the token is valid, store its payload in the 'req.user' object
@@ -51,6 +55,8 @@ export const verifyToken = (req, res, next) => {
   } catch (error) {
     // Handle any errors that occur during token verification
     console.error(`verifyToken Error: ${error.message}`);
-    return res.status(401).json({ status: false, message: "Unauthorized: Invalid token" });
+    return res.status(StatusCodes.UNAUTHORIZED).json({
+      message: "Unauthorized: Invalid token",
+    })
   }
 };
