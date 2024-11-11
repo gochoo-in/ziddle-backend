@@ -10,7 +10,8 @@ import { sendOTPMessage } from '../../services/index.js';
 import requestIp from 'request-ip';  
 import useragent from 'useragent';  
 import UserCookie from '../../models/userCookie.js'; 
-import logger from '../../../config/logger.js'
+import logger from '../../../config/logger.js';
+import crypto from 'crypto';
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -38,6 +39,19 @@ export const signup = async (req, res) => {
                 }
 
                 if (!user) {
+                    let referralCode;
+                    let isUnique = false;
+
+                    while (!isUnique) {
+                        const prefix = String.fromCharCode(65 + Math.floor(Math.random() * 26)); 
+                        const randomCode = crypto.randomBytes(5).toString('hex').toUpperCase(); 
+                        referralCode = `${prefix}${randomCode}`;
+                        const existingUser = await User.findOne({ referralCode });
+                        if (!existingUser) {
+                            isUnique = true;
+                        }
+                    }
+
                     user = await User.create({
                         phoneNumber,
                         firstName,  
@@ -47,6 +61,7 @@ export const signup = async (req, res) => {
                         otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
+                        referralCode,  
                     });
                 } else {
                     user.otp = generateOTP();
@@ -58,7 +73,7 @@ export const signup = async (req, res) => {
                 await user.save();
                 await sendOTPMessage(user.otp, phoneNumber);
 
-                return res.status(StatusCodes.OK).json(httpFormatter({ }, 'OTP sent successfully. Please verify.', true));
+                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
                 if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
                     return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP', false));
