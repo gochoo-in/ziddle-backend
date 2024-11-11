@@ -344,7 +344,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
 
 export const getAdminPackagesByDestinationId = async (req, res) => {
   const { destinationId } = req.params;
-  const { minBudget, maxBudget, minDays, maxDays } = req.query; 
+  const { minBudget, maxBudget, minDays, maxDays } = req.query;
 
   try {
     const query = { destination: destinationId };
@@ -363,9 +363,24 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
       return res.status(404).json({ message: 'No admin packages found for this destination' });
     }
 
+    const startingPrice = Math.min(...adminPackages.map(pkg => pkg.price));
+
+    const totalDaysCount = adminPackages.reduce((acc, pkg) => {
+      acc[pkg.totalDays] = (acc[pkg.totalDays] || 0) + 1;
+      return acc;
+    }, {});
+
+    const mostFrequentTotalDays = Object.keys(totalDaysCount).reduce((a, b) =>
+      totalDaysCount[a] > totalDaysCount[b] ? a : b
+    );
+
+    const idealDuration = `${mostFrequentTotalDays} days and ${mostFrequentTotalDays - 1} nights`;
+
     return res.status(200).json({
       message: 'Admin packages retrieved successfully',
       data: adminPackages,
+      startingPrice,
+      idealDuration,
     });
   } catch (error) {
     console.error('Error retrieving admin packages by destination ID:', error);
