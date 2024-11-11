@@ -14,7 +14,18 @@ import Lead from '../../models/lead.js';
 import Discount from '../../models/discount.js';
 import { applyDiscountFunction } from '../discount/discount.controller.js';
 import Settings from '../../models/settings.js';
+import Hotel from '../../models/hotel.js';
+import { addDatesToItinerary } from '../../../utils/dateUtils.js';
 
+
+async function saveHotelFromAPI(hotelData) {
+  const { name, cityId } = hotelData;
+  let hotel = await Hotel.findOne({ name, cityId });
+  if (!hotel) {
+    hotel = await Hotel.create(hotelData);
+  }
+  return hotel;
+}
 
 export const createBasicAdminPackage = async (req, res) => {
   try {
@@ -78,9 +89,9 @@ export const addDetailsToAdminPackage = async (req, res) => {
           throw new Error(`City with ID ${city.cityId} not found`);
         }
 
-        const updatedDays = [];
-        const normalActivities = await Promise.all(
-          city.days.map(async (day) => {
+        // Initialize updatedDays as an empty array
+        const updatedDays = await Promise.all(
+          city.days.map(async (day, dayIndex) => {
             const processedActivities = await Promise.all(
               day.activities.map(async ({ activityId, startTime, endTime }) => {
                 const activityDetails = await Activity.findById(activityId);
@@ -103,52 +114,70 @@ export const addDetailsToAdminPackage = async (req, res) => {
             );
 
             const dayEntry = {
-              // Only include date if startsAt exists
+              day: dayIndex + 1,  // Assigning day index (1-based) to each day entry
               ...(adminPackage.startsAt ? { date: moment(day.date).format('YYYY-MM-DD') } : {}),
               activities: processedActivities,
             };
 
-            updatedDays.push(dayEntry);
             return dayEntry;
           })
         );
 
-        // If not the first city, add travel activity
-        if(index==0){
+        // If it's the first city, add an arrival activity
+        if (index === 0) {
           const travelActivity = new AdminPackageActivity({
-            name: `Arrival in  ${cityRecord.name}`,
-            duration: '3 hours', // H ardcoded duration
+            name: `Arrival in ${cityRecord.name}`,
+            duration: '3 hours',
             category: 'Travel',
             cityId: city.cityId,
-            startTime: '09:00 AM', 
-            endTime: '12:00 PM',  
+            startTime: '09:00 AM',
+            endTime: '12:00 PM',
           });
           const savedTravelActivity = await travelActivity.save();
 
           updatedDays.unshift({
-            // Previous date for travel activity only if startsAt exists
-            ...(adminPackage.startsAt ? { date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            day: 0,  // Setting day 0 for the arrival entry
+            ...(adminPackage.startsAt ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
             activities: [savedTravelActivity._id],
           });
         }
+
+        // If not the first city, add travel activity from the previous city
         if (index > 0) {
           const prevCity = await City.findById(cities[index - 1].cityId);
           const travelActivity = new AdminPackageActivity({
             name: `Travel from ${prevCity.name} to ${cityRecord.name}`,
-            duration: '3 hours', // Hardcoded duration
+            duration: '3 hours',
             category: 'Travel',
             cityId: city.cityId,
-            startTime: '09:00 AM', 
-            endTime: '12:00 PM',  
+            startTime: '09:00 AM',
+            endTime: '12:00 PM',
           });
           const savedTravelActivity = await travelActivity.save();
 
           updatedDays.unshift({
-            // Previous date for travel activity only if startsAt exists
-            ...(adminPackage.startsAt ? { date: moment(updatedDays[0].date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            day: 0,  // Setting day 0 for the travel entry
+            ...(adminPackage.startsAt ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
             activities: [savedTravelActivity._id],
           });
         }
+
+        // Save the hotel details and assign the hotel ID to hotelDetails
+        const hotel = await saveHotelFromAPI({
+          name: city.hotel.name,
+          address: city.hotel.address,
+          rating: city.hotel.rating,
+          price: city.hotel.price,
+          currency: city.hotel.currency,
+          image: city.hotel.image,
+          cancellation: city.hotel.cancellation,
+          checkin: city.hotel.checkin,
+          checkout: city.hotel.checkout,
+          roomType: city.hotel.roomType,
+          refundable: city.hotel.refundable,
+          cityId: city.cityId,
+        });
+
         return {
           city: city.cityId,
           cityName: cityRecord.name,
@@ -157,41 +186,13 @@ export const addDetailsToAdminPackage = async (req, res) => {
           transportToNextCity: {
             mode: city.transportToNextCity.mode,
           },
-          hotelDetails: null, // Placeholder, to be filled later
+          hotelDetails: hotel._id, // Assign the saved hotel ID here
         };
       })
     );
 
-    // Now that we have the base city details, we can proceed with adding hotel details.
-    let itineraryWithHotelDetails = {
-      itinerary: citiesWithDetails
-    };
-
-    const adults = 1;
-    const childrenAges = [];
-    const rooms = 1;
-
-    itineraryWithHotelDetails = await addHotelDetailsToItinerary(
-      itineraryWithHotelDetails,
-      adults,
-      childrenAges,
-      rooms
-    );
-
-    const startsAt = adminPackage.startsAt;
-    const updatedItineraryData = startsAt
-      ? addDatesToItinerary(itineraryWithHotelDetails, startsAt)
-      : itineraryWithHotelDetails;
-
-
-    let dayCounter = 1;
-    for (const city of updatedItineraryData.itinerary) {
-      for (const day of city.days) {
-        day.day = dayCounter++;
-      }
-    }
-
-    adminPackage.cities = updatedItineraryData.itinerary;
+    // Assign the processed cities with details directly to the admin package
+    adminPackage.cities = citiesWithDetails;
     await adminPackage.save();
 
     return res.status(200).json({
@@ -626,20 +627,27 @@ export const createUserItinerary = async (req, res) => {
       arrivalCity
     } = req.body;
 
-    // Fetch the admin package details and populate destination's name
+
     const adminPackage = await AdminPackage.findById(adminPackageId)
       .populate('cities.city')
-      .populate('destination', 'name'); // Populating only the name of the destination
+      .populate('destination', 'name'); 
 
     if (!adminPackage) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
+      return res.status(404).json({ message: 'Admin package not found' });
     }
 
-    // Calculate total persons and total price
-    const totalPersons = rooms.reduce((sum, room) => sum + room.adults + (room.children ? room.children.length : 0), 0);
+    let totalPersons = 0;
+    rooms.forEach(room => {
+      if (typeof room.adults !== 'number' || room.adults < 0) {
+        throw new Error("Invalid value for adults in rooms");
+      }
+      const childrenCount = Array.isArray(room.childrenAges) ? room.childrenAges.length : 0;
+      totalPersons += room.adults + childrenCount;
+    });
+
+
     const totalPrice = totalPersons * parseFloat(adminPackage.price);
 
-    // Helper function to retrieve or create GptActivity based on AdminPackageActivity
     const getOrCreateGptActivity = async (activityId, cityId) => {
       const existingGptActivity = await GptActivity.findOne({ activityId });
       if (existingGptActivity) {
@@ -665,7 +673,6 @@ export const createUserItinerary = async (req, res) => {
       return newActivity._id;
     };
 
-    // Step 1: Build itinerary structure without assigning dates yet
     const itineraryWithDates = await Promise.all(
       adminPackage.cities.map(async (cityData, cityIndex, citiesArray) => {
         const daysWithActivities = await Promise.all(
@@ -695,7 +702,6 @@ export const createUserItinerary = async (req, res) => {
     );
 
     const start = moment.utc(startsAt, 'YYYY-MM-DD').startOf('day');
-
     let cumulativeDays = 0;
     itineraryWithDates.forEach(city => {
       city.days.forEach(day => {
@@ -724,7 +730,7 @@ export const createUserItinerary = async (req, res) => {
 
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
+      return res.status(404).json({ message: 'Settings not found' });
     }
 
     const serviceFee = settings.serviceFee;
@@ -739,15 +745,15 @@ export const createUserItinerary = async (req, res) => {
       enrichedItinerary: {
         title: adminPackage.packageName,
         subtitle: adminPackage.description,
-        destination: adminPackage.destination.name, 
+        destination: adminPackage.destination.name,
         destinationId: adminPackage.destination._id,
         itinerary: itineraryWithDates,
         totalDays: totalDays,
         totalNights: totalDays - 1,
       },
       adults: totalPersons,
-      children: rooms.reduce((sum, room) => sum + room.children, 0),
-      childrenAges: rooms.flatMap(room => room.childrenAges),
+      children: rooms.reduce((sum, room) => sum + (Array.isArray(room.childrenAges) ? room.childrenAges.length : 0), 0),
+      childrenAges: rooms.flatMap(room => room.childrenAges || []),
       rooms: rooms,
       travellingWith: travellingWith,
       startDate: startsAt,
@@ -769,13 +775,12 @@ export const createUserItinerary = async (req, res) => {
     });
 
     const savedItinerary = await newUserItinerary.save();
+
     const userId = req.user.userId;
     let user = await User.findById(userId);
 
     if (!user || !(user.phoneNumber || user.phone)) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(httpFormatter({}, 'Invalid user ID or missing contact number.', false));
+      return res.status(400).json({ message: 'Invalid user ID or missing contact number.' });
     }
 
     const newLead = new Lead({
@@ -785,10 +790,15 @@ export const createUserItinerary = async (req, res) => {
       contactNumber: user.phoneNumber || user.phone,
     });
     await newLead.save();
-    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary: savedItinerary, lead: newLead }, 'User admin package itinerary created successfully', true));
+
+    return res.status(200).json({
+      message: 'User admin package itinerary created successfully',
+      itinerary: savedItinerary,
+      lead: newLead
+    });
   } catch (error) {
     console.error('Error creating user itinerary:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
 
