@@ -344,9 +344,20 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
 
 export const getAdminPackagesByDestinationId = async (req, res) => {
   const { destinationId } = req.params;
+  const { minBudget, maxBudget, minDays, maxDays } = req.query; 
 
   try {
-    const adminPackages = await AdminPackage.find({ destination: destinationId });
+    const query = { destination: destinationId };
+
+    if (minBudget && maxBudget) {
+      query.price = { $gte: parseInt(minBudget), $lte: parseInt(maxBudget) };
+    }
+
+    if (minDays && maxDays) {
+      query.totalDays = { $gte: parseInt(minDays), $lte: parseInt(maxDays) };
+    }
+
+    const adminPackages = await AdminPackage.find(query);
 
     if (adminPackages.length === 0) {
       return res.status(404).json({ message: 'No admin packages found for this destination' });
