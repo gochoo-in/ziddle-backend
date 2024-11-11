@@ -22,7 +22,6 @@ import Taxi from '../../models/taxi.js'
 import { addDaysToCityService } from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails, deleteDaysFromCityService } from '../../services/itineraryService.js';
 import Lead from '../../models/lead.js';
-import Notification from '../../models/notification.js';
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
 import mongoose from 'mongoose'
@@ -512,15 +511,6 @@ export const createItinerary = async (req, res) => {
     });
     await newLead.save();
 
-    // Send notifications to admins with access
-    const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
-    for (const employee of employeesWithAccess) {
-      await Notification.create({
-        employeeId: employee._id,
-        leadId: newLead._id,
-        message: `New lead generated !!`,
-      });
-    }
 
     // Return response with totalPersons
     return res
