@@ -241,3 +241,93 @@ export const addContact = async (req, res) => {
         );
     }
 };
+
+
+export const getContacts = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Retrieve all contacts for the given userId
+        const contacts = await SavedContact.find({ user: userId });
+
+        // Check if there are any contacts for this user
+        if (!contacts || contacts.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'No contacts found for this user', false)
+            );
+        }
+
+        // Respond with the retrieved contacts
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ contacts }, 'Contacts retrieved successfully', true)
+        );
+    } catch (error) {
+        console.error('Error fetching contacts:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+
+export const updateContact = async (req, res) => {
+    const { userId, contactId } = req.params;
+    const { salutation, firstName, surname, dob, passport } = req.body;
+
+    try {
+        // Check if the contact exists for the user
+        const contact = await SavedContact.findOne({ _id: contactId, user: userId });
+        if (!contact) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Contact not found', false)
+            );
+        }
+
+        // Update the contact fields
+        contact.salutation = salutation || contact.salutation;
+        contact.firstName = firstName || contact.firstName;
+        contact.surname = surname || contact.surname;
+        contact.dob = dob || contact.dob;
+        if (passport) {
+            contact.passport.passportNumber = passport.passportNumber || contact.passport.passportNumber;
+            contact.passport.expiryDate = passport.expiryDate || contact.passport.expiryDate;
+        }
+
+        await contact.save();
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ contact }, 'Contact updated successfully', true)
+        );
+    } catch (error) {
+        console.error('Error updating contact:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const deleteContact = async (req, res) => {
+    const { userId, contactId } = req.params;
+
+    try {
+        // Find and delete the contact
+        const deletedContact = await SavedContact.findOneAndDelete({ _id: contactId, user: userId });
+
+        // If no contact is found, return a 404
+        if (!deletedContact) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Contact not found', false)
+            );
+        }
+
+        // Respond with success message if deletion was successful
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({}, 'Contact deleted successfully', true)
+        );
+    } catch (error) {
+        console.error('Error deleting contact:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};

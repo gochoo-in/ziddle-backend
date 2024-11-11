@@ -2255,6 +2255,7 @@ export const getActivityStatistics = async (req, res) => {
       }
     ]);
 
+    console.log("successs1")
     if (!statistics.length) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activity statistics found', false));
     }
