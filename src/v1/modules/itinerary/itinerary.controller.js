@@ -64,8 +64,7 @@ export const createItinerary = async (req, res) => {
       !departureCity ||
       !arrivalCity ||
       !rooms ||
-      !travellingWith ||
-      !chooseBestForMe
+      !travellingWith 
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
