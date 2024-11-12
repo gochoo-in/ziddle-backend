@@ -1,4 +1,5 @@
 import IndianCity from '../../models/indianCity.js';
+import httpFormatter from '../../../utils/formatter.js';
 
 // Get all Indian Cities
 export const getAllIndianCities = async (req, res) => {

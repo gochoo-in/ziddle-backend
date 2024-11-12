@@ -10,6 +10,8 @@ import Settings from '../v1/models/settings.js';
 import Discount from '../v1/models/discount.js';
 import {  applyDiscountFunction, applyGeneralDiscount } from '../v1/modules/discount/discount.controller.js';
 import logger from '../config/logger.js';
+import StatusCodes from 'http-status-codes';
+import httpFormatter from './formatter.js';
 
 export const calculateTotalPriceMiddleware = async (req, res, next) => {
   try {
