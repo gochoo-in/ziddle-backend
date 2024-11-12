@@ -381,29 +381,39 @@ export const createItinerary = async (req, res) => {
 
     // Add hotel prices if available
     for (const city of enrichedItinerary.itinerary) {
-      if (city.hotelDetails && city.hotelDetails.price) {
-        const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
+    
+      // Fetch hotel details from the hotel table if hotelDetails is an ObjectId
+      let hotelPrice = 0;
+      if (city.hotelDetails && typeof city.hotelDetails === 'object') {
+        const hotel = await Hotel.findById(city.hotelDetails); // Assuming 'Hotel' is the model for the hotel table
+        if (hotel && hotel.price) {
+          hotelPrice = parseFloat(hotel.price) * rooms.length;
+        }
+      } else if (city.hotelDetails && city.hotelDetails.price) {
+        hotelPrice = parseFloat(city.hotelDetails.price) * rooms.length;
+      }
+    
+      if (hotelPrice > 0) {
         totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
         priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
-        
-
+    
         price += hotelPrice;
-        if(discount && discount.discountType!=null){
-          if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
-            {
-              let response = await applyDiscountFunction({
-                discountId: discount._id,
-                userId: userId,
-                totalAmount: hotelPrice
-              });
-              hotelPrice -= response.discountAmount
-            }
+        if (discount && discount.discountType != null) {
+          if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
+            let response = await applyDiscountFunction({
+              discountId: discount._id,
+              userId: userId,
+              totalAmount: hotelPrice,
+            });
+            hotelPrice -= response.discountAmount;
+          }
         }
         totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
     }
+    
     const activityPricesPromisesWithoutCoupon = enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
         day.activities.map(async (activityId) => {
@@ -1192,7 +1202,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      console.log("res shwdbjw  bd", req, res)
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added and price updated successfully', true));
     });
   } catch (error) {
@@ -1242,7 +1251,6 @@ export const deleteCityFromItinerary = async (req, res) => {
      // If deleting the first city, add an arrival activity to the new first city
      const newFirstCity = itinerary.enrichedItinerary.itinerary[0];
      const newFirstCityDetails = await City.findOne({ name: newFirstCity.currentCity });
-     console.log("jfds",newFirstCity);
      const arrivalActivity = await GptActivity.create({
        name: `Arrival in ${newFirstCity.currentCity}`,
        startTime: '10:00 AM',
@@ -1343,7 +1351,6 @@ if (newFirstCity.days[0].activities.length >= 1) {
 
     // Recalculate dates for the entire itinerary
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
-console.log(JSON.stringify(finalItinerary));
     // Refetch flight, taxi, and hotel details for all cities in the itinerary
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
@@ -2255,7 +2262,6 @@ export const getActivityStatistics = async (req, res) => {
       }
     ]);
 
-    console.log("successs1")
     if (!statistics.length) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activity statistics found', false));
     }

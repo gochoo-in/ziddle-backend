@@ -110,32 +110,40 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     }
 
     // Calculate hotel prices for each city
+    
+    const rooms = itinerary.rooms.length;
     for (const city of itinerary.enrichedItinerary.itinerary) {
-      if (city.hotelDetails) {
-        const hotelDetails = await Hotel.findById(city.hotelDetails);
-        if (hotelDetails && hotelDetails.price) {
-          const hotelPricePerNight = parseFloat(hotelDetails.price);
-          const stayDays = city.stayDays;
-
-          // Calculate total hotel price for this city
-          const totalHotelPrice = hotelPricePerNight * stayDays;
-          totalHotelsPrice += totalHotelPrice * (1 + settings.stayMarkup / 100); // Include markup
-          priceWithoutCoupon += totalHotelPrice + (totalHotelPrice * (settings.stayMarkup / 100));
-          price += totalHotelPrice;
-
-          // Apply stay markup
-          if(discount && discount.discountType!=null){
-            if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
-              let response = await applyDiscountFunction({
-                discountId: discount._id,
-                userId: userId,
-                totalAmount: totalHotelPrice
-              });
-              totalHotelPrice -= response;
-            }
-          }
-          totalPrice += totalHotelPrice + (totalHotelPrice * (settings.stayMarkup / 100)); // Add to the overall total price
+    
+      // Fetch hotel details from the hotel table if hotelDetails is an ObjectId
+      let hotelPrice = 0;
+      if (city.hotelDetails && typeof city.hotelDetails === 'object') {
+        const hotel = await Hotel.findById(city.hotelDetails); // Assuming 'Hotel' is the model for the hotel table
+        if (hotel && hotel.price) {
+          hotelPrice = parseFloat(hotel.price) * rooms.length;
         }
+      } else if (city.hotelDetails && city.hotelDetails.price) {
+        hotelPrice = parseFloat(city.hotelDetails.price) * rooms.length;
+      }
+    
+      if (hotelPrice > 0) {
+        totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
+        logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
+        priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
+    
+        price += hotelPrice;
+        if (discount && discount.discountType != null) {
+          if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
+            let response = await applyDiscountFunction({
+              discountId: discount._id,
+              userId: userId,
+              totalAmount: hotelPrice,
+            });
+            hotelPrice -= response.discountAmount;
+          }
+        }
+        
+        totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
+        logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
     }
 
@@ -257,7 +265,6 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
   
     
     await itinerary.save();
-    console.log("1", itinerary)
     for (const discountIds of itinerary.discounts) {
       const discountObject = await Discount.findById(discountIds);
       if (discountObject && discountObject.discountType === 'general') {
@@ -270,7 +277,6 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       }
     }
     await itinerary.save();
-    console.log("2", itinerary)
     next();
   } catch (error) {
     console.error('Error calculating total price:', error);

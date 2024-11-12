@@ -16,12 +16,10 @@ export function settransformItinerary(itineraryData) {
             }
             // Adjust activities within each city for a 1-hour gap and ensure chronological order
             city.days.forEach(day => {
-                console.log(day.activities)
                 // Sort activities by startTime in 12-hour format
                 day.activities.sort((a, b) => moment(a.startTime, 'hh:mm A') - moment(b.startTime, 'hh:mm A'));
             
                 let previousEndTime = null;
-                // console.log("dataaa",parseFloat(activity.duration.split(' ')[0]))
                 day.activities.forEach(activity => {
                     const durationHours = parseFloat(activity.duration.split(' ')[0]);
                     const startTime = moment(activity.startTime, 'hh:mm A');

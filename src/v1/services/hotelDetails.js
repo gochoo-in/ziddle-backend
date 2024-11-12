@@ -186,7 +186,6 @@ async function getHotelDetails(hotelCode) {
         );
 
         if (response.data) {
-            console.log("Hotel Details for HotelCode", hotelCode, ":", response.data);
             return response.data;
         } else {
             console.warn(`No details found for HotelCode ${hotelCode}.`);
@@ -209,7 +208,6 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
         // Fetch hotel codes for the specified city code
         const hotelCodes = await getHotelCodes(cityCode);
         if (hotelCodes) {
-            console.log(`Fetched Hotel Codes for CityCode ${cityCode}:`, hotelCodes);
         } else {
             throw new Error('No hotel codes found for the specified city.');
         }
@@ -245,7 +243,6 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
 
             // Fetch and log additional details for the cheapest hotel
             const detailedHotelInfo = await getHotelDetails(cheapestHotel.HotelCode);
-            console.log("Detailed information for the cheapest hotel:", detailedHotelInfo.HotelDetails[0].Images);
 
             
 
@@ -298,7 +295,6 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
             }
 
             const { country } = city; // assuming city has countryName field
-            console.log("City:", JSON.stringify(city));
 
             if (!country) {
                 logger.warn(`Country for city ${currentCityName} not found in the database.`);

@@ -145,10 +145,8 @@ export const assignAccess = async (req, res) => {
   const policies = req.body;
 
   // Log the incoming policies
-  console.log('Assigning policies:', policies);
 
   if (!Array.isArray(policies) || policies.length === 0) {
-    console.log('No policies provided');
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json(httpFormatter({}, 'No policies provided', false));
@@ -159,7 +157,6 @@ export const assignAccess = async (req, res) => {
       const { employeeId, endpoint, action } = policy;
 
       // Log the policy details
-      console.log(`Processing policy: Employee ID: ${employeeId}, Endpoint: ${endpoint}, Action: ${action}`);
 
       // Check if the policy already exists for the employee
       const existingPolicy = await casbinpolicy.findOne({
@@ -169,12 +166,10 @@ export const assignAccess = async (req, res) => {
       });
 
       if (existingPolicy) {
-        console.log(`Policy already exists for Employee ID: ${employeeId}, Endpoint: ${endpoint}, Action: ${action}`);
         return null; // Skip creating a duplicate policy
       }
 
       // Create the new policy for the employee
-      console.log(`Creating new policy for Employee ID: ${employeeId}, Endpoint: ${endpoint}, Action: ${action}`);
       return await casbinpolicy.create({
         ptype: 'p',
         v0: employeeId, // Employee ID
@@ -202,7 +197,6 @@ export const assignAccess = async (req, res) => {
 export const getAllEndpointActions = async (req, res) => {
   const { employeeId } = req.query;
 
-  console.log(`Fetching policies for Employee ID: ${employeeId}`);
 
   try {
     // Fetch all endpoints grouped by category
@@ -215,7 +209,6 @@ export const getAllEndpointActions = async (req, res) => {
       }
     ]);
 
-    console.log('All available endpoints:', endpointActions);
 
     let assignedPolicies = [];
     let hasWildcardPolicy = false;
@@ -223,12 +216,10 @@ export const getAllEndpointActions = async (req, res) => {
     if (employeeId) {
       // Fetch all policies for the employee
       assignedPolicies = await casbinpolicy.find({ v0: employeeId });
-      console.log(`Assigned policies for Employee ID ${employeeId}:`, assignedPolicies);
 
       // Check if the employee has a wildcard policy
       hasWildcardPolicy = assignedPolicies.some(policy => policy.v1 === '/*' && policy.v2 === '*');
       if (hasWildcardPolicy) {
-        console.log(`Employee ID ${employeeId} has a wildcard policy`);
       } else {
         console.log(`Employee ID ${employeeId} does not have a wildcard policy`);
       }
@@ -240,7 +231,6 @@ export const getAllEndpointActions = async (req, res) => {
         const isChecked = hasWildcardPolicy || assignedPolicies.some(
           (policy) => policy.v1 === endpoint.endpoint && policy.v2 === endpoint.action
         );
-        console.log(`Endpoint: ${endpoint.endpoint}, Action: ${endpoint.action}, Checked: ${isChecked}`);
         return { ...endpoint, checked: isChecked };
       });
 
@@ -277,7 +267,6 @@ export const getEmployeePolicies = async (req, res) => {
         .json(httpFormatter({}, 'No policies found for this employee', false));
     }
 
-    console.log(`Policies for Employee ID ${employeeId}:`, employeePolicies);
 
     // Return policies
     res

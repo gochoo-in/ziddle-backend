@@ -400,7 +400,6 @@ export const toggleActiveStatus = async (req, res) => {
 export const applyGeneralDiscount = async (payload, res) => {
     try {
         const { userId, discId, itineraryId } = payload;
-        console.log(discId, userId, itineraryId)
 
         // Validate input
         if (!userId || !discId || !itineraryId) {

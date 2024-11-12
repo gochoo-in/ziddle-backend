@@ -81,7 +81,6 @@ export const getCityWithActivities = async (req, res) => {
         const objectIdCity = new mongoose.Types.ObjectId(cityId);
 
         // Adding a log for debugging
-        console.log(`Fetching activities for cityId: ${cityId}`);
 
         const city = await City.aggregate([
             { $match: { _id: objectIdCity } },  // Match by cityId as ObjectId
@@ -96,11 +95,9 @@ export const getCityWithActivities = async (req, res) => {
         ]);
 
         if (city.length === 0) {
-            console.log(`No city found for cityId: ${cityId}`);
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        console.log(`Activities found for city: ${city[0].activities}`);
         
         return res.status(StatusCodes.OK).json(httpFormatter({ data: city[0].activities }, 'City with activities retrieved successfully', true));
     } catch (error) {
