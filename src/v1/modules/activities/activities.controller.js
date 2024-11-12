@@ -10,6 +10,7 @@ export const addActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -32,7 +33,7 @@ export const addActivity = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!name || !duration || !opensAt || !closesAt || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || !featured || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -44,6 +45,7 @@ export const addActivity = async (req, res) => {
         const activity = await Activity.create({
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -126,6 +128,7 @@ export const updateActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -157,6 +160,7 @@ export const updateActivity = async (req, res) => {
 
         // Update fields if they are provided
         if (name) activity.name = name;
+        if(featured)  activity.featured = featured;
         if (duration) activity.duration = duration;
         if (description) activity.description = description;
         if (opensAt) activity.opensAt = opensAt;

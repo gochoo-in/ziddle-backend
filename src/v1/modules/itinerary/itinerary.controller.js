@@ -54,6 +54,7 @@ export const createItinerary = async (req, res) => {
       activities,
       tripDuration,
       travellingWith,
+      chooseBestForMe
     } = req.body;
 
     // Check for required fields
@@ -63,7 +64,8 @@ export const createItinerary = async (req, res) => {
       !departureCity ||
       !arrivalCity ||
       !rooms ||
-      !travellingWith
+      !travellingWith ||
+      !chooseBestForMe
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -110,7 +112,16 @@ export const createItinerary = async (req, res) => {
 
     // Find city and activity details
     const cityDetails = await City.find({ _id: { $in: cityIds } });
-    const activityDetails = await Activity.find({ _id: { $in: activities } });
+    let selectedActivities = activities;
+    if (chooseBestForMe) {
+      const featuredActivities = await Activity.find({
+        city: { $in: cityIds },
+        featured: true
+      }).select('_id');
+
+      selectedActivities = featuredActivities.map(activity => activity._id);
+    }
+    const activityDetails = await Activity.find({ _id: { $in: selectedActivities } });
 
     if (!cityDetails.length) {
       return res
