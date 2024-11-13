@@ -328,7 +328,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
 
 export const getAdminPackagesByDestinationId = async (req, res) => {
   const { destinationId } = req.params;
-  const { minBudget, maxBudget, minDays, maxDays } = req.query;
+  const { minBudget, maxBudget, minDays, maxDays, rating } = req.query;
 
   try {
     const query = { destination: destinationId };
@@ -347,9 +347,35 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No admin packages found for this destination', false));
     }
 
-    const startingPrice = Math.min(...adminPackages.map(pkg => pkg.price));
+    // Collect all hotel IDs from admin packages
+    const hotelIds = [];
+    adminPackages.forEach(pkg => {
+      pkg.cities.forEach(city => {
+        if (city.hotelDetails) {
+          hotelIds.push(city.hotelDetails);
+        }
+      });
+    });
 
-    const totalDaysCount = adminPackages.reduce((acc, pkg) => {
+    const hotels = await Hotel.find({ _id: { $in: hotelIds } });
+    const hotelRatings = hotels.reduce((acc, hotel) => {
+      acc[hotel._id] = hotel.rating;
+      return acc;
+    }, {});
+
+    let filteredPackages = rating
+      ? adminPackages.filter(pkg =>
+          pkg.cities.some(city => hotelRatings[city.hotelDetails] === parseInt(rating))
+        )
+      : adminPackages;
+
+    if (filteredPackages.length === 0) {
+      filteredPackages = await AdminPackage.find({ destination: destinationId });
+    }
+
+    const startingPrice = Math.min(...filteredPackages.map(pkg => pkg.price));
+
+    const totalDaysCount = filteredPackages.reduce((acc, pkg) => {
       acc[pkg.totalDays] = (acc[pkg.totalDays] || 0) + 1;
       return acc;
     }, {});
@@ -359,15 +385,19 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     );
 
     const idealDuration = `${mostFrequentTotalDays} days and ${mostFrequentTotalDays - 1} nights`;
-    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages,
+
+    return res.status(StatusCodes.OK).json(httpFormatter({
+      data: filteredPackages,
       startingPrice,
-      idealDuration }, 'Admin packages retrieved successfully', true));
+      idealDuration
+    }, 'Admin packages retrieved successfully', true));
     
   } catch (error) {
     console.error('Error retrieving admin packages by destination ID:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
 
 
 export const addDaysToAdminPackage = async (req, res) => {
