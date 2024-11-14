@@ -79,8 +79,7 @@ const userSchema = new mongoose.Schema({
     },
     referralCode: {
         type: String,
-        unique: true,
-        required: true,
+        unique: true
     },
     userLogins: [userLoginSchema],
 }, { timestamps: true, versionKey: false });

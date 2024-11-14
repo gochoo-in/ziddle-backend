@@ -128,8 +128,25 @@ async function getCityCode(countryCode, cityName) {
 // Function to fetch hotel details by hotel codes
 async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNationality, adults, childrenAges) {
 
-    const  formattedCheckIn= checkIn.toISOString().split("T")[0];
-    const formattedCheckOut = checkOut.toISOString().split("T")[0];
+
+    let formattedCheckIn, formattedCheckOut;
+
+    if (checkIn instanceof Date) {
+        formattedCheckIn = checkIn.toISOString().split("T")[0];
+    } else if (typeof checkIn === "string" && checkIn.includes("T")) {
+        formattedCheckIn = checkIn.split("T")[0];
+    } else {
+        formattedCheckIn = checkIn;
+    }
+
+    if (checkOut instanceof Date) {
+        formattedCheckOut = checkOut.toISOString().split("T")[0];
+    } else if (typeof checkOut === "string" && checkOut.includes("T")) {
+        formattedCheckOut = checkOut.split("T")[0];
+    } else {
+        formattedCheckOut = checkOut;
+    }
+
   
     try {
         const response = await axios.post(
