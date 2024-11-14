@@ -127,14 +127,17 @@ async function getCityCode(countryCode, cityName) {
 
 // Function to fetch hotel details by hotel codes
 async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNationality, adults, childrenAges) {
+
+    const  formattedCheckIn= checkIn.toISOString().split("T")[0];
+    const formattedCheckOut = checkOut.toISOString().split("T")[0];
   
     try {
         const response = await axios.post(
             'https://affiliate.tektravels.com/HotelAPI/Search',
             {
-                CheckIn: checkIn,
-                CheckOut: checkOut,
-                HotelCodes: hotelCodes.join(','),  // Join codes as comma-separated values
+                CheckIn: formattedCheckIn,
+                CheckOut: formattedCheckOut,
+                HotelCodes: hotelCodes.join(','),  
                 GuestNationality: guestNationality,
                 PaxRooms: [
                     {
@@ -153,7 +156,6 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
         );
 
    
-
         if (response.data && response.data.HotelResult) {
             
             return response.data.HotelResult;  // Return the hotel search results
@@ -184,7 +186,6 @@ async function getHotelDetails(hotelCode) {
                 }
             }
         );
-
         if (response.data) {
             return response.data;
         } else {
@@ -192,9 +193,14 @@ async function getHotelDetails(hotelCode) {
             return null;
         }
     } catch (error) {
-        console.error("Error fetching hotel details:", error.message);
+        if (error.response) {
+            console.error("Response error:", error.response.status, error.response.data);
+        } else {
+            console.error("Error:", error.message);
+        }
         return null;
     }
+    
 }
 
 

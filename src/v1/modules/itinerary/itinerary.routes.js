@@ -102,7 +102,7 @@ router.get('/statistics', verifyToken, getAllUsersStatistics);
 router.get('/destination-statistics', verifyToken, getDestinationStatistics);
 router.get('/activity-statistics', verifyToken, getActivityStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
-router.get('/:itineraryId', getItineraryDetails);
+router.get('/:itineraryId', verifyToken, getItineraryDetails);
 router.get('/:itineraryId/flights', getFlightsInItinerary);
 router.get('/:itineraryId/hotels', getHotelsInItinerary);
 router.get('/:itineraryId/transfer', getTransferDetails);

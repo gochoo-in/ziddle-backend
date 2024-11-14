@@ -80,7 +80,8 @@ const itinerarySchema = new mongoose.Schema({
   discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }],
   tax: { type: String },
   serviceFee: { type: String },
-  chooseBestForMe: { type: Boolean, default: false }
+  chooseBestForMe: { type: Boolean, default: false },
+  lastFetchedDate: { type: Date, default: Date.now }
 }, { timestamps: true, versionKey: false });
 
 

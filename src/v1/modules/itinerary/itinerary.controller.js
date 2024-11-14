@@ -549,35 +549,40 @@ export const createItinerary = async (req, res) => {
   }
 };
 
-
 export const getItineraryDetails = async (req, res) => {
   try {
     const { itineraryId } = req.params;
 
-    // Find the itinerary by ID
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Assuming enrichedItinerary contains a destination name, find its corresponding destination ID
-    const destinationName = itinerary.enrichedItinerary?.destination;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    const lastFetchedDate = itinerary.lastFetchedDate || new Date(0); 
 
-    let destinationId = null;
-    if (destinationName) {
-      const destination = await Destination.findOne({ name: destinationName });
-      if (destination) {
-        destinationId = destination._id; // Assuming Destination model has an '_id' field representing the destinationId
-      }
+    if (lastFetchedDate >= today) {
+      return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
     }
 
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length;
 
-    // Add destinationId to enrichedItinerary without altering the existing response structure
-    if (destinationId) {
-      itinerary.enrichedItinerary.destinationId = destinationId; // Add destinationId to enrichedItinerary object
-    }
+    const updatedItineraryWithDetails = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      { adults, children, childrenAges, totalRooms }
+    );
 
-    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
+    itinerary.enrichedItinerary = updatedItineraryWithDetails;
+    itinerary.lastFetchedDate = new Date(); 
+
+    await itinerary.save();
+
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: updatedItineraryWithDetails }, 'Itinerary details updated and retrieved successfully', true));
+    });
+
   } catch (error) {
     console.error('Error retrieving itinerary details:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
