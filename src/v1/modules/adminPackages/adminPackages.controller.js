@@ -852,3 +852,28 @@ export const addGeneralDiscount = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 }
+
+export const getAdminPackagesByMaxBudget = async (req, res) => {
+  const { maxBudget } = req.query;
+
+  try {
+    if (!maxBudget || isNaN(maxBudget)) {
+      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or missing maxBudget parameter', false));
+    }
+
+    const adminPackages = await AdminPackage.find({
+      $expr: {
+        $lte: [{ $toInt: "$price" }, parseInt(maxBudget)]
+      }
+    });
+
+    if (adminPackages.length === 0) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No admin packages found within the specified budget', false));
+    }
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages }, 'Admin packages retrieved successfully within budget', true));
+  } catch (error) {
+    console.error('Error retrieving admin packages by max budget:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};

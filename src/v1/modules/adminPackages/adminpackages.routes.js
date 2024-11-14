@@ -14,7 +14,8 @@ import {
   getAllAdminPackageActivities,
   deleteAdminPackageById,
   createUserItinerary,
-  addGeneralDiscount
+  addGeneralDiscount,
+  getAdminPackagesByMaxBudget
 } from './adminPackages.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 
@@ -22,6 +23,7 @@ const router = express.Router();
 
 router.get('/packages', getAllAdminPackages);
 router.get('/packages/destination/:destinationId', getAdminPackagesByDestinationId); 
+router.get('/packages/budget', getAdminPackagesByMaxBudget);
 router.post('/package/basic', casbinMiddleware, createBasicAdminPackage);
 router.post('/package/details', casbinMiddleware, addDetailsToAdminPackage);
 router.patch('/package/:adminPackageId/addDays/:cityIndex', casbinMiddleware, addDaysToAdminPackage);
