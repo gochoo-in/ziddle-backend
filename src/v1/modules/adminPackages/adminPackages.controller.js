@@ -334,8 +334,14 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
     const query = { destination: destinationId };
 
     if (minBudget && maxBudget) {
-      query.price = { $gte: parseInt(minBudget), $lte: parseInt(maxBudget) };
+      query.$expr = {
+        $and: [
+          { $gte: [{ $toInt: "$price" }, parseInt(minBudget)] },
+          { $lte: [{ $toInt: "$price" }, parseInt(maxBudget)] }
+        ]
+      };
     }
+    
 
     if (minDays && maxDays) {
       query.totalDays = { $gte: parseInt(minDays), $lte: parseInt(maxDays) };
