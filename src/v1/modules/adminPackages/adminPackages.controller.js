@@ -854,26 +854,74 @@ export const addGeneralDiscount = async (req, res) => {
 }
 
 export const getAdminPackagesByMaxBudget = async (req, res) => {
-  const { maxBudget } = req.query;
+  const { maxBudget, minDays, maxDays, destinationId, rating } = req.query;
 
   try {
     if (!maxBudget || isNaN(maxBudget)) {
-      return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or missing maxBudget parameter', false));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(httpFormatter({}, 'Invalid or missing maxBudget parameter', false));
     }
 
-    const adminPackages = await AdminPackage.find({
+    const parsedMaxBudget = parseInt(maxBudget);
+
+    const query = {
       $expr: {
-        $lte: [{ $toInt: "$price" }, parseInt(maxBudget)]
-      }
-    });
+        $lte: [{ $toInt: "$price" }, parsedMaxBudget], 
+      },
+    };
+
+    if (minDays || maxDays) {
+      query.totalDays = {};
+      if (minDays) query.totalDays.$gte = parseInt(minDays);
+      if (maxDays) query.totalDays.$lte = parseInt(maxDays);
+    }
+
+    if (destinationId) {
+      query.destination = destinationId;
+    }
+
+    const adminPackages = await AdminPackage.find(query);
 
     if (adminPackages.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No admin packages found within the specified budget', false));
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'No admin packages found with the given filters', false));
     }
 
-    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages }, 'Admin packages retrieved successfully within budget', true));
+    let filteredPackages = adminPackages;
+    if (rating) {
+      const hotelIds = adminPackages.flatMap(pkg =>
+        pkg.cities.map(city => city.hotelDetails).filter(Boolean)
+      );
+
+      const hotels = await Hotel.find({ _id: { $in: hotelIds } });
+      const hotelRatings = hotels.reduce((acc, hotel) => {
+        acc[hotel._id] = hotel.rating;
+        return acc;
+      }, {});
+
+      filteredPackages = adminPackages.filter(pkg =>
+        pkg.cities.some(city => hotelRatings[city.hotelDetails] === parseInt(rating))
+      );
+    }
+
+    if (filteredPackages.length === 0) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'No packages found matching the rating criteria', false));
+    }
+
+    const startingPrice = Math.min(...filteredPackages.map(pkg => parseInt(pkg.price)));
+
+    return res
+      .status(StatusCodes.OK)
+      .json(httpFormatter({ data: filteredPackages, startingPrice }, 'Admin packages retrieved successfully', true));
+
   } catch (error) {
     console.error('Error retrieving admin packages by max budget:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal server error', false));
   }
 };
