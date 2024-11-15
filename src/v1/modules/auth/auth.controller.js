@@ -25,10 +25,21 @@ const fcm = new FCM(FCM_KEY);
 
 export const signup = async (req, res) => {
     try {
+        const referCodeFromQuery = req.query.referCode;
+        referCodeFromQuery.toString();
+        
+        if (referCodeFromQuery) {
+            req.body.referredBy = referCodeFromQuery;
+        }
+
         const { phoneNumber, otp, firstName, lastName, email, referredBy } = req.body;
 
         if (!phoneNumber || !firstName || !lastName || !email) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number, first name, last name, and email are required', false));
+        }
+
+        if (referCodeFromQuery && referredBy && referredBy !== referCodeFromQuery) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Referral code mismatch. Please use the code provided in the link.', false));
         }
 
         otpLimiter(req, res, async () => {
@@ -90,29 +101,12 @@ export const signup = async (req, res) => {
 
                     if (referredByUser) {
                         user.referredBy = referredByUser.referralCode;
-
                         user.referred = true;
 
                         await user.save();
 
                         await Wallet.create({ user: user._id, balance: '0', transactions: [] });
 
-                        const referrerWallet = await Wallet.findOne({ user: referredByUser._id });
-
-                        if (referrerWallet) {
-                            const oldBalance = parseInt(referrerWallet.balance);
-                            const newBalance = oldBalance + 500;
-
-                            referrerWallet.balance = newBalance.toString();
-                            referrerWallet.transactions.push({
-                                itinerary: null, 
-                                transactionAmount: '500',
-                                transactionDate: new Date(),
-                                reason: 'Referral reward earned!',
-                            });
-
-                            await referrerWallet.save();
-                        }
                     } else {
                         return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid referral code', false));
                     }
@@ -133,6 +127,7 @@ export const signup = async (req, res) => {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 
 

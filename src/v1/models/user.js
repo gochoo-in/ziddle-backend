@@ -88,6 +88,14 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    gotReferralDiscount: {
+        type: Boolean,
+        default: false
+    },
+    isReferrerPaid: {
+        type: Boolean,
+        default: false
+    },
     userLogins: [userLoginSchema],
 }, { timestamps: true, versionKey: false });
 
