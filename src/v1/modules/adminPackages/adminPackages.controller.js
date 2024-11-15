@@ -553,22 +553,83 @@ export const deleteDaysFromAdminPackage = async (req, res) => {
 
 
 export const getAdminPackagesByCategory = async (req, res) => {
-  const { category } = req.params; // Get the category from the request parameters
+  const { category } = req.params; 
+  const { maxBudget, minBudget, maxDays, minDays, rating, destinationId } = req.query;
 
   try {
-    // Find admin packages that match the specified category
-    const adminPackages = await AdminPackage.find({ category });
+    const query = {
+      category: category,
+    };
 
-    if (adminPackages.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No Admin package found for this category', false));
+    if (minBudget || maxBudget) {
+      query.$expr = {};
+      if (minBudget) query.$expr.$gte = [{ $toInt: "$price" }, parseInt(minBudget)];
+      if (maxBudget) query.$expr.$lte = [{ $toInt: "$price" }, parseInt(maxBudget)];
     }
 
-    return res.status(StatusCodes.OK).json(httpFormatter({ data: adminPackages }, 'Admin packages retrieved successfully', true));
+    if (minDays || maxDays) {
+      query.totalDays = {};
+      if (minDays) query.totalDays.$gte = parseInt(minDays);
+      if (maxDays) query.totalDays.$lte = parseInt(maxDays);
+    }
+
+    if (destinationId) {
+      query.destination = destinationId;
+    }
+
+    const adminPackages = await AdminPackage.find(query);
+
+    if (adminPackages.length === 0) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'No Admin package found for the given filters', false));
+    }
+
+    let filteredPackages = adminPackages;
+    if (rating) {
+      const hotelIds = adminPackages.flatMap(pkg =>
+        pkg.cities.map(city => city.hotelDetails).filter(Boolean)
+      );
+
+      const hotels = await Hotel.find({ _id: { $in: hotelIds } });
+      const hotelRatings = hotels.reduce((acc, hotel) => {
+        acc[hotel._id] = hotel.rating;
+        return acc;
+      }, {});
+
+      filteredPackages = adminPackages.filter(pkg =>
+        pkg.cities.some(city => hotelRatings[city.hotelDetails] === parseInt(rating))
+      );
+    }
+
+    if (filteredPackages.length === 0) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json(httpFormatter({}, 'No packages found matching the rating criteria', false));
+    }
+
+    const startingPrice = Math.min(...filteredPackages.map(pkg => parseInt(pkg.price)));
+
+    return res
+      .status(StatusCodes.OK)
+      .json(
+        httpFormatter(
+          {
+            data: filteredPackages,
+            startingPrice,
+          },
+          'Admin packages retrieved successfully',
+          true
+        )
+      );
   } catch (error) {
     console.error('Error retrieving admin packages by category:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json(httpFormatter({}, 'Internal server error', false));
   }
 };
+
 
 export const getAllAdminPackageActivities = async (req, res) => {
   try {
