@@ -6,7 +6,7 @@ import { verifyToken } from '../../../utils/token.js';
 
 const router = express.Router();
 
-router.post('/signup', validate(authValidation.signupValidation), signup);
+router.post('/signup', signup);
 router.post('/signin', validate(authValidation.signinValidation), signin);
 router.post('/logout', verifyToken, logout); 
 router.get('/',getAllUsers)

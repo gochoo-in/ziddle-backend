@@ -12,6 +12,7 @@ import useragent from 'useragent';
 import UserCookie from '../../models/userCookie.js'; 
 import logger from '../../../config/logger.js';
 import crypto from 'crypto';
+import Wallet from '../../models/wallet.js';
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -24,7 +25,7 @@ const fcm = new FCM(FCM_KEY);
 
 export const signup = async (req, res) => {
     try {
-        const { phoneNumber, otp, firstName, lastName, email } = req.body;  
+        const { phoneNumber, otp, firstName, lastName, email, referredBy } = req.body;
 
         if (!phoneNumber || !firstName || !lastName || !email) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number, first name, last name, and email are required', false));
@@ -39,14 +40,14 @@ export const signup = async (req, res) => {
                 }
 
                 if (!user) {
-                    let referralCode;
+                    let referralCodeGenerated;
                     let isUnique = false;
 
                     while (!isUnique) {
                         const prefix = String.fromCharCode(65 + Math.floor(Math.random() * 26)); 
                         const randomCode = crypto.randomBytes(5).toString('hex').toUpperCase(); 
-                        referralCode = `${prefix}${randomCode}`;
-                        const existingUser = await User.findOne({ referralCode });
+                        referralCodeGenerated = `${prefix}${randomCode}`;
+                        const existingUser = await User.findOne({ referralCode: referralCodeGenerated });
                         if (!existingUser) {
                             isUnique = true;
                         }
@@ -61,7 +62,7 @@ export const signup = async (req, res) => {
                         otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
-                        referralCode,  
+                        referralCode: referralCodeGenerated,  
                     });
                 } else {
                     user.otp = generateOTP();
@@ -83,7 +84,41 @@ export const signup = async (req, res) => {
                 user.otp = undefined;
                 user.otpExpires = undefined;
                 user.otpVerifiedAt = new Date();  
-                await user.save();
+
+                if (referredBy) {
+                    const referredByUser = await User.findOne({ referralCode: referredBy });
+
+                    if (referredByUser) {
+                        user.referredBy = referredByUser.referralCode;
+
+                        user.referred = true;
+
+                        await user.save();
+
+                        await Wallet.create({ user: user._id, balance: '0', transactions: [] });
+
+                        const referrerWallet = await Wallet.findOne({ user: referredByUser._id });
+
+                        if (referrerWallet) {
+                            const oldBalance = parseInt(referrerWallet.balance);
+                            const newBalance = oldBalance + 500;
+
+                            referrerWallet.balance = newBalance.toString();
+                            referrerWallet.transactions.push({
+                                itinerary: null, 
+                                transactionAmount: '500',
+                                transactionDate: new Date(),
+                                reason: 'Referral reward earned!',
+                            });
+
+                            await referrerWallet.save();
+                        }
+                    } else {
+                        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid referral code', false));
+                    }
+                } else {
+                    await user.save();
+                }
 
                 const token = createJWT(user._id);
                 res.status(StatusCodes.OK).json({
@@ -98,6 +133,7 @@ export const signup = async (req, res) => {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
 
 
 export const signin = async (req, res) => {

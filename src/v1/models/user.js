@@ -81,6 +81,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         unique: true
     },
+    referredBy: {
+        type: String
+    },
+    referred: {
+        type: Boolean,
+        default: false
+    },
     userLogins: [userLoginSchema],
 }, { timestamps: true, versionKey: false });
 
