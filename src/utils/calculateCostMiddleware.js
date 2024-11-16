@@ -8,7 +8,7 @@ import Ferry from '../v1/models/ferry.js';
 import Taxi from '../v1/models/taxi.js';
 import Settings from '../v1/models/settings.js';
 import Discount from '../v1/models/discount.js';
-import {  applyDiscountFunction, applyGeneralDiscount } from '../v1/modules/discount/discount.controller.js';
+import { applyDiscountFunction, applyGeneralDiscount } from '../v1/modules/discount/discount.controller.js';
 import logger from '../config/logger.js';
 import StatusCodes from 'http-status-codes';
 import httpFormatter from './formatter.js';
@@ -25,9 +25,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
 
     const discount = await Discount.findOne({
       destination: countryId,
-      discountType: 'couponless' 
+      discountType: 'couponless'
     }).sort({ createdAt: -1 });
-    
+
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
@@ -71,7 +71,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             transferPriceWithoutCoupon = transferPrice;
 
             // Apply flight markup
-            if(discount && discount.discountType!=null){
+            if (discount && discount.discountType != null) {
               if (discount.discountType === 'couponless' && discount.applicableOn.flights === true) {
                 let response = await applyDiscountFunction({
                   discountId: discount._id,
@@ -110,10 +110,10 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     }
 
     // Calculate hotel prices for each city
-    
+
     const rooms = itinerary.rooms.length;
     for (const city of itinerary.enrichedItinerary.itinerary) {
-    
+
       // Fetch hotel details from the hotel table if hotelDetails is an ObjectId
       let hotelPrice = 0;
       if (city.hotelDetails && typeof city.hotelDetails === 'object') {
@@ -124,12 +124,12 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       } else if (city.hotelDetails && city.hotelDetails.price) {
         hotelPrice = parseFloat(city.hotelDetails.price) * rooms.length;
       }
-    
+
       if (hotelPrice > 0) {
         totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
         priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
-    
+
         price += hotelPrice;
         if (discount && discount.discountType != null) {
           if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
@@ -141,7 +141,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             hotelPrice -= response.discountAmount;
           }
         }
-        
+
         totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
@@ -156,10 +156,10 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
-              let totalActivityPrice = activityPricePerPerson * (adults + children); 
-              
+              let totalActivityPrice = activityPricePerPerson * (adults + children);
+
               // Apply discount logic if applicable
-              if(discount && discount.discountType!=null){
+              if (discount && discount.discountType != null) {
                 if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
                   const response = await applyDiscountFunction({
                     discountId: discount._id,
@@ -169,7 +169,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
                   totalActivityPrice -= response;
                 }
               }
-    
+
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
@@ -189,7 +189,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
-              const totalActivityPrice = activityPricePerPerson * (adults + children); 
+              const totalActivityPrice = activityPricePerPerson * (adults + children);
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
@@ -202,7 +202,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     );
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    if(discount && discount.discountType!=null){
+    if (discount && discount.discountType != null) {
       if (discount.discountType === 'couponless' && discount.applicableOn.activities === true) {
         let response = await applyDiscountFunction({
           discountId: discount._id,
@@ -222,7 +222,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       priceWithoutCoupon += priceWithoutCoupon * (destination.markup / 100);
     }
 
-    if(discount && discount.discountType!=null){
+    if (discount && discount.discountType != null) {
       if (discount.discountType === 'couponless' && discount.applicableOn.package === true) {
         let response = await applyDiscountFunction({
           discountId: discount._id,
@@ -234,21 +234,21 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     }
 
     // Store current total price before tax and service fee
-    let currentTotalPrice = priceWithoutCoupon;
-    const disc = currentTotalPrice - totalPrice;
-    totalPrice+=disc;
+    let grandTotal = priceWithoutCoupon;
+    const disc = grandTotal - totalPrice;
+    totalPrice += disc;
     // Calculate and add 18% tax
-    const taxAmount = currentTotalPrice * 0.18; // 18% tax
+    const taxAmount = grandTotal * 0.18; // 18% tax
     const tax = totalPrice * 0.18;
-    
-    currentTotalPrice += taxAmount;
+
+    grandTotal += taxAmount;
 
     // Add service fee
-    currentTotalPrice += settings.serviceFee;
-    currentTotalPrice -= disc;
+    grandTotal += settings.serviceFee;
+    grandTotal -= disc;
 
     // Store both current total price and final total price in the itinerary
-    itinerary.currentTotalPrice = currentTotalPrice.toFixed(2);
+    itinerary.grandTotal = grandTotal.toFixed(2);
     itinerary.totalPriceWithoutMarkup = price.toFixed(2);
 
     // Update the total price in the itinerary
@@ -262,8 +262,8 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     itinerary.totalHotelsPrice = totalHotelsPrice.toFixed(2);
     itinerary.totalActivitiesPrice = totalActivitiesPrice.toFixed(2);
     itinerary.tax = tax.toFixed(2);
-  
-    
+
+
     await itinerary.save();
     for (const discountIds of itinerary.discounts) {
       const discountObject = await Discount.findById(discountIds);

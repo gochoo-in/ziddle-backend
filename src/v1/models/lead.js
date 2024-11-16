@@ -18,7 +18,7 @@ const leadSchema = new mongoose.Schema(
     assignedTo: { type: String },
     assignedAt: { type: Date },
     contactNumber: { type: String, required: true }, // Contact number is required
-    smallId: { type: String, unique: true },
+    uniqueSmallId: { type: String, unique: true },
     comments: [commentSchema],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
@@ -26,7 +26,7 @@ const leadSchema = new mongoose.Schema(
   { versionKey: false, timestamps: true }
 );
 
-// Pre-save hook to generate smallId
+// Pre-save hook to generate uniqueSmallId
 leadSchema.pre('save', async function (next) {
   if (this.isNew) {
     try {
@@ -37,20 +37,20 @@ leadSchema.pre('save', async function (next) {
       const lastSixDigits = this.contactNumber.slice(-6);
 
       // Combine date and last 6 digits of contact number to form the base ID
-      const baseSmallId = `${formattedDate}${lastSixDigits}`;
+      const baseuniqueSmallId = `${formattedDate}${lastSixDigits}`;
 
       // Find all leads created by the same contact on the same day
       const existingLeads = await mongoose.model('Lead').find({
-        smallId: { $regex: `^${baseSmallId}` },
+        uniqueSmallId: { $regex: `^${baseuniqueSmallId}` },
       });
 
       // If there are existing leads, increment the suffix
       if (existingLeads.length > 0) {
         const suffix = String(existingLeads.length + 1).padStart(2, '0');
-        this.smallId = `${baseSmallId}-${suffix}`;
+        this.uniqueSmallId = `${baseuniqueSmallId}-${suffix}`;
       } else {
         // First lead for this date and contact number
-        this.smallId = baseSmallId;
+        this.uniqueSmallId = baseuniqueSmallId;
       }
 
       next();

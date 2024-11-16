@@ -5,20 +5,20 @@ import mongoose from 'mongoose';
 const counterSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     seq: { type: Number, default: 0 }
-  });
-  
-  // Check if the 'Counter' model is already defined, and reuse it if it exists
-  const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
+});
+
+// Check if the 'Counter' model is already defined, and reuse it if it exists
+const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
 const userLoginSchema = new mongoose.Schema({
     loginTime: {
         type: Date,
         default: Date.now,
     },
-    smallId: {
+    uniqueSmallId: {
         type: String,
         unique: true,
-      },
+    },
     ipAddress: {
         type: String,
         default: 'Unknown IP',
@@ -39,23 +39,23 @@ const userLoginSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema({
     phoneNumber: {
-        type: String, 
+        type: String,
         required: true,
         unique: true,
     },
-    firstName: { 
-        type: String, 
-        required: true 
-    },     
-    lastName: { 
-        type: String, 
-        required: true 
-    },   
-    email: { 
-        type: String, 
-        required: true, 
-        unique: true 
-    },     
+    firstName: {
+        type: String,
+        required: true
+    },
+    lastName: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true
+    },
     otp: {
         type: String,
     },
@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema({
     },
     verified: {
         type: Boolean,
-        default: false, 
+        default: false,
     },
     isLoggedIn: {
         type: Boolean,
@@ -81,18 +81,18 @@ const userSchema = new mongoose.Schema({
         type: String,
         unique: true
     },
-    referredBy: {
+    appliedReferralCode: {
         type: String
     },
     referred: {
         type: Boolean,
         default: false
     },
-    gotReferralDiscount: {
+    receivedReferralBenefit: {
         type: Boolean,
         default: false
     },
-    isReferrerPaid: {
+    isReferrerRewarded: {
         type: Boolean,
         default: false
     },
@@ -111,9 +111,9 @@ userSchema.pre('save', async function (next) {
                 { new: true, upsert: true }  // Upsert in case counter doesn't exist
             );
 
-            // Generate the smallId in the format 'A00001'
+            // Generate the uniqueSmallId in the format 'A00001'
             const sequenceNumber = String(counter.seq).padStart(5, '0');  // Pad with zeros to get 5 digits
-            this.smallId = `U${sequenceNumber}`;
+            this.uniqueSmallId = `U${sequenceNumber}`;
 
             next();
         } catch (err) {

@@ -7,9 +7,9 @@ import httpFormatter from '../../../utils/formatter.js';
 import rateLimit from 'express-rate-limit';
 import { FCM_KEY } from '../../../utils/constants.js';
 import { sendOTPMessage } from '../../services/index.js';
-import requestIp from 'request-ip';  
-import useragent from 'useragent';  
-import UserCookie from '../../models/userCookie.js'; 
+import requestIp from 'request-ip';
+import useragent from 'useragent';
+import UserCookie from '../../models/userCookie.js';
 import logger from '../../../config/logger.js';
 import crypto from 'crypto';
 import Wallet from '../../models/wallet.js';
@@ -27,18 +27,18 @@ export const signup = async (req, res) => {
     try {
         const referCodeFromQuery = req.query.referCode;
         referCodeFromQuery.toString();
-        
+
         if (referCodeFromQuery) {
-            req.body.referredBy = referCodeFromQuery;
+            req.body.appliedReferralCode = referCodeFromQuery;
         }
 
-        const { phoneNumber, otp, firstName, lastName, email, referredBy } = req.body;
+        const { phoneNumber, otp, firstName, lastName, email, appliedReferralCode } = req.body;
 
         if (!phoneNumber || !firstName || !lastName || !email) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number, first name, last name, and email are required', false));
         }
 
-        if (referCodeFromQuery && referredBy && referredBy !== referCodeFromQuery) {
+        if (referCodeFromQuery && appliedReferralCode && appliedReferralCode !== referCodeFromQuery) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Referral code mismatch. Please use the code provided in the link.', false));
         }
 
@@ -55,8 +55,8 @@ export const signup = async (req, res) => {
                     let isUnique = false;
 
                     while (!isUnique) {
-                        const prefix = String.fromCharCode(65 + Math.floor(Math.random() * 26)); 
-                        const randomCode = crypto.randomBytes(5).toString('hex').toUpperCase(); 
+                        const prefix = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                        const randomCode = crypto.randomBytes(5).toString('hex').toUpperCase();
                         referralCodeGenerated = `${prefix}${randomCode}`;
                         const existingUser = await User.findOne({ referralCode: referralCodeGenerated });
                         if (!existingUser) {
@@ -66,14 +66,14 @@ export const signup = async (req, res) => {
 
                     user = await User.create({
                         phoneNumber,
-                        firstName,  
-                        lastName,   
+                        firstName,
+                        lastName,
                         email,
                         otp: generateOTP(),
                         otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
-                        referralCode: referralCodeGenerated,  
+                        referralCode: referralCodeGenerated,
                     });
                 } else {
                     user.otp = generateOTP();
@@ -94,13 +94,13 @@ export const signup = async (req, res) => {
                 user.verified = true;
                 user.otp = undefined;
                 user.otpExpires = undefined;
-                user.otpVerifiedAt = new Date();  
+                user.otpVerifiedAt = new Date();
 
-                if (referredBy) {
-                    const referredByUser = await User.findOne({ referralCode: referredBy });
+                if (appliedReferralCode) {
+                    const appliedReferralCodeUser = await User.findOne({ referralCode: appliedReferralCode });
 
-                    if (referredByUser) {
-                        user.referredBy = referredByUser.referralCode;
+                    if (appliedReferralCodeUser) {
+                        user.appliedReferralCode = appliedReferralCodeUser.referralCode;
                         user.referred = true;
 
                         await user.save();
@@ -154,7 +154,7 @@ export const signin = async (req, res) => {
                 await user.save();
 
                 await sendOTPMessage(user.otp, phoneNumber);
-                
+
                 return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
             } else {
                 if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
@@ -187,7 +187,7 @@ export const signin = async (req, res) => {
                     { cookieId: req.cookieId },
                     { $set: { userId: user._id } }
                 );
-                
+
                 res.status(StatusCodes.OK).json({
                     status: 'success',
                     token,
@@ -222,50 +222,50 @@ export const getAllUsers = async (req, res) => {
 
 export const toggleUserBlockedStatus = async (req, res) => {
     const { id } = req.params;
-  
+
     try {
-      // Find the user by ID
-      const user = await User.findById(id);
-  
-      if (!user) {
-        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
-      }
-  
-      // Toggle the blocked status
-      user.blocked = !user.blocked;
-      await user.save();
-      return res.status(StatusCodes.OK).json(httpFormatter({ blocked: user.blocked }, `User ${user.blocked ? 'unblocked' : 'blocked'} successfully` , true));
-    
+        // Find the user by ID
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+        }
+
+        // Toggle the blocked status
+        user.blocked = !user.blocked;
+        await user.save();
+        return res.status(StatusCodes.OK).json(httpFormatter({ blocked: user.blocked }, `User ${user.blocked ? 'unblocked' : 'blocked'} successfully`, true));
+
     } catch (error) {
-      console.error('Error updating blocked status:', error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+        console.error('Error updating blocked status:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
-  };
+};
 
 
 export const logout = async (req, res) => {
     try {
-            const userId = req.user.userId;
-            const cookieId = req.cookies['userCookieId']; 
+        const userId = req.user.userId;
+        const cookieId = req.cookies['userCookieId'];
 
-            if (!cookieId) {
-                return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cookie ID not found', false));
-            }
+        if (!cookieId) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Cookie ID not found', false));
+        }
 
-            const user = await User.findById(userId);
-            if (!user) {
-                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
-            }
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+        }
 
-            user.isLoggedIn = false;
-            await user.save();
+        user.isLoggedIn = false;
+        await user.save();
 
-            await UserCookie.updateOne(
-                { cookieId: cookieId },
-                { $set: { userId: null } }
-            );
+        await UserCookie.updateOne(
+            { cookieId: cookieId },
+            { $set: { userId: null } }
+        );
 
-            res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
+        res.status(StatusCodes.OK).json(httpFormatter({}, 'Logout successful', true));
     } catch (error) {
         logger.error('Error in logout:', { message: error.message });
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));

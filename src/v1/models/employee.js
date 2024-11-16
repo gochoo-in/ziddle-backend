@@ -44,7 +44,7 @@
 //     type: Boolean,
 //     default: false,
 //   },
-//   smallId: {
+//   uniqueSmallId: {
 //     type: String,
 //     unique: true,
 //   },
@@ -66,7 +66,7 @@
 //   const salt = await bcrypt.genSalt(10);
 //   this.password = await bcrypt.hash(this.password, salt);}
 //   next();
-    
+
 
 // });
 
@@ -80,8 +80,8 @@ import bcrypt from 'bcrypt';
 
 // Define the Counter schema
 const counterSchema = new mongoose.Schema({
-    _id: { type: String, required: true },
-    seq: { type: Number, default: 0 }
+  _id: { type: String, required: true },
+  seq: { type: Number, default: 0 }
 });
 
 // Check if the 'Counter' model is already defined, and reuse it if it exists
@@ -89,7 +89,7 @@ const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSche
 
 // Define the Employee schema
 const employeeSchema = new mongoose.Schema({
-  smallId: {
+  uniqueSmallId: {
     type: String,
     unique: true,
   },
@@ -134,7 +134,7 @@ const employeeSchema = new mongoose.Schema({
   versionKey: false, // Disables the versionKey field (_v)
 });
 
-// Pre-save hook to hash the password and generate the smallId
+// Pre-save hook to hash the password and generate the uniqueSmallId
 employeeSchema.pre('save', async function (next) {
   try {
     // Hash the password if it's modified
@@ -143,7 +143,7 @@ employeeSchema.pre('save', async function (next) {
       this.password = await bcrypt.hash(this.password, salt);
     }
 
-    // Generate the smallId if this is a new employee
+    // Generate the uniqueSmallId if this is a new employee
     if (this.isNew) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: 'employee' },
@@ -151,7 +151,7 @@ employeeSchema.pre('save', async function (next) {
         { new: true, upsert: true }  // Create a new counter if it doesn't exist
       );
       const sequenceNumber = String(counter.seq).padStart(5, '0'); // Pad to get a 5-digit number
-      this.smallId = `E${sequenceNumber}`;
+      this.uniqueSmallId = `E${sequenceNumber}`;
     }
 
     next();

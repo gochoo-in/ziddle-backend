@@ -32,7 +32,7 @@ const adminPackageSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      date: { 
+      date: {
         type: String
       },
       activities: [{
@@ -58,11 +58,11 @@ const adminPackageSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  startDate: { 
+  startDate: {
     type: String,
     required: true,
   },
-  startsAt: { 
+  itineraryStartDate: {
     type: String
   },
   endDate: {
@@ -97,9 +97,9 @@ const adminPackageSchema = new mongoose.Schema({
       },
     },
   },
-  active: { 
+  active: {
     type: Boolean,
-    default: true 
+    default: true
   },
   category: {
     type: [String],

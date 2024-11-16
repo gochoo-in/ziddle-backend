@@ -4,19 +4,19 @@ import mongoose from 'mongoose';
 const counterSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     seq: { type: Number, default: 0 }
-  });
-  
-  // Check if the 'Counter' model is already defined, and reuse it if it exists
-  const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
+});
+
+// Check if the 'Counter' model is already defined, and reuse it if it exists
+const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
 const ActivitySchema = new mongoose.Schema({
     name: { type: String, required: true },
     duration: { type: String, required: true },
     featured: { type: Boolean, default: false, required: true },
-    smallId: {
+    uniqueSmallId: {
         type: String,
         unique: true,
-      },
+    },
     description: { type: String },
     imageUrls: {
         type: [{
@@ -63,9 +63,9 @@ ActivitySchema.pre('save', async function (next) {
                 { new: true, upsert: true }  // Upsert in case counter doesn't exist
             );
 
-            // Generate the smallId in the format 'A00001'
+            // Generate the uniqueSmallId in the format 'A00001'
             const sequenceNumber = String(counter.seq).padStart(5, '0');  // Pad with zeros to get 5 digits
-            this.smallId = `A${sequenceNumber}`;
+            this.uniqueSmallId = `A${sequenceNumber}`;
 
             next();
         } catch (err) {

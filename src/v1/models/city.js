@@ -18,17 +18,17 @@ const CitySchema = new mongoose.Schema({
   destination: { type: mongoose.Schema.Types.ObjectId, ref: 'Destination', required: true },
   imageUrls: {
     type: [{
-        type: {
-            type: String,
-            required: true
-        },
-        url: {
-            type: String,
-            required: true
-        }
+      type: {
+        type: String,
+        required: true
+      },
+      url: {
+        type: String,
+        required: true
+      }
     }],
     default: []
-},
+  },
   country: { type: String, required: true },
   latitude: { type: Number, required: true },
   longitude: { type: Number, required: true },
@@ -39,7 +39,7 @@ const CitySchema = new mongoose.Schema({
   languageSpoken: { type: String, required: true },
   travelTimeFromHub: { type: Number },
   isActive: { type: Boolean, default: false },
-  smallId: {
+  uniqueSmallId: {
     type: String,
     unique: true,
   },
@@ -56,9 +56,9 @@ CitySchema.pre('save', async function (next) {
         { new: true, upsert: true }  // Upsert in case counter doesn't exist
       );
 
-      // Generate the smallId in the format 'C00001'
+      // Generate the uniqueSmallId in the format 'C00001'
       const sequenceNumber = String(counter.seq).padStart(5, '0');  // Pad with zeros to get 5 digits
-      this.smallId = `C${sequenceNumber}`;
+      this.uniqueSmallId = `C${sequenceNumber}`;
 
       next();
     } catch (err) {

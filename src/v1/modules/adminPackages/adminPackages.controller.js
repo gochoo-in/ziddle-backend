@@ -35,7 +35,7 @@ export const createBasicAdminPackage = async (req, res) => {
       destinationId,
       totalDays,
       startDate,
-      startsAt,
+      itineraryStartDate,
       endDate,
       price,
       createdBy,
@@ -53,7 +53,7 @@ export const createBasicAdminPackage = async (req, res) => {
       destination: destination._id,
       totalDays,
       startDate: startDate,
-      startsAt: startsAt,
+      itineraryStartDate: itineraryStartDate,
       endDate: endDate,
       price,
       createdBy,
@@ -61,8 +61,8 @@ export const createBasicAdminPackage = async (req, res) => {
     });
 
     const savedPackage = await newAdminPackage.save();
-    return res.status(StatusCodes.CREATED).json(httpFormatter({ adminPackageId: savedPackage._id }, 'Basic admin package created successfully' , true));
-  
+    return res.status(StatusCodes.CREATED).json(httpFormatter({ adminPackageId: savedPackage._id }, 'Basic admin package created successfully', true));
+
   } catch (error) {
     console.error('Error creating basic admin package:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -112,7 +112,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
 
             const dayEntry = {
               day: dayIndex + 1,  // Assigning day index (1-based) to each day entry
-              ...(adminPackage.startsAt ? { date: moment(day.date).format('YYYY-MM-DD') } : {}),
+              ...(adminPackage.itineraryStartDate ? { date: moment(day.date).format('YYYY-MM-DD') } : {}),
               activities: processedActivities,
             };
 
@@ -134,7 +134,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
 
           updatedDays.unshift({
             day: 0,  // Setting day 0 for the arrival entry
-            ...(adminPackage.startsAt ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            ...(adminPackage.itineraryStartDate ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
             activities: [savedTravelActivity._id],
           });
         }
@@ -154,7 +154,7 @@ export const addDetailsToAdminPackage = async (req, res) => {
 
           updatedDays.unshift({
             day: 0,  // Setting day 0 for the travel entry
-            ...(adminPackage.startsAt ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
+            ...(adminPackage.itineraryStartDate ? { date: moment(updatedDays[0]?.date).subtract(1, 'days').format('YYYY-MM-DD') } : {}),
             activities: [savedTravelActivity._id],
           });
         }
@@ -211,10 +211,12 @@ export const getAdminPackageActivityDetailsById = async (req, res) => {
     }
 
     const detailedActivity = await Activity.findOne({ name: AdminPackageActivities.name });
-    return res.status(StatusCodes.OK).json(httpFormatter({ data: {
-      AdminPackageActivities,
-      detailedActivity: detailedActivity || null,
-    } }, 'AdminPackageActivity details retrieved successfully', true));
+    return res.status(StatusCodes.OK).json(httpFormatter({
+      data: {
+        AdminPackageActivities,
+        detailedActivity: detailedActivity || null,
+      }
+    }, 'AdminPackageActivity details retrieved successfully', true));
 
   } catch (error) {
     console.error('Error retrieving AdminPackageActivity details:', error);
@@ -261,7 +263,7 @@ export const getAdminPackageById = async (req, res) => {
     const response = {
       startDate: adminPackage.startDate,
       category: adminPackage.category,
-      startsAt: adminPackage.startsAt,
+      itineraryStartDate: adminPackage.itineraryStartDate,
       endDate: adminPackage.endDate,
       id: adminPackage._id,
       packageName: adminPackage.packageName,
@@ -276,7 +278,7 @@ export const getAdminPackageById = async (req, res) => {
       createdBy: adminPackage.createdBy,
     };
     return res.status(StatusCodes.OK).json(httpFormatter({ data: response }, 'Admin package retrieved successfully', true));
-    
+
   } catch (error) {
     console.error('Error retrieving admin package:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -318,7 +320,7 @@ export const toggleAdminPackageActiveStatus = async (req, res) => {
     adminPackage.active = !adminPackage.active;
 
     await adminPackage.updateOne({ active: adminPackage.active });
-    return res.status(StatusCodes.OK).json(httpFormatter({ active: adminPackage.active },`Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`, true));
+    return res.status(StatusCodes.OK).json(httpFormatter({ active: adminPackage.active }, `Admin package ${adminPackage.active ? 'activated' : 'deactivated'} successfully`, true));
 
   } catch (error) {
     console.error('Error toggling admin package status:', error);
@@ -341,7 +343,7 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
         ]
       };
     }
-    
+
 
     if (minDays && maxDays) {
       query.totalDays = { $gte: parseInt(minDays), $lte: parseInt(maxDays) };
@@ -371,8 +373,8 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
 
     let filteredPackages = rating
       ? adminPackages.filter(pkg =>
-          pkg.cities.some(city => hotelRatings[city.hotelDetails] === parseInt(rating))
-        )
+        pkg.cities.some(city => hotelRatings[city.hotelDetails] === parseInt(rating))
+      )
       : adminPackages;
 
     if (filteredPackages.length === 0) {
@@ -397,7 +399,7 @@ export const getAdminPackagesByDestinationId = async (req, res) => {
       startingPrice,
       idealDuration
     }, 'Admin packages retrieved successfully', true));
-    
+
   } catch (error) {
     console.error('Error retrieving admin packages by destination ID:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -468,7 +470,7 @@ export const addDaysToAdminPackage = async (req, res) => {
 
     // ** NEW CODE: Recalculate days and dates for the entire admin package **
     let currentDayCount = 1; // Initialize day count for all cities
-    let currentDate = moment(adminPackage.startsAt); // Start from the package's start date
+    let currentDate = moment(adminPackage.itineraryStartDate); // Start from the package's start date
 
     for (const city of adminPackage.cities) {
       for (let i = 0; i < city.days.length; i++) {
@@ -553,7 +555,7 @@ export const deleteDaysFromAdminPackage = async (req, res) => {
 
 
 export const getAdminPackagesByCategory = async (req, res) => {
-  const { category } = req.params; 
+  const { category } = req.params;
   const { maxBudget, minBudget, maxDays, minDays, rating, destinationId } = req.query;
 
   try {
@@ -692,7 +694,7 @@ export const createUserItinerary = async (req, res) => {
   try {
     const { adminPackageId } = req.params;
     const {
-      startsAt,
+      itineraryStartDate,
       travellingWith,
       rooms,
       departureCity,
@@ -702,7 +704,7 @@ export const createUserItinerary = async (req, res) => {
 
     const adminPackage = await AdminPackage.findById(adminPackageId)
       .populate('cities.city')
-      .populate('destination', 'name'); 
+      .populate('destination', 'name');
 
     if (!adminPackage) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Admin package not found', false));
@@ -773,7 +775,7 @@ export const createUserItinerary = async (req, res) => {
       })
     );
 
-    const start = moment.utc(startsAt, 'YYYY-MM-DD').startOf('day');
+    const start = moment.utc(itineraryStartDate, 'YYYY-MM-DD').startOf('day');
     let cumulativeDays = 0;
     itineraryWithDates.forEach(city => {
       city.days.forEach(day => {
@@ -828,10 +830,10 @@ export const createUserItinerary = async (req, res) => {
       childrenAges: rooms.flatMap(room => room.childrenAges || []),
       rooms: rooms,
       travellingWith: travellingWith,
-      startDate: startsAt,
-      endDate: moment(startsAt).add(totalDays - 1, 'days').format('YYYY-MM-DD'),
+      startDate: itineraryStartDate,
+      endDate: moment(itineraryStartDate).add(totalDays - 1, 'days').format('YYYY-MM-DD'),
       totalPrice: totalPrice.toString(),
-      currentTotalPrice: discountedPrice.toString(),
+      grandTotal: discountedPrice.toString(),
       totalPriceWithoutMarkup: "0",
       couponlessDiscount: response,
       totalFlightsPrice: "0",
@@ -864,7 +866,7 @@ export const createUserItinerary = async (req, res) => {
     await newLead.save();
 
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary: savedItinerary, lead: newLead }, 'User admin package itinerary created successfully', true));
-   
+
   } catch (error) {
     console.error('Error creating user itinerary:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
@@ -903,7 +905,7 @@ export const addGeneralDiscount = async (req, res) => {
         });
       }
     }
-    itinerary.currentTotalPrice -= response.discountAmount;
+    itinerary.grandTotal -= response.discountAmount;
     itinerary.generalDiscount = response.toString();
     await itinerary.save();
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
@@ -928,7 +930,7 @@ export const getAdminPackagesByMaxBudget = async (req, res) => {
 
     const query = {
       $expr: {
-        $lte: [{ $toInt: "$price" }, parsedMaxBudget], 
+        $lte: [{ $toInt: "$price" }, parsedMaxBudget],
       },
     };
 

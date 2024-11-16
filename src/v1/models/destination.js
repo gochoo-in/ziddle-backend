@@ -4,10 +4,10 @@ import mongoose from 'mongoose';
 const counterSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     seq: { type: Number, default: 0 }
-  });
-  
-  // Check if the 'Counter' model is already defined, and reuse it if it exists
-  const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
+});
+
+// Check if the 'Counter' model is already defined, and reuse it if it exists
+const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
 const destinationSchema = new mongoose.Schema({
     name: {
@@ -70,17 +70,17 @@ const destinationSchema = new mongoose.Schema({
     timezone: {
         type: String,
         required: true,
-        match: /^UTC[+-]\d{2}:\d{2}$/ 
+        match: /^UTC[+-]\d{2}:\d{2}$/
     },
     tripDuration: {
-        type: [String], 
+        type: [String],
         required: true
     },
     recommended: {
         type: Boolean,
         default: false
     },
-    active:{
+    active: {
         type: Boolean,
         default: true
     },
@@ -88,7 +88,7 @@ const destinationSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    smallId: {
+    uniqueSmallId: {
         type: String,
         unique: true
     },
@@ -104,10 +104,10 @@ destinationSchema.pre('save', async function (next) {
                 { new: true, upsert: true }  // Upsert in case counter doesn't exist
             );
 
-            // Generate the smallId in the format 'D00001'
+            // Generate the uniqueSmallId in the format 'D00001'
             const sequenceNumber = String(counter.seq).padStart(5, '0'); // Pad with zeros to get 5 digits
-            this.smallId = `D${sequenceNumber}`;
-            
+            this.uniqueSmallId = `D${sequenceNumber}`;
+
             next();
         } catch (err) {
             next(err);
