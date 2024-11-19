@@ -78,7 +78,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
                   userId: userId,
                   totalAmount: transferPrice
                 });
-                transferPrice -= response;
+                transferPrice -= response.discountAmount;
               }
             }
           }
@@ -166,7 +166,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
                     userId: userId,
                     totalAmount: totalActivityPrice
                   });
-                  totalActivityPrice -= response;
+                  totalActivityPrice -= response.discountAmount;
                 }
               }
 
@@ -209,7 +209,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
           userId: userId,
           totalAmount: activityPrices
         });
-        activityPrices -= response;
+        activityPrices -= response.discountAmount;
       }
     }
     totalPrice += activityPrices;
@@ -229,7 +229,8 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
           userId: userId,
           totalAmount: totalPrice
         });
-        totalPrice -= response;
+        console.log("hehe", response, typeof response, totalPrice, typeof totalPrice)
+        totalPrice -= response.discountAmount;
       }
     }
 

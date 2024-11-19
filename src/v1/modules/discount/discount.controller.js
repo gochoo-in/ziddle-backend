@@ -552,3 +552,23 @@ export const applyGeneralDiscount = async (payload, res) => {
         throw error
     }
 }
+
+export const deleteDiscount = async (req, res) => {
+    try {
+        const { id } = req.params; // Extract discount ID from URL parameters
+
+        // Check if the discount exists
+        const discount = await Discount.findById(id);
+        if (!discount) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
+        }
+
+        // Delete the discount
+        await Discount.findByIdAndDelete(id);
+
+        res.status(StatusCodes.OK).json(httpFormatter({}, 'Discount deleted successfully', true));
+    } catch (error) {
+        logger.error('Error deleting discount:', error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};

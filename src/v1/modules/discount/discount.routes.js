@@ -7,7 +7,8 @@ import {
     applyDiscount,
     getDiscountsByDestination,
     toggleArchivedStatus,
-    toggleActiveStatus
+    toggleActiveStatus,
+    deleteDiscount
 } from './discount.controller.js';
 import { casbinMiddleware } from '../../../utils/casbinMiddleware.js'
 
@@ -29,5 +30,6 @@ router.get('/:id', getDiscounts);
 
 router.get('/destination/:destinationId', getDiscountsByDestination);
 
+router.delete("/:id", casbinMiddleware, deleteDiscount);
 
 export default router;

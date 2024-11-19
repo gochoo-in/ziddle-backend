@@ -12,7 +12,7 @@ const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSche
 const ActivitySchema = new mongoose.Schema({
     name: { type: String, required: true },
     duration: { type: String, required: true },
-    featured: { type: Boolean, default: false, required: true },
+    featured: { type: Boolean, default: false },
     uniqueSmallId: {
         type: String,
         unique: true,

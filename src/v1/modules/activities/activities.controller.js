@@ -90,7 +90,7 @@ export const toggleActivityActiveStatus = async (req, res) => {
       activity.isActive = !activity.isActive;
       await activity.save();
 
-      2
+      
   
     } catch (error) {
       console.error('Error updating activity status:', error);

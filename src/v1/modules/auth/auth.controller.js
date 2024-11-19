@@ -11,8 +11,7 @@ import requestIp from 'request-ip';
 import useragent from 'useragent';
 import UserCookie from '../../models/userCookie.js';
 import logger from '../../../config/logger.js';
-import crypto from 'crypto';
-import Wallet from '../../models/wallet.js';
+import UserLogin from '../../models/userLogin.js';
 
 const otpLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -25,8 +24,8 @@ const fcm = new FCM(FCM_KEY);
 
 export const signup = async (req, res) => {
     try {
-        const referCodeFromQuery = req.query.referCode;
-        referCodeFromQuery.toString();
+        const referCodeFromQuery = req.query?.referCode;
+        referCodeFromQuery?.toString();
 
         if (referCodeFromQuery) {
             req.body.appliedReferralCode = referCodeFromQuery;
@@ -51,18 +50,6 @@ export const signup = async (req, res) => {
                 }
 
                 if (!user) {
-                    let referralCodeGenerated;
-                    let isUnique = false;
-
-                    while (!isUnique) {
-                        const prefix = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-                        const randomCode = crypto.randomBytes(5).toString('hex').toUpperCase();
-                        referralCodeGenerated = `${prefix}${randomCode}`;
-                        const existingUser = await User.findOne({ referralCode: referralCodeGenerated });
-                        if (!existingUser) {
-                            isUnique = true;
-                        }
-                    }
 
                     user = await User.create({
                         phoneNumber,
@@ -73,7 +60,6 @@ export const signup = async (req, res) => {
                         otpExpires: new Date(Date.now() + 10 * 60 * 1000),
                         otpRequestCount: 1,
                         lastOtpRequest: new Date(),
-                        referralCode: referralCodeGenerated,
                     });
                 } else {
                     user.otp = generateOTP();
@@ -96,23 +82,7 @@ export const signup = async (req, res) => {
                 user.otpExpires = undefined;
                 user.otpVerifiedAt = new Date();
 
-                if (appliedReferralCode) {
-                    const appliedReferralCodeUser = await User.findOne({ referralCode: appliedReferralCode });
-
-                    if (appliedReferralCodeUser) {
-                        user.appliedReferralCode = appliedReferralCodeUser.referralCode;
-                        user.referred = true;
-
-                        await user.save();
-
-                        await Wallet.create({ user: user._id, balance: '0', transactions: [] });
-
-                    } else {
-                        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid referral code', false));
-                    }
-                } else {
-                    await user.save();
-                }
+                user.save();
 
                 const token = createJWT(user._id);
                 res.status(StatusCodes.OK).json({
@@ -129,65 +99,85 @@ export const signup = async (req, res) => {
 };
 
 
-
-
 export const signin = async (req, res) => {
     try {
         const { phoneNumber, otp } = req.body;
 
+        // Validate phone number
         if (!phoneNumber) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Phone number is required', false));
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Phone number is required', false)
+            );
         }
 
+        // Throttle OTP requests using otpLimiter
         otpLimiter(req, res, async () => {
+            // Find user by phone number
             let user = await User.findOne({ phoneNumber });
 
+            // If OTP is not provided, send a new OTP
             if (!otp) {
                 if (!user) {
-                    return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+                    return res.status(StatusCodes.NOT_FOUND).json(
+                        httpFormatter({}, 'User not found', false)
+                    );
                 }
 
+                // Generate and send OTP
                 user.otp = generateOTP();
-                user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+                user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
                 user.otpRequestCount = (user.otpRequestCount || 0) + 1;
                 user.lastOtpRequest = new Date();
                 await user.save();
 
                 await sendOTPMessage(user.otp, phoneNumber);
 
-                return res.status(StatusCodes.OK).json(httpFormatter({ user }, 'OTP sent successfully. Please verify.', true));
+                return res.status(StatusCodes.OK).json(
+                    httpFormatter({ user }, 'OTP sent successfully. Please verify.', true)
+                );
             } else {
+                // If OTP is provided, validate it
                 if (!user || user.otp !== otp || isOTPExpired(user.otpExpires)) {
-                    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid or expired OTP', false));
+                    return res.status(StatusCodes.BAD_REQUEST).json(
+                        httpFormatter({}, 'Invalid or expired OTP', false)
+                    );
                 }
 
+                // Mark user as logged in
                 user.isLoggedIn = true;
                 user.otp = undefined;
                 user.otpExpires = undefined;
 
+                // Capture login details
                 const ipAddress = requestIp.getClientIp(req) || 'Unknown IP';
                 const agent = useragent.parse(req.headers['user-agent'] || '');
                 const deviceType = agent.device.family || 'Unknown device';
                 const os = agent.os.toString() || 'Unknown OS';
                 const browser = agent.toAgent() || 'Unknown browser';
 
-                user.userLogins.push({
+                // Save login details in UserLogin collection
+                await UserLogin.create({
+                    userId: user._id,
                     loginTime: new Date(),
-                    deviceType,
                     ipAddress,
+                    deviceType,
                     browser,
-                    os
+                    os,
                 });
 
+                // Save user state
                 await user.save();
 
+                // Generate JWT token
                 const token = createJWT(user._id);
 
+                // Associate user with cookie
                 await UserCookie.updateOne(
                     { cookieId: req.cookieId },
                     { $set: { userId: user._id } }
                 );
 
+                // Respond with success
                 res.status(StatusCodes.OK).json({
                     status: 'success',
                     token,
@@ -196,8 +186,11 @@ export const signin = async (req, res) => {
             }
         });
     } catch (error) {
+        // Log and handle errors
         logger.error('Error in signin:', { message: error.message });
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
     }
 };
 
