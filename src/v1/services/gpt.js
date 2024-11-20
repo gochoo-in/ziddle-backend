@@ -4,7 +4,7 @@ import logger from '../../config/logger.js';
 dotenv.config();
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**
@@ -13,20 +13,20 @@ const openai = new OpenAI({
  * @returns {Object} - The generated itinerary in JSON format
  */
 export async function generateItinerary(itineraryData) {
-    // Format the cities and activities for the prompt
-    const cityActivityList = itineraryData.cities
-        .map(city =>
-            `${city.name}: ${city.activities.map(activity => `- ${activity.name} (${activity.duration})`).join(', ')}`
-        )
-        .join('\n');
-    const validCityActivities = new Map();
-        itineraryData.cities.forEach(city => {
-            validCityActivities.set(city.name, new Set(city.activities.map(activity => activity.name)));
-        });
-        const messages = [
-          {
-              role: "system",
-              content: `You are an expert travel planner tasked with creating an optimized itinerary for a ${itineraryData.travelling_with} traveling to ${itineraryData.country}. The input includes specific cities and activities. Your goal is to maximize enjoyment, minimize travel costs, and ensure efficient use of time. **The trip's duration can be adjusted to ensure all activities are included**.
+  // Format the cities and activities for the prompt
+  const cityActivityList = itineraryData.cities
+    .map(city =>
+      `${city.name}: ${city.activities.map(activity => `- ${activity.name} (${activity.duration})`).join(', ')}`
+    )
+    .join('\n');
+  const validCityActivities = new Map();
+  itineraryData.cities.forEach(city => {
+    validCityActivities.set(city.name, new Set(city.activities.map(activity => activity.name)));
+  });
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert travel planner tasked with creating an optimized itinerary for a ${itineraryData.travelling_with} traveling to ${itineraryData.country}. The input includes specific cities and activities. Your goal is to maximize enjoyment, minimize travel costs, and ensure efficient use of time. **The trip's duration can be adjusted to ensure all activities are included**.
       
         Key Requirements:
       
@@ -95,10 +95,10 @@ export async function generateItinerary(itineraryData) {
         }
       
         Ensure each city is visited only once, and the last city's "nextCity" is set to null. The itinerary must be cost- and time-efficient, with each activity scheduled only once. Make sure activities are reordered to make the most of each day and enhance the travel experience. If the itinerary cannot fit all activities within the original duration, extend the trip duration as needed to include all activities.`,
-          },
-          {
-            role: "user",
-            content: `Create a detailed itinerary for a trip to ${itineraryData.country}, including all provided cities and their activities.
+    },
+    {
+      role: "user",
+      content: `Create a detailed itinerary for a trip to ${itineraryData.country}, including all provided cities and their activities.
       
         The itinerary should:
         - **Reorder the cities to optimize for both travel cost and time efficiency.** Consider the overall flow and proximity of cities to each other to minimize travel time.
@@ -167,151 +167,194 @@ export async function generateItinerary(itineraryData) {
         }
       
         Ensure that each city is visited only once, the route is optimized based on travel cost and time, and all days are utilized with scheduled activities. The last city in the itinerary should have "nextCity" set to null, and its "transport", "transferCostPerPersonINR", and "transferDuration" should also be set to null. Extend the trip duration if needed to include all activities.`,
-          },
-      ];      
+    },
+  ];
 
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: messages,
+      temperature: 0.2,
+      top_p: 0.8,
+    });
+
+    const rawResponse = response.choices[0].message.content;
+
+    // Ensure the response is in JSON format
+    let parsedResponse;
     try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: messages,
-            temperature: 0.2,
-            top_p: 0.8,
-        });
+      parsedResponse = JSON.parse(rawResponse);
+    } catch (error) {
+      logger.error("Failed to parse response:", error);
+      throw new Error("Failed to parse response from OpenAI.");
+    }
 
-        const rawResponse = response.choices[0].message.content;
+    // Validate the parsed response
+    if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
+      throw new Error("Response is missing required fields.");
+    }
 
-        // Ensure the response is in JSON format
-        let parsedResponse;
-        try {
-            parsedResponse = JSON.parse(rawResponse);
-        } catch (error) {
-            logger.error("Failed to parse response:", error);
-            throw new Error("Failed to parse response from OpenAI.");
-        }
+    // Reintroduce the filtering logic
+    const validCityNames = new Set(itineraryData.cities.map(city => city.name));
+    const validActivityNames = new Set(
+      itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
+    );
 
-        // Validate the parsed response
-        if (!parsedResponse.title || !parsedResponse.subtitle || !parsedResponse.itinerary) {
-            throw new Error("Response is missing required fields.");
-        }
+    // Track added cities to avoid duplicates
+    const addedCities = new Set();
+    parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => {
+      if (validCityNames.has(leg.currentCity) && !addedCities.has(leg.currentCity)) {
+        addedCities.add(leg.currentCity);
+        return true;
+      }
+      return false;
+    });
 
-        // Reintroduce the filtering logic
-        const validCityNames = new Set(itineraryData.cities.map(city => city.name));
-        const validActivityNames = new Set(
-            itineraryData.cities.flatMap(city => city.activities.map(activity => activity.name))
-        );
+    // Add missing cities to the itinerary
+    const includedCities = new Set(parsedResponse.itinerary.map(leg => leg.currentCity));
+    const allCities = new Set(itineraryData.cities.map(city => city.name));
+    const missingCities = [...allCities].filter(city => !includedCities.has(city));
 
-        // Track added cities to avoid duplicates
-        const addedCities = new Set();
-        parsedResponse.itinerary = parsedResponse.itinerary.filter(leg => {
-            if (validCityNames.has(leg.currentCity) && !addedCities.has(leg.currentCity)) {
-                addedCities.add(leg.currentCity);
-                return true;
+    missingCities.forEach(missingCityName => {
+      const missingCity = itineraryData.cities.find(city => city.name === missingCityName);
+
+      const days = missingCity.activities.map((activity, index) => ({
+        day: index + 1,
+        date: `2024-09-${parsedResponse.itinerary.length + index + 1}`,
+        activities: [
+          {
+            name: activity.name,
+            startTime: '10:00 AM',
+            endTime: '4:00 PM',
+            duration: activity.duration,
+            timeStamp: 'All Day',
+            category: activity.category,
+          },
+        ],
+      }));
+
+      parsedResponse.itinerary.push({
+        currentCity: missingCity.name,
+        nextCity: null,
+        stayDays: days.length,
+        transport: null,
+        transferCostPerPersonINR: null,
+        transferDuration: null,
+        days,
+      });
+    });
+
+    // Update "nextCity" for the previously last city
+    if (missingCities.length > 0 && parsedResponse.itinerary.length > missingCities.length) {
+      const lastIncludedCity = parsedResponse.itinerary[parsedResponse.itinerary.length - missingCities.length - 1];
+      lastIncludedCity.nextCity = missingCities[0];
+      lastIncludedCity.transport = "Car"; // Replace with appropriate transport logic
+      lastIncludedCity.transferCostPerPersonINR = 2000; // Replace with calculated cost
+      lastIncludedCity.transferDuration = "2 hours"; // Replace with calculated duration
+    }
+
+    parsedResponse.itinerary.forEach(leg => {
+      // Track added activities to avoid duplicates across days within each city
+      const addedActivities = new Set();
+
+      leg.days = leg.days
+        .map(day => {
+          day.activities = day.activities.filter(activity => {
+            if (validActivityNames.has(activity.name) && !addedActivities.has(activity.name)) {
+              addedActivities.add(activity.name);
+              return true;
             }
             return false;
+          });
+          return day;
+        })
+        .filter(day => day.activities.length > 0);
+
+      // Ensure all activities are covered in the itinerary
+      const remainingActivities = itineraryData.cities
+        .find(city => city.name === leg.currentCity)
+        .activities.filter(activity => !addedActivities.has(activity.name));
+
+      // Add the remaining activities to the last day or create new days as needed
+      remainingActivities.forEach(activity => {
+        leg.days.push({
+          day: leg.days.length + 1,
+          date: `2024-09-${leg.days.length + 1}`,
+          activities: [
+            {
+              ...activity,
+              startTime: '10:00 AM',
+              endTime: '4:00 PM',
+              timeStamp: 'Morning',
+              category: activity.category,
+            },
+          ],
         });
-
-        parsedResponse.itinerary.forEach(leg => {
-            // Track added activities to avoid duplicates across days within each city
-            const addedActivities = new Set();
-
-            leg.days = leg.days
-                .map(day => {
-                    day.activities = day.activities.filter(activity => {
-                        if (validActivityNames.has(activity.name) && !addedActivities.has(activity.name)) {
-                            addedActivities.add(activity.name);
-                            return true;
-                        }
-                        return false;
-                    });
-                    return day;
-                })
-                .filter(day => day.activities.length > 0);
-
-            // Ensure all activities are covered in the itinerary
-            const remainingActivities = itineraryData.cities
-                .find(city => city.name === leg.currentCity)
-                .activities.filter(activity => !addedActivities.has(activity.name));
-
-            // Add the remaining activities to the last day or create new days as needed
-            remainingActivities.forEach(activity => {
-                leg.days.push({
-                    day: leg.days.length + 1,
-                    date: `2024-09-${leg.days.length + 1}`,
-                    activities: [
-                        {
-                            ...activity,
-                            startTime: '10:00 AM',
-                            endTime: '4:00 PM',
-                            timeStamp: 'Morning',
-                            category: activity.category,
-                        },
-                    ],
-                });
-                addedActivities.add(activity.name);
-            });
-        });
-
-        parsedResponse.itinerary.forEach(leg => {
-          // Filter out activities that don't belong to the current city
-          leg.days.forEach(day => {
-              day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
-          });
-      
-          // Remove empty days (after filtering activities)
-          leg.days = leg.days.filter(day => day.activities.length > 0);
-      
-          // Find any activities that should belong to other cities
-          const incorrectActivities = leg.days.flatMap(day => 
-              day.activities.filter(activity => !validCityActivities.get(leg.currentCity).has(activity.name))
-          );
-      
-          // Remove incorrect activities from the current city
-          leg.days.forEach(day => {
-              day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
-          });
-      
-          // Move incorrect activities to their respective cities
-          incorrectActivities.forEach(activity => {
-              const correctCity = parsedResponse.itinerary.find(cityLeg => 
-                  validCityActivities.get(cityLeg.currentCity).has(activity.name)
-              );
-              
-              if (correctCity) {
-                  // Add to the first available day or create a new day if needed
-                  if (correctCity.days.length > 0) {
-                      correctCity.days[correctCity.days.length - 1].activities.push(activity);
-                  } else {
-                      correctCity.days.push({
-                          day: correctCity.days.length + 1,
-                          date: `2024-09-${correctCity.days.length + 1}`,
-                          activities: [activity],
-                      });
-                  }
-              }
-          });
-      
-          // Recheck and remove any days that became empty after moving activities
-          leg.days = leg.days.filter(day => day.activities.length > 0);
+        addedActivities.add(activity.name);
       });
-      
-        // Remove duplicate activities across the entire itinerary
-        const allAddedActivities = new Set();
-        parsedResponse.itinerary.forEach(leg => {
-            leg.days.forEach(day => {
-                day.activities = day.activities.filter(activity => {
-                    if (!allAddedActivities.has(activity.name)) {
-                        allAddedActivities.add(activity.name);
-                        return true;
-                    }
-                    return false;
-                });
+    });
+
+    parsedResponse.itinerary.forEach(leg => {
+      // Filter out activities that don't belong to the current city
+      leg.days.forEach(day => {
+        day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
+      });
+
+      // Remove empty days (after filtering activities)
+      leg.days = leg.days.filter(day => day.activities.length > 0);
+
+      // Find any activities that should belong to other cities
+      const incorrectActivities = leg.days.flatMap(day =>
+        day.activities.filter(activity => !validCityActivities.get(leg.currentCity).has(activity.name))
+      );
+
+      // Remove incorrect activities from the current city
+      leg.days.forEach(day => {
+        day.activities = day.activities.filter(activity => validCityActivities.get(leg.currentCity).has(activity.name));
+      });
+
+      // Move incorrect activities to their respective cities
+      incorrectActivities.forEach(activity => {
+        const correctCity = parsedResponse.itinerary.find(cityLeg =>
+          validCityActivities.get(cityLeg.currentCity).has(activity.name)
+        );
+
+        if (correctCity) {
+          // Add to the first available day or create a new day if needed
+          if (correctCity.days.length > 0) {
+            correctCity.days[correctCity.days.length - 1].activities.push(activity);
+          } else {
+            correctCity.days.push({
+              day: correctCity.days.length + 1,
+              date: `2024-09-${correctCity.days.length + 1}`,
+              activities: [activity],
             });
+          }
+        }
+      });
+
+      // Recheck and remove any days that became empty after moving activities
+      leg.days = leg.days.filter(day => day.activities.length > 0);
+    });
+
+    // Remove duplicate activities across the entire itinerary
+    const allAddedActivities = new Set();
+    parsedResponse.itinerary.forEach(leg => {
+      leg.days.forEach(day => {
+        day.activities = day.activities.filter(activity => {
+          if (!allAddedActivities.has(activity.name)) {
+            allAddedActivities.add(activity.name);
+            return true;
+          }
+          return false;
         });
+      });
+    });
 
-        return parsedResponse;
+    return parsedResponse;
 
-    } catch (error) {
-        logger.error("Error generating itinerary:", error);
-        throw new Error("Failed to generate itinerary.");
-    }
+  } catch (error) {
+    logger.error("Error generating itinerary:", error);
+    throw new Error("Failed to generate itinerary.");
+  }
 }
