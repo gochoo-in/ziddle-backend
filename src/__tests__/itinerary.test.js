@@ -10,7 +10,7 @@ let destinationId;
 let city1Id, city2Id, city3Id, city4Id, city5Id, city6Id;
 let activity1Id, activity2Id, activity3Id, activity4Id, activity5Id, replacementActivityId;
 let couponlessDiscountId, generalDiscountId;
-let itineraryId;
+let itineraryId, leadId, employeeId;
 const BASE_URL = process.env.BASE_URL;
 
 async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
@@ -460,6 +460,12 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
       const itinerary = response.data.data.newItinerary;
       expect(itinerary.discounts).toContain(couponlessDiscountId);
+      const lead = response.data.data.newLead;
+      leadId = lead._id;
+      expect(lead).toBeDefined();
+      expect(lead.itineraryId).toBe(itinerary._id);
+      expect(lead.status).toBe("ML");
+
     } catch (error) {
       logger.error("Error creating itinerary:", error.response ? error.response.data : error.message);
       throw error;
@@ -490,7 +496,175 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+  it("should retrieve the lead associated with the created itinerary", async () => {
+    const url = `${BASE_URL}/leads/${leadId}`;
+    const options = {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    };
 
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const lead = response.data.data.lead;
+      expect(lead._id).toBe(leadId);
+      expect(lead.status).toBeDefined();
+      logger.info(`Successfully retrieved lead by ID: ${leadId}`);
+    } catch (error) {
+      logger.error("Error retrieving lead by ID:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should update the status of a lead", async () => {
+    const url = `${BASE_URL}/leads/${leadId}/status`;
+    const options = {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        status: "Closed",
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const updatedLead = response.data.data.lead;
+      expect(updatedLead.status).toBe("Closed");
+      logger.info(`Lead status updated successfully to "Closed" for Lead ID: ${leadId}`);
+    } catch (error) {
+      logger.error("Error updating lead status:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should retrieve lead statistics", async () => {
+    const url = `${BASE_URL}/leads/stats`;
+    const options = {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const stats = response.data.data.stats;
+      expect(stats).toBeDefined();
+      expect(stats.day).toBeDefined();
+      expect(stats.week).toBeDefined();
+      logger.info("Lead statistics retrieved successfully");
+    } catch (error) {
+      logger.error("Error retrieving lead statistics:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should retrieve top destinations", async () => {
+    const url = `${BASE_URL}/leads/top-destinations`;
+    const options = {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+      params: {
+        limit: 5,
+        period: "week",
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const topDestinations = response.data.data.topDestinations;
+      expect(topDestinations).toBeDefined();
+      expect(Array.isArray(topDestinations)).toBe(true);
+      logger.info("Top destinations retrieved successfully");
+    } catch (error) {
+      logger.error("Error retrieving top destinations:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should retrieve top activities", async () => {
+    const url = `${BASE_URL}/leads/top-activities`;
+    const options = {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+      params: {
+        limit: 10,
+        period: "month",
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const topActivities = response.data.data.topActivities;
+      expect(topActivities).toBeDefined();
+      expect(Array.isArray(topActivities)).toBe(true);
+      logger.info("Top activities retrieved successfully");
+    } catch (error) {
+      logger.error("Error retrieving top activities:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should retrieve employees with update access to leads", async () => {
+    const url = `${BASE_URL}/leads/employees-with-update-access`;
+    const options = {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const employees = response.data.data.employeesWithAccess;
+      employeeId = employees[0]?._id;
+      expect(employees).toBeDefined();
+      expect(Array.isArray(employees)).toBe(true);
+      logger.info("Employees with update access retrieved successfully");
+    } catch (error) {
+      logger.error("Error retrieving employees with update access:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
+
+  it("should assign a lead to an employee", async () => {
+    const url = `${BASE_URL}/leads/${leadId}/assign`;
+    const options = {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        employeeId,
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      expect(response.status).toBe(200);
+      const updatedLead = response.data.data.lead;
+      expect(updatedLead.assignedTo).toBeDefined();
+      logger.info(`Lead successfully assigned to employee: ${employeeId}`);
+    } catch (error) {
+      logger.error("Error assigning lead to employee:", error.response?.data || error.message);
+      throw error;
+    }
+  }, 50000);
 
   it("should replace activity1 in the itinerary", async () => {
     try {
