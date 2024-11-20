@@ -4,15 +4,15 @@ import logger from '../config/logger.js';
 
 dotenv.config();
 
-let adminToken =  process.env.SUPER_ADMIN_TOKEN; 
-let destinationId; 
-let cityId; 
-let activityId; 
+let adminToken = process.env.SUPER_ADMIN_TOKEN;
+let destinationId;
+let cityId;
+let activityId;
 const BASE_URL = process.env.BASE_URL;
 
 describe('Destination, City, and Activity Management Tests', () => {
 
-     
+
 
   it('should create a new destination with required fields', async () => {
     const url = `${BASE_URL}/destination`;
@@ -33,10 +33,10 @@ describe('Destination, City, and Activity Management Tests', () => {
         continent: 'Test Continent',
         latitude: 10.1234,
         longitude: 20.5678,
-        markup: 15, 
+        markup: 15,
       },
     };
-  
+
     try {
       const response = await axios(url, options);
       destinationId = response.data.data.data._id;
@@ -47,7 +47,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       expect(error.response.status).not.toBe(400);
     }
   }, 10000);
- 
+
   it('should create a city associated with the destination', async () => {
     const url = `${BASE_URL}/cities`;
     const options = {
@@ -59,14 +59,14 @@ describe('Destination, City, and Activity Management Tests', () => {
       data: {
         name: 'Test City',
         iataCode: 'TCT',
-        destinationId: destinationId, 
-        country: 'Test Country', 
+        destinationId: destinationId,
+        country: 'Test Country',
         latitude: 15.6789,
         longitude: 25.1234,
         languageSpoken: 'English',
       },
     };
-  
+
     try {
       const response = await axios(url, options);
       cityId = response.data.data.city._id;
@@ -77,7 +77,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       expect(error.response.status).not.toBe(400);
     }
   }, 10000);
-  
+
   it('should create an activity for the city', async () => {
     const url = `${BASE_URL}/activities`;
     const options = {
@@ -102,7 +102,7 @@ describe('Destination, City, and Activity Management Tests', () => {
         price: 100.0,
       },
     };
-  
+
     try {
       const response = await axios(url, options);
       activityId = response.data.data.activity._id;
@@ -114,7 +114,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       expect(error.response.status).not.toBe(400);
     }
   }, 10000);
-  
+
 
   it('should retrieve the created activity by ID', async () => {
     const url = `${BASE_URL}/activities/${activityId}`;
@@ -156,32 +156,32 @@ describe('Destination, City, and Activity Management Tests', () => {
       expect(response.data.data.activity.description).toBe('Updated activity description');
       expect(response.data.data.activity.price).toBe("120.0");
     } catch (error) {
-        console.log(error)
+      console.log(error)
       logger.error('Error updating activity:', error.response ? error.response.data : error.message);
     }
   }, 10000);
 
 
 
-it('should delete the destination with associated cities and activities', async () => {
+  it('should delete the destination with associated cities and activities', async () => {
     const url = `${BASE_URL}/destination/${destinationId}`;
     const options = {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${adminToken}`,
-        },
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+      },
     };
 
     try {
-        const response = await axios(url, options);
-        logger.info('Destination deleted successfully:', destinationId);
-        expect(response.status).toBe(200);
+      const response = await axios(url, options);
+      logger.info('Destination deleted successfully:', destinationId);
+      expect(response.status).toBe(200);
     } catch (error) {
-        logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
-        expect(error.response.status).not.toBe(500);
+      logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
+      expect(error.response.status).not.toBe(500);
     }
-}, 10000);
+  }, 10000);
 
 
-  
+
 });

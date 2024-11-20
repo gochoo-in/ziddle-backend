@@ -4,48 +4,48 @@ import logger from '../config/logger.js';
 
 dotenv.config();
 
-let adminToken = process.env.SUPER_ADMIN_TOKEN; 
-let destinationId; 
-let cityId; 
+let adminToken = process.env.SUPER_ADMIN_TOKEN;
+let destinationId;
+let cityId;
 const BASE_URL = process.env.BASE_URL;
 
 describe('City Management Tests', () => {
-    
 
-      it('should add a new destination successfully', async () => {
-        const url = `${BASE_URL}/destination`;
-        const options = {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${adminToken}`,
-                'Content-Type': 'application/json',
-            },
-            data: {
-                name: 'Test Destination for city',
-                currency: 'TST',
-                timezone: 'UTC+05:00',
-                tripDuration: ['3-5 days'],
-                description: 'A destination for testing',
-                visaType: 'tourist',
-                country: 'Test Country',
-                continent: 'Test Continent',
-                latitude: 10.1234,
-                longitude: 20.5678,
-                markup: 15,
-            },
-        };
-    
-        try {
-            const response = await axios(url, options);
-            destinationId = response.data.data.data._id;
-            logger.info('Destination added successfully:', destinationId);
-            expect(response.status).toBe(201);
-        } catch (error) {
-            logger.error('Error adding destination:', error.response ? error.response.data : error.message);
-            expect(error.response.status).not.toBe(500);
-        }
-    }, 10000);
-    
+
+  it('should add a new destination successfully', async () => {
+    const url = `${BASE_URL}/destination`;
+    const options = {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        name: 'Test Destination for city',
+        currency: 'TST',
+        timezone: 'UTC+05:00',
+        tripDuration: ['3-5 days'],
+        description: 'A destination for testing',
+        visaType: 'tourist',
+        country: 'Test Country',
+        continent: 'Test Continent',
+        latitude: 10.1234,
+        longitude: 20.5678,
+        markup: 15,
+      },
+    };
+
+    try {
+      const response = await axios(url, options);
+      destinationId = response.data.data.data._id;
+      logger.info('Destination added successfully:', destinationId);
+      expect(response.status).toBe(201);
+    } catch (error) {
+      logger.error('Error adding destination:', error.response ? error.response.data : error.message);
+      expect(error.response.status).not.toBe(500);
+    }
+  }, 10000);
+
 
   it('should create a new city associated with the destination', async () => {
     const url = `${BASE_URL}/cities`;
@@ -147,7 +147,7 @@ describe('City Management Tests', () => {
         'Authorization': `Bearer ${adminToken}`,
       },
     };
-  
+
     try {
       const response = await axios(url, options);
       logger.info('City active status toggled successfully');
@@ -157,26 +157,26 @@ describe('City Management Tests', () => {
       expect(error.response.status).not.toBe(500);
     }
   }, 10000);
-  
 
-    it('should delete the destination with associated cities', async () => {
-        const url = `${BASE_URL}/destination/${destinationId}`;
-        const options = {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${adminToken}`,
-            },
-        };
 
-        try {
-            const response = await axios(url, options);
-            logger.info('Destination deleted successfully:', destinationId);
-            expect(response.status).toBe(200);
-        } catch (error) {
-            logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
-            expect(error.response.status).not.toBe(500);
-        }
-    }, 10000);
+  it('should delete the destination with associated cities', async () => {
+    const url = `${BASE_URL}/destination/${destinationId}`;
+    const options = {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+      },
+    };
 
- 
+    try {
+      const response = await axios(url, options);
+      logger.info('Destination deleted successfully:', destinationId);
+      expect(response.status).toBe(200);
+    } catch (error) {
+      logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
+      expect(error.response.status).not.toBe(500);
+    }
+  }, 10000);
+
+
 });

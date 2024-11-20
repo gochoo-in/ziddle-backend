@@ -882,51 +882,51 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error("Error deleting itinerary:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 10000);
 
   it("should delete the couponless discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
     const deleteOptions = {
-        method: "DELETE",
-        headers: {
-            Authorization: `Bearer ${adminToken}`,
-            "Content-Type": "application/json",
-        },
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
     };
 
     try {
-        const response = await axios(deleteDiscountUrl, deleteOptions);
-        logger.info(`Couponless discount with ID ${couponlessDiscountId} deleted successfully.`);
-        expect(response.status).toBe(200);
-        expect(response.data.message).toBe("Discount deleted successfully");
+      const response = await axios(deleteDiscountUrl, deleteOptions);
+      logger.info(`Couponless discount with ID ${couponlessDiscountId} deleted successfully.`);
+      expect(response.status).toBe(200);
+      expect(response.data.message).toBe("Discount deleted successfully");
     } catch (error) {
-        logger.error("Error deleting couponless discount:", error.response?.data || error.message);
-        expect(error.response?.status).not.toBe(500);
-        throw error;
+      logger.error("Error deleting couponless discount:", error.response?.data || error.message);
+      expect(error.response?.status).not.toBe(500);
+      throw error;
     }
-});
+  }, 10000);
 
-it("should delete the general discount by ID", async () => {
+  it("should delete the general discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
     const deleteOptions = {
-        method: "DELETE",
-        headers: {
-            Authorization: `Bearer ${adminToken}`,
-            "Content-Type": "application/json",
-        },
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
     };
 
     try {
-        const response = await axios(deleteDiscountUrl, deleteOptions);
-        logger.info(`General discount with ID ${generalDiscountId} deleted successfully.`);
-        expect(response.status).toBe(200);
-        expect(response.data.message).toBe("Discount deleted successfully");
+      const response = await axios(deleteDiscountUrl, deleteOptions);
+      logger.info(`General discount with ID ${generalDiscountId} deleted successfully.`);
+      expect(response.status).toBe(200);
+      expect(response.data.message).toBe("Discount deleted successfully");
     } catch (error) {
-        logger.error("Error deleting general discount:", error.response?.data || error.message);
-        expect(error.response?.status).not.toBe(500);
-        throw error;
+      logger.error("Error deleting general discount:", error.response?.data || error.message);
+      expect(error.response?.status).not.toBe(500);
+      throw error;
     }
-});
+  }, 10000);
 
 
   it('should delete the destination and associated cities and activities', async () => {

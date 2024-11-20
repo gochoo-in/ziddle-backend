@@ -835,7 +835,7 @@ export const createUserItinerary = async (req, res) => {
       totalPrice: totalPrice.toString(),
       grandTotal: discountedPrice.toString(),
       totalPriceWithoutMarkup: "0",
-      couponlessDiscount: response,
+      couponlessDiscount: response.discountAmount,
       totalFlightsPrice: "0",
       totalFerriesPrice: "0",
       totalTaxisPrice: "0",
