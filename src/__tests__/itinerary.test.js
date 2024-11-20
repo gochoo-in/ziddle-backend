@@ -1,6 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
 import logger from "../config/logger.js";
+import { destinationData, citiesData, activitiesData, discountData } from "../utils/dummyTestData.js";
 
 dotenv.config();
 
@@ -8,7 +9,7 @@ let adminToken = process.env.SUPER_ADMIN_TOKEN;
 let testUserToken = process.env.TEST_USER_TOKEN
 let destinationId;
 let city1Id, city2Id, city3Id, city4Id, city5Id, city6Id;
-let activity1Id, activity2Id, activity3Id, activity4Id, activity5Id, replacementActivityId;
+let activity1Id, activity2Id, activity3Id, activity4Id, activity5Id, replaceMentActivityId;
 let couponlessDiscountId, generalDiscountId;
 let itineraryId, leadId, employeeId;
 const BASE_URL = process.env.BASE_URL;
@@ -28,13 +29,11 @@ async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
     const activities = response.data.data.activities;
 
 
-    // Try to find activity in detailedActivity first
     let activity = activities.find(
       a => a.detailedActivity && a.detailedActivity._id === activity1Id
     );
 
     if (!activity) {
-      // Fallback: Try to match in gptActivity if replacement has occurred
       console.warn(
         `Activity1Id "${activity1Id}" not found in detailedActivity. Checking GPT activities...`
       );
@@ -51,14 +50,14 @@ async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
       }
     }
 
-    return activity.gptActivity._id; // Return the GPT Activity ID
+    return activity.gptActivity._id; 
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
   }
 }
 
-async function getGptActivityIdForReplacementActivity(itineraryId, replacementActivityId) {
+async function getGptActivityIdForReplacementActivity(itineraryId, replaceMentActivityId) {
   const url = `${BASE_URL}/itinerary/${itineraryId}/activities`;
   const options = {
     method: "GET",
@@ -73,30 +72,28 @@ async function getGptActivityIdForReplacementActivity(itineraryId, replacementAc
     const activities = response.data.data.activities;
 
 
-    // Try to find activity in detailedActivity first
     let activity = activities.find(
-      a => a.detailedActivity && a.detailedActivity._id === replacementActivityId
+      a => a.detailedActivity && a.detailedActivity._id === replaceMentActivityId
     );
 
     if (!activity) {
-      // Fallback: Try to match in gptActivity if replacement has occurred
       console.warn(
-        `Activity1Id "${replacementActivityId}" not found in detailedActivity. Checking GPT activities...`
+        `Activity1Id "${replaceMentActivityId}" not found in detailedActivity. Checking GPT activities...`
       );
 
       activity = activities.find(
-        a => a.gptActivity && a.gptActivity.activityId?.toString() === replacementActivityId
+        a => a.gptActivity && a.gptActivity.activityId?.toString() === replaceMentActivityId
 
       );
 
       if (!activity) {
         throw new Error(
-          `Activity with ID "${replacementActivityId}" not found in itinerary or GPT activities.`
+          `Activity with ID "${replaceMentActivityId}" not found in itinerary or GPT activities.`
         );
       }
     }
 
-    return activity.gptActivity._id; // Return the GPT Activity ID
+    return activity.gptActivity._id; 
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
@@ -140,19 +137,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         Authorization: `Bearer ${adminToken}`,
         "Content-Type": "application/json",
       },
-      data: {
-        name: "India",
-        currency: "INR",
-        timezone: "UTC+05:30",
-        tripDuration: ["5-15 days"],
-        description: "Explore the diverse culture, history, and natural beauty of India.",
-        visaType: "tourist",
-        country: "India",
-        continent: "Asia",
-        latitude: 20.5937,
-        longitude: 78.9629,
-        markup: 15,
-      },
+      data: destinationData,
     };
 
     try {
@@ -167,17 +152,9 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   });
 
   it("should create 7 cities for India", async () => {
-    const cities = [
-      { name: "New Delhi", iataCode: "DEL" },
-      { name: "Mumbai", iataCode: "BOM" },
-      { name: "Jaipur", iataCode: "JAI" },
-      { name: "Bangalore", iataCode: "BLR" },
-      { name: "Chennai", iataCode: "MAA" },
-      { name: "Kolkata", iataCode: "CCU" },
-      { name: "Ahemdabad", iataCode: "AMD" }
-    ];
-
-    for (const city of cities) {
+    let counter = 1;
+  
+    for (const city of citiesData) {
       const url = `${BASE_URL}/cities`;
       const options = {
         method: "POST",
@@ -190,137 +167,52 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           iataCode: city.iataCode,
           destinationId: destinationId,
           country: "India",
-          latitude: city.name === "New Delhi" ? 28.6139 :
-            city.name === "Mumbai" ? 19.0760 :
-              city.name === "Bangalore" ? 12.9716 :
-                city.name === "Jaipur" ? 26.9124 :
-                  city.name === "Ahemdabad" ? 23.0225 :
-                    city.name === "Chennai" ? 13.0827 : 22.5726,
-          longitude: city.name === "New Delhi" ? 77.2090 :
-            city.name === "Mumbai" ? 72.8777 :
-              city.name === "Bangalore" ? 77.5946 :
-                city.name === "Jaipur" ? 75.7873 :
-                  city.name === "Ahemdabad" ? 72.5714 :
-                    city.name === "Chennai" ? 80.2707 : 88.3639,
-          languageSpoken: "Hindi, English",
+          latitude: city.latitude,
+          longitude: city.longitude,
+          languageSpoken: city.languageSpoken,
         },
       };
-
+  
       try {
         const response = await axios(url, options);
-        switch (city.name) {
-          case "New Delhi":
+  
+        switch (counter) {
+          case 1:
             city1Id = response.data.data.city._id;
             break;
-          case "Mumbai":
+          case 2:
             city2Id = response.data.data.city._id;
             break;
-          case "Jaipur":
+          case 3:
             city3Id = response.data.data.city._id;
             break;
-          case "Bangalore":
+          case 4:
             city4Id = response.data.data.city._id;
             break;
-          case "Chennai":
+          case 5:
             city5Id = response.data.data.city._id;
             break;
-          case "Kolkata":
+          case 6:
             city6Id = response.data.data.city._id;
             break;
         }
-        logger.info(`City created: ${response.data.data.city.name}`);
+  
+        logger.info(`City created: ${response.data.data.city.name} (Assigned to city${counter}Id)`);
         expect(response.status).toBe(201);
+  
+        counter++;
       } catch (error) {
-        logger.error("Error creating city:", error.response ? error.response.data : error.message);
-        expect(error.response.status).not.toBe(500);
+        logger.error("Error creating city:", error.response?.data || error.message);
+        expect(error.response?.status).not.toBe(500);
       }
     }
   }, 5000000);
 
-
+  
   it("should create activities for the cities in India", async () => {
-    const activities = [
-      {
-        name: "Visit Qutub Minar",
-        cityName: "New Delhi",
-        duration: "2 hours",
-        featured: true,
-        opensAt: "09:00",
-        closesAt: "17:00",
-        physicalDifficulty: "Easy",
-        localGuidesAvailable: true,
-        isFamilyFriendly: true,
-        refundable: true,
-        price: "500",
-      },
-      {
-        name: "Mumbai Darshan",
-        cityName: "Mumbai",
-        duration: "2 hours",
-        featured: true,
-        opensAt: "06:00",
-        closesAt: "10:00",
-        physicalDifficulty: "Easy",
-        localGuidesAvailable: false,
-        isFamilyFriendly: true,
-        refundable: false,
-        price: "200",
-      },
-      {
-        name: "Explore Lalbagh Botanical Garden",
-        cityName: "Bangalore",
-        duration: "3 hours",
-        featured: true,
-        opensAt: "08:00",
-        closesAt: "18:00",
-        physicalDifficulty: "Moderate",
-        localGuidesAvailable: true,
-        isFamilyFriendly: true,
-        refundable: true,
-        price: "300",
-      },
-      {
-        name: "Amer Fort Tour",
-        cityName: "Jaipur",
-        duration: "4 hours",
-        featured: true,
-        opensAt: "10:00",
-        closesAt: "17:00",
-        physicalDifficulty: "Moderate",
-        localGuidesAvailable: true,
-        isFamilyFriendly: true,
-        refundable: false,
-        price: "700",
-      },
-      {
-        name: "Elephant Ride at Amer Fort",
-        cityName: "Jaipur",
-        duration: "1 hours",
-        featured: true,
-        opensAt: "08:00",
-        closesAt: "12:00",
-        physicalDifficulty: "Moderate",
-        localGuidesAvailable: true,
-        isFamilyFriendly: true,
-        refundable: true,
-        price: "1000",
-      },
-      {
-        name: "Explore Red Fort",
-        cityName: "New Delhi",
-        duration: "3 hours",
-        featured: true,
-        opensAt: "10:00",
-        closesAt: "16:00",
-        physicalDifficulty: "Easy",
-        localGuidesAvailable: true,
-        isFamilyFriendly: true,
-        refundable: true,
-        price: "700",
-      },
-    ];
-
-    for (const activity of activities) {
+    let counter = 1;
+  
+    for (const activity of activitiesData) {
       const url = `${BASE_URL}/activities`;
       const options = {
         method: "POST",
@@ -330,6 +222,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         },
         data: {
           name: activity.name,
+          destination: destinationId,
           cityName: activity.cityName,
           description: `${activity.name} description`,
           duration: activity.duration,
@@ -343,32 +236,38 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           price: activity.price,
         },
       };
-
+  
       try {
         const response = await axios(url, options);
-        switch (activity.name) {
-          case "Visit Qutub Minar":
+  
+        switch (counter) {
+          case 1:
             activity1Id = response.data.data.activity._id;
             break;
-          case "Mumbai Darshan":
+          case 2:
             activity2Id = response.data.data.activity._id;
             break;
-          case "Amer Fort Tour":
+          case 3:
             activity3Id = response.data.data.activity._id;
             break;
-          case "Elephant Ride at Amer Fort":
+          case 4:
             activity4Id = response.data.data.activity._id;
-          case "Explore Lalbagh Botanical Garden":
+            break;
+          case 5:
             activity5Id = response.data.data.activity._id;
             break;
-          case "Explore Red Fort":
-            replacementActivityId = response.data.data.activity._id;
+          case 6:
+            replaceMentActivityId = response.data.data.activity._id;
             break;
         }
-        logger.info(`Activity created: ${response.data.data.activity.name}`);
+  
+        logger.info(`Activity created: ${response.data.data.activity.name} (Assigned to activity${counter}Id)`);
         expect(response.status).toBe(201);
+  
+        counter++;
       } catch (error) {
-        logger.error("Error creating activity:", error.response ? error.response.data : error.message);
+        console.log("err", error)
+        logger.error("Error creating activity:", error.response?.data || error.message);
         expect(error.response?.status).not.toBe(500);
       }
     }
@@ -377,7 +276,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should create couponless and general discounts", async () => {
     try {
-      // Add couponless discount
       const couponlessDiscountUrl = `${BASE_URL}/discounts`;
       const couponlessDiscountOptions = {
         method: "POST",
@@ -388,17 +286,17 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         data: {
           applicableOn: { package: true },
           destination: destinationId,
-          discountType: "couponless",
-          userType: "all",
-          noOfUsesPerUser: 10,
-          noOfUsersTotal: 100,
+          discountType: discountData.couponless.discountType,
+          userType: discountData.couponless.userType,
+          noOfUsesPerUser: discountData.couponless.noOfUsesPerUser,
+          noOfUsersTotal: discountData.couponless.noOfUsersTotal,
           startDate: new Date().toISOString(),
           endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-          discountPercentage: 10,
-          maxDiscount: 1000,
-          noLimit: false,
-          active: true,
-          archived: false,
+          discountPercentage: discountData.couponless.discountPercentage,
+          maxDiscount: discountData.couponless.maxDiscount,
+          noLimit: discountData.couponless.noLimit,
+          active: discountData.couponless.active,
+          archived: discountData.couponless.archived,
         },
       };
 
@@ -407,7 +305,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.info(`Couponless discount added: ${couponlessDiscountId}`);
       expect(couponlessDiscountResponse.status).toBe(201);
 
-      // Add general discount
       const generalDiscountOptions = {
         ...couponlessDiscountOptions,
         data: {
@@ -426,6 +323,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       throw error;
     }
   });
+
 
   it("should create an itinerary with 3 cities and couponless discount applied", async () => {
     const currentDate = new Date();
@@ -489,7 +387,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(response.status).toBe(200);
 
       const updatedItinerary = response.data.data.itinerary;
-      expect(updatedItinerary.discounts).toContain(generalDiscountId); // Ensure general discount is applied
+      expect(updatedItinerary.discounts).toContain(generalDiscountId); 
     } catch (error) {
       logger.error("Error applying general discount:", error.response ? error.response.data : error.message);
       throw error;
@@ -677,7 +575,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           "Content-Type": "application/json",
         },
         data: {
-          newActivityId: replacementActivityId, // ID of the replacement activity
+          newActivityId: replaceMentActivityId, // ID of the replacement activity
         },
       };
 
@@ -692,7 +590,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should delete activity1 in the itinerary", async () => {
     try {
-      const gptActivityId = await getGptActivityIdForReplacementActivity(itineraryId, replacementActivityId); // Fetch GptActivity ID for activity1Id
+      const gptActivityId = await getGptActivityIdForReplacementActivity(itineraryId, replaceMentActivityId);
       const deleteActivityUrl = `${BASE_URL}/itinerary/${itineraryId}/activity/${gptActivityId}/replaceLeisure`;
       const deleteActivityOptions = {
         method: "PATCH",
@@ -808,7 +706,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   }, 5000000);
 
   it("should delete 1 day from a city", async () => {
-    const cityIndex = 1; // Index of the city to delete days from
+    const cityIndex = 1;
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-days`;
     const options = {
       method: "PATCH",
@@ -878,7 +776,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   }, 5000000);
 
   it("should delete the city at the 0th position", async () => {
-    const cityIndex = 0; // First city index
+    const cityIndex = 0; 
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-city`;
     const options = {
       method: "PATCH",
