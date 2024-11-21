@@ -114,28 +114,6 @@ async function getCityCode(countryCode, cityName) {
     }
 }
 
-export const getCityName = async (req, res) => {
-    const {countryCode} = req.body
-   
-    try {
-        const response = await axios.post(
-            HOTEL_CITY_API_URL,
-            { CountryCode: countryCode },
-            {
-                auth: {
-                    username: PREDEFINED_USERNAME,
-                    password: PREDEFINED_PASSWORD
-                }
-            }
-        );
-        const data = response.data.CityList
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Cities for destination ', true));
-        
-    } catch (error) {
-        logger.error('Error retrieving cities:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Error retrieving cities', false));
-    }
-}
 
 
 // Function to fetch hotel details by hotel codes
