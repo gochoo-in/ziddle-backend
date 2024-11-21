@@ -7,6 +7,11 @@ import logger from '../../../config/logger.js';
 import mongoose from 'mongoose'
 import axios from 'axios';
 // Create a new city
+
+const HOTEL_CITY_API_URL = process.env.HOTEL_CITY_API_URL
+const PREDEFINED_USERNAME = process.env.TBO_HOTEL_PREDEFINED_USERNAME
+const PREDEFINED_PASSWORD = process.env.TBO_HOTEL_PREDEFINED_PASSWORD
+
 export const addCity = async (req, res) => {
     try {
         const {
