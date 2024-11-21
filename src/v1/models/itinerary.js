@@ -111,7 +111,10 @@ itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (
       await ItineraryVersion.create({
         itineraryId,
         version: newVersionNumber,
-        enrichedItinerary: original.enrichedItinerary, // Save the current state before any changes
+        enrichedItinerary: {
+          ...original.enrichedItinerary,
+          destinationId: original.enrichedItinerary.destinationId, 
+        }, 
         changedBy: {
           userId: userId || null, // Assign userId if present
         },

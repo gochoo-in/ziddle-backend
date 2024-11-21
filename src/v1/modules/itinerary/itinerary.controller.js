@@ -132,6 +132,7 @@ export const createItinerary = async (req, res) => {
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
+      destinationId: countryId,
       cities: cityDetails.map((city) => ({
         name: city.name,
         iataCode: city.iataCode,
@@ -485,7 +486,10 @@ export const createItinerary = async (req, res) => {
     // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
       createdBy: userId,
-      enrichedItinerary: enrichedItinerary,
+      enrichedItinerary: {
+        ...enrichedItinerary,
+        destinationId: countryId, 
+      },
       adults: adults,
       children: children,
       childrenAges: childrenAges,
