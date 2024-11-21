@@ -9,26 +9,7 @@ let destinationId;
 const BASE_URL = process.env.BASE_URL;
 
 describe('Destination Management Tests', () => {
-    beforeAll(async () => {
-        // Authenticate and acquire admin token
-        const url = `${BASE_URL}/admin/signin`;
-        const options = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            data: {
-                email: process.env.SUPER_ADMIN_EMAIL,
-                password: process.env.SUPER_ADMIN_PASSWORD,
-            },
-        };
-
-        try {
-            const response = await axios(url, options);
-            adminToken = response.data.data.token;
-            logger.info('Super Admin Token acquired for destinations:', adminToken);
-        } catch (error) {
-            logger.error('Error during admin signin for destinations:', error.response ? error.response.data : error.message);
-        }
-    }, 50000);
+  
 
     it('should add a new destination successfully', async () => {
         const url = `${BASE_URL}/destination`;
@@ -50,12 +31,15 @@ describe('Destination Management Tests', () => {
                 latitude: 10.1234,
                 longitude: 20.5678,
                 markup: 15,
+              
             },
         };
 
         try {
             const response = await axios(url, options);
             destinationId = response.data.data.data._id; // Save destination ID for later use
+
+            
             logger.info('Destination added successfully:', destinationId);
             expect(response.status).toBe(201);
         } catch (error) {
