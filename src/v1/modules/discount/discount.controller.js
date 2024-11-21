@@ -440,8 +440,14 @@ export const applyGeneralDiscount = async (payload, res) => {
                     totalAmount: itinerary.totalFlightsPrice
                 });
 
-                // Adjust the total price of the itinerary
-                totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response.discountAmount)).toFixed(2));
+                totalPrice = parseFloat(
+                    (
+                      totalPrice -
+                      totalFlightsPrice +
+                      (totalFlightsPrice - (response.discountAmount ? response.discountAmount : 0))
+                    ).toFixed(2)
+                  );
+                  
 
                 // Calculate the discount and taxes properly
                 let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -469,8 +475,14 @@ export const applyGeneralDiscount = async (payload, res) => {
                     totalAmount: itinerary.totalHotelsPrice
                 });
 
-                // Adjust the total price of the itinerary
-                totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response.discountAmount)).toFixed(2));
+                totalPrice = parseFloat(
+                    (
+                      totalPrice -
+                      totalHotelsPrice +
+                      (totalHotelsPrice - (response.discountAmount ? response.discountAmount : 0))
+                    ).toFixed(2)
+                  );
+                  
 
                 // Calculate the discount and taxes properly
                 let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -497,7 +509,14 @@ export const applyGeneralDiscount = async (payload, res) => {
                     userId: userId,
                     totalAmount: itinerary.totalActivitiesPrice
                 });
-                totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response.discountAmount)).toFixed(2));
+                totalPrice = parseFloat(
+                    (
+                      totalPrice -
+                      totalActivitiesPrice +
+                      (totalActivitiesPrice - (response.discountAmount ? response.discountAmount : 0))
+                    ).toFixed(2)
+                  );
+                  
 
                 // Calculate the discount and taxes properly
                 let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
@@ -525,8 +544,13 @@ export const applyGeneralDiscount = async (payload, res) => {
                     totalAmount: itinerary.totalPrice
                 });
 
-                // Adjust the total price of the itinerary
-                totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response.discountAmount)).toFixed(2));
+                totalPrice = parseFloat(
+                    (
+                      totalPrice -
+                      totalPrice +
+                      (totalPrice - (response.discountAmount ? response.discountAmount : 0))
+                    ).toFixed(2)
+                  );                  
 
                 // Calculate the discount and taxes properly
                 let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);

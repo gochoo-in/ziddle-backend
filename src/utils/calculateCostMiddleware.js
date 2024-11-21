@@ -78,7 +78,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
                   userId: userId,
                   totalAmount: transferPrice
                 });
-                transferPrice -= response.discountAmount;
+                if(response.discountAmount){
+                  transferPrice -= response.discountAmount
+                }
               }
             }
           }
@@ -138,7 +140,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
               userId: userId,
               totalAmount: hotelPrice,
             });
-            hotelPrice -= response.discountAmount;
+            if(response.discountAmount){
+              hotelPrice -= response.discountAmount;
+            }
           }
         }
 
@@ -166,7 +170,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
                     userId: userId,
                     totalAmount: totalActivityPrice
                   });
-                  totalActivityPrice -= response.discountAmount;
+                  if(response.discountAmount){
+                    totalActivityPrice -= response.discountAmount
+                  }
                 }
               }
 
@@ -209,7 +215,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
           userId: userId,
           totalAmount: activityPrices
         });
-        activityPrices -= response.discountAmount;
+        if(response.discountAmount){
+          activityPrices -= response.discountAmount;
+        }
       }
     }
     totalPrice += activityPrices;
@@ -229,8 +237,9 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
           userId: userId,
           totalAmount: totalPrice
         });
-        console.log("hehe", response, typeof response, totalPrice, typeof totalPrice)
-        totalPrice -= response.discountAmount;
+        if(response.discountAmount){
+          totalPrice -= response.discountAmount;
+        }
       }
     }
 

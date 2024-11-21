@@ -905,7 +905,9 @@ export const addGeneralDiscount = async (req, res) => {
         });
       }
     }
-    itinerary.grandTotal -= response.discountAmount;
+    if(response.discountAmount){
+      itinerary.grandTotal -= response.discountAmount;
+    }
     itinerary.generalDiscount = response.toString();
     await itinerary.save();
     return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount applied successfully', true));
