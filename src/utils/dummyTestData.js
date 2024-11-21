@@ -13,13 +13,13 @@ export const destinationData = {
   };
   
   export const citiesData = [
-    { name: "New Delhi", iataCode: "DEL", latitude: 28.6139, longitude: 77.2090, languageSpoken: "Hindi, English" },
-    { name: "Mumbai", iataCode: "BOM", latitude: 19.0760, longitude: 72.8777, languageSpoken: "Hindi, English" },
-    { name: "Jaipur", iataCode: "JAI", latitude: 26.9124, longitude: 75.7873, languageSpoken: "Hindi, English" },
-    { name: "Bangalore", iataCode: "BLR", latitude: 12.9716, longitude: 77.5946, languageSpoken: "Hindi, English" },
-    { name: "Chennai", iataCode: "MAA", latitude: 13.0827, longitude: 80.2707, languageSpoken: "Hindi, English" },
-    { name: "Kolkata", iataCode: "CCU", latitude: 22.5726, longitude: 88.3639, languageSpoken: "Hindi, English" },
-    { name: "Ahemdabad", iataCode: "AMD", latitude: 23.0225, longitude: 72.5714, languageSpoken: "Hindi, English" },
+    { name: "New Delhi", iataCode: "DEL", latitude: 28.6139, longitude: 77.2090, languageSpoken: "Hindi, English", hotelApiCityName: "New Delhi,   DELHI" },
+    { name: "Mumbai", iataCode: "BOM", latitude: 19.0760, longitude: 72.8777, languageSpoken: "Hindi, English", hotelApiCityName: "Mumbai,   Maharashtra" },
+    { name: "Jaipur", iataCode: "JAI", latitude: 26.9124, longitude: 75.7873, languageSpoken: "Hindi, English", hotelApiCityName: "Jaipur,   Rajasthan" },
+    { name: "Bangalore", iataCode: "BLR", latitude: 12.9716, longitude: 77.5946, languageSpoken: "Hindi, English", hotelApiCityName: "Banagalore,   Karnataka" },
+    { name: "Chennai", iataCode: "MAA", latitude: 13.0827, longitude: 80.2707, languageSpoken: "Hindi, English", hotelApiCityName: "Chennai,   Tamil Nadu" },
+    { name: "Kolkata", iataCode: "CCU", latitude: 22.5726, longitude: 88.3639, languageSpoken: "Hindi, English", hotelApiCityName: "Calcutta,   West Bengal" },
+    { name: "Ahemdabad", iataCode: "AMD", latitude: 23.0225, longitude: 72.5714, languageSpoken: "Hindi, English", hotelApiCityName: "Kutch,   Gujrat" },
   ];
   
   export const activitiesData = [
@@ -168,6 +168,7 @@ export const citiesData2 = {
     latitude: 15.6789,
     longitude: 25.1234,
     languageSpoken: 'English',
+    hotelApiCityName: 'Test City for city'
   }
 
   export const activitiesData2 = {

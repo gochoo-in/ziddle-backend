@@ -50,7 +50,7 @@ async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
       }
     }
 
-    return activity.gptActivity._id; 
+    return activity.gptActivity._id;
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
@@ -93,7 +93,7 @@ async function getGptActivityIdForReplacementActivity(itineraryId, replaceMentAc
       }
     }
 
-    return activity.gptActivity._id; 
+    return activity.gptActivity._id;
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
@@ -122,11 +122,11 @@ async function fetchItineraryDetails(itineraryId) {
 
 describe("Comprehensive Itinerary Management Tests for India", () => {
   beforeAll(async () => {
-    logger.info("Starting Comprehensive Itinerary Tests for India");
+    logger.info("Starting Admin Package Tests.");
   });
 
   afterAll(async () => {
-    logger.info("Cleaning up after tests");
+    logger.info("Tests completed. Cleaning up...");
   });
 
   it("should create a new destination for India", async () => {
@@ -151,9 +151,40 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   });
 
+  it("should sign in the test user", async () => {
+    try {
+      // Step 1: Trigger OTP request for the test user
+      const signinUrl = `${BASE_URL}/auth/signin`;
+      const signinOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: { phoneNumber: "1111122222" }, // Trigger OTP generation
+      };
+
+      await axios(signinUrl, signinOptions);
+
+      // Step 2: Sign in with OTP 1111
+      const otpSigninOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: { phoneNumber: "1111122222", otp: "1111" },
+      };
+
+      const response = await axios(signinUrl, otpSigninOptions);
+      testUserToken = response.data.token; // Store the token
+
+      logger.info("Test user signed in successfully.");
+      expect(response.status).toBe(200);
+    } catch (error) {
+      logger.error("Error during user sign-in:", error.response?.data || error.message);
+      throw error;
+    }
+  });
+
+
   it("should create 7 cities for India", async () => {
     let counter = 1;
-  
+
     for (const city of citiesData) {
       const url = `${BASE_URL}/cities`;
       const options = {
@@ -166,16 +197,17 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           name: city.name,
           iataCode: city.iataCode,
           destinationId: destinationId,
+          hotelApiCityName: city.hotelApiCityName,
           country: "India",
           latitude: city.latitude,
           longitude: city.longitude,
           languageSpoken: city.languageSpoken,
         },
       };
-  
+
       try {
         const response = await axios(url, options);
-  
+
         switch (counter) {
           case 1:
             city1Id = response.data.data.city._id;
@@ -196,10 +228,10 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
             city6Id = response.data.data.city._id;
             break;
         }
-  
+
         logger.info(`City created: ${response.data.data.city.name} (Assigned to city${counter}Id)`);
         expect(response.status).toBe(201);
-  
+
         counter++;
       } catch (error) {
         logger.error("Error creating city:", error.response?.data || error.message);
@@ -208,10 +240,10 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
-  
+
   it("should create activities for the cities in India", async () => {
     let counter = 1;
-  
+
     for (const activity of activitiesData) {
       const url = `${BASE_URL}/activities`;
       const options = {
@@ -236,10 +268,10 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           price: activity.price,
         },
       };
-  
+
       try {
         const response = await axios(url, options);
-  
+
         switch (counter) {
           case 1:
             activity1Id = response.data.data.activity._id;
@@ -260,10 +292,10 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
             replaceMentActivityId = response.data.data.activity._id;
             break;
         }
-  
+
         logger.info(`Activity created: ${response.data.data.activity.name} (Assigned to activity${counter}Id)`);
         expect(response.status).toBe(201);
-  
+
         counter++;
       } catch (error) {
         console.log("err", error)
@@ -387,7 +419,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(response.status).toBe(200);
 
       const updatedItinerary = response.data.data.itinerary;
-      expect(updatedItinerary.discounts).toContain(generalDiscountId); 
+      expect(updatedItinerary.discounts).toContain(generalDiscountId);
     } catch (error) {
       logger.error("Error applying general discount:", error.response ? error.response.data : error.message);
       throw error;
@@ -776,7 +808,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   }, 5000000);
 
   it("should delete the city at the 0th position", async () => {
-    const cityIndex = 0; 
+    const cityIndex = 0;
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-city`;
     const options = {
       method: "PATCH",
@@ -1019,5 +1051,25 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response.status).not.toBe(500);
     }
   }, 10000);
+
+  it("should log out the test user", async () => {
+    try {
+      const logoutUrl = `${BASE_URL}/auth/logout`;
+      const logoutOptions = {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${testUserToken}`,
+          "Content-Type": "application/json",
+        },
+      };
+
+      const response = await axios(logoutUrl, logoutOptions);
+      logger.info("Test user logged out successfully.");
+      expect(response.status).toBe(200);
+    } catch (error) {
+      logger.error("Error during user logout:", error.response?.data || error.message);
+      throw error;
+    }
+  });
 
 });

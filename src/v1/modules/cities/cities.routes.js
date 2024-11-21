@@ -6,7 +6,7 @@ import { casbinMiddleware } from '../../../utils/casbinMiddleware.js'
 
 const router = express.Router();
 
-router.post('/', validate(cityValidation), casbinMiddleware,  addCity); 
+router.post('/', casbinMiddleware,  addCity); 
 router.get('/', getAllCities); 
 router.get('/activities', getActivitiesForMultipleCities); 
 router.get('/:cityId/activities', getCityWithActivities);

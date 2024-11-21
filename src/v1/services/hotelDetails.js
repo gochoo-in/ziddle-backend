@@ -61,7 +61,7 @@ async function getHotelCodes(cityCode) {
 }
 
 // Function to fetch the country code based on the country name
-async function getCountryCode(countryName) {
+export async function getCountryCode(countryName) {
    
     try {
         const response = await axios.get('http://api.tbotechnology.in/TBOHolidays_HotelAPI/CountryList', {

@@ -21,10 +21,12 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName
         } = req.body;
 
-        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken) {
+
+        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken || !hotelApiCityName) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
@@ -46,7 +48,9 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName,
+            countryName: destination.country,
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));

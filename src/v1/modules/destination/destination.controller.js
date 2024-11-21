@@ -5,6 +5,7 @@ import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 import mongoose from 'mongoose';
 import logger from '../../../config/logger.js';
+import { getCountryCode } from '../../services/hotelDetails.js';
 
 // Create a new destination
 export const addDestination = async (req, res) => {
@@ -64,10 +65,12 @@ export const addDestination = async (req, res) => {
             return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Destination with this name already exists', false));
         }
 
+        const countryCode = await getCountryCode(country);
+
         const data = await Destination.create({
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude,markup
+            latitude, longitude,markup, countryCode
         });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 

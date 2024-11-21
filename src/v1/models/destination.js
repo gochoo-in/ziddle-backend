@@ -92,6 +92,9 @@ const destinationSchema = new mongoose.Schema({
         type: String,
         unique: true
     },
+    countryCode: {
+        type: String
+    }
 }, { timestamps: true, versionKey: false });
 
 destinationSchema.pre('save', async function (next) {
