@@ -14,6 +14,7 @@ const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSche
 
 const CitySchema = new mongoose.Schema({
   name: { type: String, required: true },
+  hotelApiCityName: { type: String, required: true },
   iataCode: { type: String, required: true },
   destination: { type: mongoose.Schema.Types.ObjectId, ref: 'Destination', required: true },
   imageUrls: {

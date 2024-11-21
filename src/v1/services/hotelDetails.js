@@ -172,7 +172,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
             }
         );
 
-   
+        
         if (response.data && response.data.HotelResult) {
             
             return response.data.HotelResult;  // Return the hotel search results
@@ -310,6 +310,8 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
 
         for (let i = 0; i < itinerary.length; i++) {
             const currentCityName = itinerary[i].currentCity;
+
+            // Fetch the city from the City table
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
                 logger.warn(`City ${currentCityName} not found in the database.`);
@@ -317,7 +319,14 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            const { country } = city; // assuming city has countryName field
+            const { country, hotelApiCityName, latitude, longitude } = city;
+
+            // Ensure `hotelApiCityName` exists in the city record
+            if (!hotelApiCityName) {
+                logger.warn(`Hotel API City Name for ${currentCityName} not found.`);
+                itinerary[i].hotelDetails = null;
+                continue;
+            }
 
             if (!country) {
                 logger.warn(`Country for city ${currentCityName} not found in the database.`);
@@ -331,13 +340,12 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            const cityCode = await getCityCode(countryCode, currentCityName);
+            const cityCode = await getCityCode(countryCode, hotelApiCityName); // Use `hotelApiCityName` here
             if (!cityCode) {
                 itinerary[i].hotelDetails = null;
                 continue;
             }
 
-            const { latitude, longitude } = city;
             const roomQty = rooms;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
@@ -351,8 +359,18 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            // Pass city ID and country code to fetchHotelDetails function if required
-            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges, roomQty, city._id,cityCode);
+            // Pass city ID and `hotelApiCityName` to fetchHotelDetails function
+            const currentCityHotel = await fetchHotelDetails(
+                latitude,
+                longitude,
+                arrivalDate,
+                departureDate,
+                adults,
+                childrenAges,
+                roomQty,
+                city._id,
+                cityCode
+            );
 
             if (currentCityHotel) {
                 const newHotel = new Hotel(currentCityHotel);
@@ -372,4 +390,5 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
         return { error: "Error adding hotel details" };
     }
 }
+
 
