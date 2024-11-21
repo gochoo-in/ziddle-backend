@@ -17,11 +17,9 @@ const profileSchema = new mongoose.Schema({
     profilePhoto: {
         type: {
             type: String,
-            required: true
         },
         url: {
             type: String,
-            required: true
         }
     },
     phoneNumber: { type: String, required: true, unique: true },
