@@ -5,7 +5,7 @@ import logger from "../config/logger.js";
 dotenv.config();
 
 let adminToken = process.env.SUPER_ADMIN_TOKEN;
-let testUserToken;
+let testUserToken = process.env.TEST_USER_TOKEN;
 let destinationId, itineraryId;
 let generalDiscountId, couponlessDiscountId;
 let cityIds = [];
@@ -20,37 +20,6 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
 
     afterAll(async () => {
         logger.info("Tests completed. Cleaning up...");
-    });
-
-
-    it("should sign in the test user", async () => {
-        try {
-            // Step 1: Trigger OTP request for the test user
-            const signinUrl = `${BASE_URL}/auth/signin`;
-            const signinOptions = {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                data: { phoneNumber: "1111122222" }, // Trigger OTP generation
-            };
-
-            await axios(signinUrl, signinOptions);
-
-            // Step 2: Sign in with OTP 1111
-            const otpSigninOptions = {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                data: { phoneNumber: "1111122222", otp: "1111" },
-            };
-
-            const response = await axios(signinUrl, otpSigninOptions);
-            testUserToken = response.data.token; // Store the token
-
-            logger.info("Test user signed in successfully.");
-            expect(response.status).toBe(200);
-        } catch (error) {
-            logger.error("Error during user sign-in:", error.response?.data || error.message);
-            throw error;
-        }
     });
 
     it("should create Pakistan as a destination", async () => {
@@ -90,9 +59,9 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
 
     it("should create 3 cities for Pakistan", async () => {
         const cities = [
-            { name: "Islamabad", iataCode: "ISB", hotelApiCityName: "Islamabad" },
-            { name: "Karachi", iataCode: "KHI", hotelApiCityName: "Karachi" },
-            { name: "Lahore", iataCode: "LHE", hotelApiCityName: "Lahore"},
+            { name: "Islamabad", iataCode: "ISB" },
+            { name: "Karachi", iataCode: "KHI" },
+            { name: "Lahore", iataCode: "LHE" },
         ];
 
         for (const city of cities) {
@@ -107,7 +76,6 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
                     name: city.name,
                     iataCode: city.iataCode,
                     destinationId,
-                    hotelApiCityName: city.hotelApiCityName,
                     latitude:
                         city.name === "Islamabad" ? 33.6844 :
                             city.name === "Karachi" ? 24.8607 : 31.5497,
@@ -640,26 +608,5 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             expect(error.response.status).not.toBe(500);
         }
     }, 10000);
-
-    it("should log out the test user", async () => {
-        try {
-            const logoutUrl = `${BASE_URL}/auth/logout`;
-            const logoutOptions = {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${testUserToken}`,
-                    "Content-Type": "application/json",
-                },
-            };
-
-            const response = await axios(logoutUrl, logoutOptions);
-            logger.info("Test user logged out successfully.");
-            expect(response.status).toBe(200);
-        } catch (error) {
-            logger.error("Error during user logout:", error.response?.data || error.message);
-            throw error;
-        }
-    });
-
 
 });
