@@ -168,13 +168,13 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should create 7 cities for India", async () => {
     const cities = [
-      { name: "New Delhi", iataCode: "DEL" },
-      { name: "Mumbai", iataCode: "BOM" },
-      { name: "Jaipur", iataCode: "JAI" },
-      { name: "Bangalore", iataCode: "BLR" },
-      { name: "Chennai", iataCode: "MAA" },
-      { name: "Kolkata", iataCode: "CCU" },
-      { name: "Ahemdabad", iataCode: "AMD" }
+      { name: "New Delhi", iataCode: "DEL", hotelApiCityName: "New Delhi,   DELHI" },
+      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra" },
+      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan" },
+      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka" },
+      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu" },
+      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal" },
+      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat" }
     ];
 
     for (const city of cities) {
@@ -190,6 +190,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           iataCode: city.iataCode,
           destinationId: destinationId,
           country: "India",
+          hotelApiCityName: city.hotelApiCityName,
           latitude: city.name === "New Delhi" ? 28.6139 :
             city.name === "Mumbai" ? 19.0760 :
               city.name === "Bangalore" ? 12.9716 :
