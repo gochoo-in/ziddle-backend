@@ -13,7 +13,7 @@ import categorySection from '../modules/categorySection/category.routes.js'
 import admin from '../modules/admin/admin.routes.js'
 import policy from '../modules/policy/policy.routes.js'
 import leads from '../modules/leads/leads.routes.js'
-import indianCities from '../modules/indianCities/indianCities.routes.js'
+import internationalAirportCities from '../modules/internationalAirportCities/internationalAirportCities.routes.js'
 import settings from '../modules/settings/settings.routes.js'
 import adminPackage from '../modules/adminPackages/adminpackages.routes.js'
 import discounts from '../modules/discount/discount.routes.js'
@@ -83,8 +83,8 @@ const defaultRoutes = [
         route: leads
     },
     {
-        path:'/indianCities',
-        route: indianCities
+        path:'/internationalAirportCities',
+        route: internationalAirportCities
     },
     {
         path: '/settings',

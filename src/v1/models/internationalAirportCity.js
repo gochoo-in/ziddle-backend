@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const IndianCitySchema = new mongoose.Schema({
+const InternationalAirportCitySchema = new mongoose.Schema({
   name: { type: String, required: true },
   imageUrls: {
     type: [{
@@ -15,7 +15,9 @@ const IndianCitySchema = new mongoose.Schema({
     }],
     default: []
 },
+  country: { type: String, required: true },
+  iataCode: { type: String, required: true },
   isActive: { type: Boolean, default: true }
 }, { versionKey: false, timestamps: true });
 
-export default mongoose.model('IndianCity', IndianCitySchema);
+export default mongoose.model('InternationalAirportCity', InternationalAirportCitySchema);

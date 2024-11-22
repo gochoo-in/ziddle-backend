@@ -28,11 +28,12 @@ export const addCity = async (req, res) => {
             climate,
             languageSpoken,
             travelTimeFromHub,
-            hotelApiCityName
+            hotelApiCityName,
+            nearbyInternationalAirportCity
         } = req.body;
 
 
-        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken || !hotelApiCityName) {
+        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken || !hotelApiCityName || !nearbyInternationalAirportCity.name || !nearbyInternationalAirportCity.iataCode) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
@@ -57,6 +58,7 @@ export const addCity = async (req, res) => {
             travelTimeFromHub,
             hotelApiCityName,
             countryName: destination.country,
+            nearbyInternationalAirportCity
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));
@@ -178,10 +180,11 @@ export const updateCityById = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            nearbyInternationalAirportCity
         } = req.body;
 
-        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !languageSpoken) {
+        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !languageSpoken && (!nearbyInternationalAirportCity.name && !nearbyInternationalAirportCity.iataCode)) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
         }
 
@@ -208,6 +211,7 @@ export const updateCityById = async (req, res) => {
         if (climate) city.climate = climate;
         if (languageSpoken) city.languageSpoken = languageSpoken;
         if (travelTimeFromHub !== undefined) city.travelTimeFromHub = travelTimeFromHub;
+        if(nearbyInternationalAirportCity) city.nearbyInternationalAirportCity = nearbyInternationalAirportCity
 
         await city.save();
         return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City updated successfully', true));

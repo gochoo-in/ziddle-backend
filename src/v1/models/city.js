@@ -41,6 +41,16 @@ const CitySchema = new mongoose.Schema({
   languageSpoken: { type: String, required: true },
   travelTimeFromHub: { type: Number },
   isActive: { type: Boolean, default: false },
+  nearbyInternationalAirportCity : {
+    name: {
+      type: String, 
+      required: true
+    },
+    iataCode: {
+      type: String,
+      required: true
+    }
+  },
   uniqueSmallId: {
     type: String,
     unique: true,
