@@ -1,7 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
 import logger from "../config/logger.js";
-import { destinationData, citiesData, activitiesData, discountData } from "../utils/dummyTestData.js";
 
 dotenv.config();
 
@@ -9,7 +8,7 @@ let adminToken = process.env.SUPER_ADMIN_TOKEN;
 let testUserToken = process.env.TEST_USER_TOKEN
 let destinationId;
 let city1Id, city2Id, city3Id, city4Id, city5Id, city6Id;
-let activity1Id, activity2Id, activity3Id, activity4Id, activity5Id, replaceMentActivityId;
+let activity1Id, activity2Id, activity3Id, activity4Id, activity5Id, replacementActivityId;
 let couponlessDiscountId, generalDiscountId;
 let itineraryId, leadId, employeeId;
 const BASE_URL = process.env.BASE_URL;
@@ -29,11 +28,13 @@ async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
     const activities = response.data.data.activities;
 
 
+    // Try to find activity in detailedActivity first
     let activity = activities.find(
       a => a.detailedActivity && a.detailedActivity._id === activity1Id
     );
 
     if (!activity) {
+      // Fallback: Try to match in gptActivity if replacement has occurred
       console.warn(
         `Activity1Id "${activity1Id}" not found in detailedActivity. Checking GPT activities...`
       );
@@ -50,14 +51,14 @@ async function getGptActivityIdForActivity1(itineraryId, activity1Id) {
       }
     }
 
-    return activity.gptActivity._id;
+    return activity.gptActivity._id; // Return the GPT Activity ID
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
   }
 }
 
-async function getGptActivityIdForReplacementActivity(itineraryId, replaceMentActivityId) {
+async function getGptActivityIdForReplacementActivity(itineraryId, replacementActivityId) {
   const url = `${BASE_URL}/itinerary/${itineraryId}/activities`;
   const options = {
     method: "GET",
@@ -72,28 +73,30 @@ async function getGptActivityIdForReplacementActivity(itineraryId, replaceMentAc
     const activities = response.data.data.activities;
 
 
+    // Try to find activity in detailedActivity first
     let activity = activities.find(
-      a => a.detailedActivity && a.detailedActivity._id === replaceMentActivityId
+      a => a.detailedActivity && a.detailedActivity._id === replacementActivityId
     );
 
     if (!activity) {
+      // Fallback: Try to match in gptActivity if replacement has occurred
       console.warn(
-        `Activity1Id "${replaceMentActivityId}" not found in detailedActivity. Checking GPT activities...`
+        `Activity1Id "${replacementActivityId}" not found in detailedActivity. Checking GPT activities...`
       );
 
       activity = activities.find(
-        a => a.gptActivity && a.gptActivity.activityId?.toString() === replaceMentActivityId
+        a => a.gptActivity && a.gptActivity.activityId?.toString() === replacementActivityId
 
       );
 
       if (!activity) {
         throw new Error(
-          `Activity with ID "${replaceMentActivityId}" not found in itinerary or GPT activities.`
+          `Activity with ID "${replacementActivityId}" not found in itinerary or GPT activities.`
         );
       }
     }
 
-    return activity.gptActivity._id;
+    return activity.gptActivity._id; // Return the GPT Activity ID
   } catch (error) {
     console.error("Error fetching GptActivity ID for activity1Id:", error.message);
     throw error;
@@ -122,11 +125,11 @@ async function fetchItineraryDetails(itineraryId) {
 
 describe("Comprehensive Itinerary Management Tests for India", () => {
   beforeAll(async () => {
-    logger.info("Starting Admin Package Tests.");
+    logger.info("Starting Comprehensive Itinerary Tests for India");
   });
 
   afterAll(async () => {
-    logger.info("Tests completed. Cleaning up...");
+    logger.info("Cleaning up after tests");
   });
 
   it("should create a new destination for India", async () => {
@@ -137,7 +140,19 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         Authorization: `Bearer ${adminToken}`,
         "Content-Type": "application/json",
       },
-      data: destinationData,
+      data: {
+        name: "India",
+        currency: "INR",
+        timezone: "UTC+05:30",
+        tripDuration: ["5-15 days"],
+        description: "Explore the diverse culture, history, and natural beauty of India.",
+        visaType: "tourist",
+        country: "India",
+        continent: "Asia",
+        latitude: 20.5937,
+        longitude: 78.9629,
+        markup: 15,
+      },
     };
 
     try {
@@ -151,41 +166,18 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   });
 
-  it("should sign in the test user", async () => {
-    try {
-      // Step 1: Trigger OTP request for the test user
-      const signinUrl = `${BASE_URL}/auth/signin`;
-      const signinOptions = {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        data: { phoneNumber: "1111122222" }, // Trigger OTP generation
-      };
-
-      await axios(signinUrl, signinOptions);
-
-      // Step 2: Sign in with OTP 1111
-      const otpSigninOptions = {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        data: { phoneNumber: "1111122222", otp: "1111" },
-      };
-
-      const response = await axios(signinUrl, otpSigninOptions);
-      testUserToken = response.data.token; // Store the token
-
-      logger.info("Test user signed in successfully.");
-      expect(response.status).toBe(200);
-    } catch (error) {
-      logger.error("Error during user sign-in:", error.response?.data || error.message);
-      throw error;
-    }
-  });
-
-
   it("should create 7 cities for India", async () => {
-    let counter = 1;
+    const cities = [
+      { name: "New Delhi", iataCode: "DEL", hotelApiCityName: "New Delhi,   DELHI" },
+      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra" },
+      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan" },
+      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka" },
+      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu" },
+      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal" },
+      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat" }
+    ];
 
-    for (const city of citiesData) {
+    for (const city of cities) {
       const url = `${BASE_URL}/cities`;
       const options = {
         method: "POST",
@@ -197,54 +189,139 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           name: city.name,
           iataCode: city.iataCode,
           destinationId: destinationId,
-          hotelApiCityName: city.hotelApiCityName,
           country: "India",
-          latitude: city.latitude,
-          longitude: city.longitude,
-          languageSpoken: city.languageSpoken,
+          hotelApiCityName: city.hotelApiCityName,
+          latitude: city.name === "New Delhi" ? 28.6139 :
+            city.name === "Mumbai" ? 19.0760 :
+              city.name === "Bangalore" ? 12.9716 :
+                city.name === "Jaipur" ? 26.9124 :
+                  city.name === "Ahemdabad" ? 23.0225 :
+                    city.name === "Chennai" ? 13.0827 : 22.5726,
+          longitude: city.name === "New Delhi" ? 77.2090 :
+            city.name === "Mumbai" ? 72.8777 :
+              city.name === "Bangalore" ? 77.5946 :
+                city.name === "Jaipur" ? 75.7873 :
+                  city.name === "Ahemdabad" ? 72.5714 :
+                    city.name === "Chennai" ? 80.2707 : 88.3639,
+          languageSpoken: "Hindi, English",
         },
       };
 
       try {
         const response = await axios(url, options);
-
-        switch (counter) {
-          case 1:
+        switch (city.name) {
+          case "New Delhi":
             city1Id = response.data.data.city._id;
             break;
-          case 2:
+          case "Mumbai":
             city2Id = response.data.data.city._id;
             break;
-          case 3:
+          case "Jaipur":
             city3Id = response.data.data.city._id;
             break;
-          case 4:
+          case "Bangalore":
             city4Id = response.data.data.city._id;
             break;
-          case 5:
+          case "Chennai":
             city5Id = response.data.data.city._id;
             break;
-          case 6:
+          case "Kolkata":
             city6Id = response.data.data.city._id;
             break;
         }
-
-        logger.info(`City created: ${response.data.data.city.name} (Assigned to city${counter}Id)`);
+        logger.info(`City created: ${response.data.data.city.name}`);
         expect(response.status).toBe(201);
-
-        counter++;
       } catch (error) {
-        logger.error("Error creating city:", error.response?.data || error.message);
-        expect(error.response?.status).not.toBe(500);
+        logger.error("Error creating city:", error.response ? error.response.data : error.message);
+        expect(error.response.status).not.toBe(500);
       }
     }
   }, 5000000);
 
 
   it("should create activities for the cities in India", async () => {
-    let counter = 1;
+    const activities = [
+      {
+        name: "Visit Qutub Minar",
+        cityName: "New Delhi",
+        duration: "2 hours",
+        featured: true,
+        opensAt: "09:00",
+        closesAt: "17:00",
+        physicalDifficulty: "Easy",
+        localGuidesAvailable: true,
+        isFamilyFriendly: true,
+        refundable: true,
+        price: "500",
+      },
+      {
+        name: "Mumbai Darshan",
+        cityName: "Mumbai",
+        duration: "2 hours",
+        featured: true,
+        opensAt: "06:00",
+        closesAt: "10:00",
+        physicalDifficulty: "Easy",
+        localGuidesAvailable: false,
+        isFamilyFriendly: true,
+        refundable: false,
+        price: "200",
+      },
+      {
+        name: "Explore Lalbagh Botanical Garden",
+        cityName: "Bangalore",
+        duration: "3 hours",
+        featured: true,
+        opensAt: "08:00",
+        closesAt: "18:00",
+        physicalDifficulty: "Moderate",
+        localGuidesAvailable: true,
+        isFamilyFriendly: true,
+        refundable: true,
+        price: "300",
+      },
+      {
+        name: "Amer Fort Tour",
+        cityName: "Jaipur",
+        duration: "4 hours",
+        featured: true,
+        opensAt: "10:00",
+        closesAt: "17:00",
+        physicalDifficulty: "Moderate",
+        localGuidesAvailable: true,
+        isFamilyFriendly: true,
+        refundable: false,
+        price: "700",
+      },
+      {
+        name: "Elephant Ride at Amer Fort",
+        cityName: "Jaipur",
+        duration: "1 hours",
+        featured: true,
+        opensAt: "08:00",
+        closesAt: "12:00",
+        physicalDifficulty: "Moderate",
+        localGuidesAvailable: true,
+        isFamilyFriendly: true,
+        refundable: true,
+        price: "1000",
+      },
+      {
+        name: "Explore Red Fort",
+        cityName: "New Delhi",
+        duration: "3 hours",
+        featured: true,
+        opensAt: "10:00",
+        closesAt: "16:00",
+        physicalDifficulty: "Easy",
+        localGuidesAvailable: true,
+        isFamilyFriendly: true,
+        refundable: true,
+        price: "700",
+      },
+    ];
 
-    for (const activity of activitiesData) {
+    for (const activity of activities) {
       const url = `${BASE_URL}/activities`;
       const options = {
         method: "POST",
@@ -254,7 +331,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         },
         data: {
           name: activity.name,
-          destination: destinationId,
           cityName: activity.cityName,
           description: `${activity.name} description`,
           duration: activity.duration,
@@ -271,35 +347,29 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
       try {
         const response = await axios(url, options);
-
-        switch (counter) {
-          case 1:
+        switch (activity.name) {
+          case "Visit Qutub Minar":
             activity1Id = response.data.data.activity._id;
             break;
-          case 2:
+          case "Mumbai Darshan":
             activity2Id = response.data.data.activity._id;
             break;
-          case 3:
+          case "Amer Fort Tour":
             activity3Id = response.data.data.activity._id;
             break;
-          case 4:
+          case "Elephant Ride at Amer Fort":
             activity4Id = response.data.data.activity._id;
-            break;
-          case 5:
+          case "Explore Lalbagh Botanical Garden":
             activity5Id = response.data.data.activity._id;
             break;
-          case 6:
-            replaceMentActivityId = response.data.data.activity._id;
+          case "Explore Red Fort":
+            replacementActivityId = response.data.data.activity._id;
             break;
         }
-
-        logger.info(`Activity created: ${response.data.data.activity.name} (Assigned to activity${counter}Id)`);
+        logger.info(`Activity created: ${response.data.data.activity.name}`);
         expect(response.status).toBe(201);
-
-        counter++;
       } catch (error) {
-        console.log("err", error)
-        logger.error("Error creating activity:", error.response?.data || error.message);
+        logger.error("Error creating activity:", error.response ? error.response.data : error.message);
         expect(error.response?.status).not.toBe(500);
       }
     }
@@ -308,6 +378,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should create couponless and general discounts", async () => {
     try {
+      // Add couponless discount
       const couponlessDiscountUrl = `${BASE_URL}/discounts`;
       const couponlessDiscountOptions = {
         method: "POST",
@@ -318,17 +389,17 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         data: {
           applicableOn: { package: true },
           destination: destinationId,
-          discountType: discountData.couponless.discountType,
-          userType: discountData.couponless.userType,
-          noOfUsesPerUser: discountData.couponless.noOfUsesPerUser,
-          noOfUsersTotal: discountData.couponless.noOfUsersTotal,
+          discountType: "couponless",
+          userType: "all",
+          noOfUsesPerUser: 10,
+          noOfUsersTotal: 100,
           startDate: new Date().toISOString(),
           endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-          discountPercentage: discountData.couponless.discountPercentage,
-          maxDiscount: discountData.couponless.maxDiscount,
-          noLimit: discountData.couponless.noLimit,
-          active: discountData.couponless.active,
-          archived: discountData.couponless.archived,
+          discountPercentage: 10,
+          maxDiscount: 1000,
+          noLimit: false,
+          active: true,
+          archived: false,
         },
       };
 
@@ -337,6 +408,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.info(`Couponless discount added: ${couponlessDiscountId}`);
       expect(couponlessDiscountResponse.status).toBe(201);
 
+      // Add general discount
       const generalDiscountOptions = {
         ...couponlessDiscountOptions,
         data: {
@@ -355,7 +427,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       throw error;
     }
   });
-
 
   it("should create an itinerary with 3 cities and couponless discount applied", async () => {
     const currentDate = new Date();
@@ -419,7 +490,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(response.status).toBe(200);
 
       const updatedItinerary = response.data.data.itinerary;
-      expect(updatedItinerary.discounts).toContain(generalDiscountId);
+      expect(updatedItinerary.discounts).toContain(generalDiscountId); // Ensure general discount is applied
     } catch (error) {
       logger.error("Error applying general discount:", error.response ? error.response.data : error.message);
       throw error;
@@ -607,7 +678,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           "Content-Type": "application/json",
         },
         data: {
-          newActivityId: replaceMentActivityId, // ID of the replacement activity
+          newActivityId: replacementActivityId, // ID of the replacement activity
         },
       };
 
@@ -622,7 +693,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should delete activity1 in the itinerary", async () => {
     try {
-      const gptActivityId = await getGptActivityIdForReplacementActivity(itineraryId, replaceMentActivityId);
+      const gptActivityId = await getGptActivityIdForReplacementActivity(itineraryId, replacementActivityId); // Fetch GptActivity ID for activity1Id
       const deleteActivityUrl = `${BASE_URL}/itinerary/${itineraryId}/activity/${gptActivityId}/replaceLeisure`;
       const deleteActivityOptions = {
         method: "PATCH",
@@ -738,7 +809,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   }, 5000000);
 
   it("should delete 1 day from a city", async () => {
-    const cityIndex = 1;
+    const cityIndex = 1; // Index of the city to delete days from
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-days`;
     const options = {
       method: "PATCH",
@@ -808,7 +879,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   }, 5000000);
 
   it("should delete the city at the 0th position", async () => {
-    const cityIndex = 0;
+    const cityIndex = 0; // First city index
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-city`;
     const options = {
       method: "PATCH",
@@ -1051,25 +1122,5 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response.status).not.toBe(500);
     }
   }, 10000);
-
-  it("should log out the test user", async () => {
-    try {
-      const logoutUrl = `${BASE_URL}/auth/logout`;
-      const logoutOptions = {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${testUserToken}`,
-          "Content-Type": "application/json",
-        },
-      };
-
-      const response = await axios(logoutUrl, logoutOptions);
-      logger.info("Test user logged out successfully.");
-      expect(response.status).toBe(200);
-    } catch (error) {
-      logger.error("Error during user logout:", error.response?.data || error.message);
-      throw error;
-    }
-  });
 
 });

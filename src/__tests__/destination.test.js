@@ -1,7 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import logger from '../config/logger.js';
-import { destinationData2 } from '../utils/dummyTestData.js';
 
 dotenv.config();
 
@@ -10,6 +9,7 @@ let destinationId;
 const BASE_URL = process.env.BASE_URL;
 
 describe('Destination Management Tests', () => {
+  
 
     it('should add a new destination successfully', async () => {
         const url = `${BASE_URL}/destination`;
@@ -19,12 +19,27 @@ describe('Destination Management Tests', () => {
                 'Authorization': `Bearer ${adminToken}`,
                 'Content-Type': 'application/json',
             },
-            data: destinationData2,
+            data: {
+                name: 'Test Destination',
+                currency: 'TST',
+                timezone: 'UTC+05:00',
+                tripDuration: ['3-5 days'],
+                description: 'A destination for testing',
+                visaType: 'tourist',
+                country: 'Test Country',
+                continent: 'Test Continent',
+                latitude: 10.1234,
+                longitude: 20.5678,
+                markup: 15,
+              
+            },
         };
 
         try {
             const response = await axios(url, options);
-            destinationId = response.data.data.data._id; 
+            destinationId = response.data.data.data._id; // Save destination ID for later use
+
+            
             logger.info('Destination added successfully:', destinationId);
             expect(response.status).toBe(201);
         } catch (error) {
