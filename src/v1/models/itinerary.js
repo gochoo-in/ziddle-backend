@@ -53,7 +53,7 @@ const enrichedItinerarySchema = new mongoose.Schema({
   destinationId: { type: String },
   itinerary: [itineraryDaySchema],
   totalDays: { type: Number, required: true },
-  totalNights: { type: Number, required: true }
+  totalNights: { type: Number, required: true },
 }, { _id: false });
 
 // Main Itinerary Schema
@@ -76,8 +76,10 @@ const itinerarySchema = new mongoose.Schema({
   totalTaxisPrice: { type: String, required: true, default: "0" },
   totalHotelsPrice: { type: String, required: true, default: "0" },
   totalActivitiesPrice: { type: String, required: true, default: "0" },
+  internationalTotalFlightsPrice: { type: String, required: true, default: "0" },
   generalDiscount: { type: String, reuired: true, default: "0" },
   discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }],
+  internationalFlights: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Flight', default: [] }],
   tax: { type: String },
   serviceFee: { type: String },
   chooseBestForMe: { type: Boolean, default: false },

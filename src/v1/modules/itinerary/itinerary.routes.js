@@ -28,7 +28,8 @@ import {
   getAllUsersStatistics,
   getDestinationStatistics,
   getActivityStatistics,
-  updateItineraryDetails
+  updateItineraryDetails,
+  addInternationalFlights
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -108,6 +109,7 @@ router.get('/:itineraryId/transfer', getTransferDetails);
 router.get('/:itineraryId/activities', getAllActivities);
 router.get('/:historyId/history-activities', getAllActivitiesForHistory);
 router.patch('/:itineraryId/update-details', verifyToken, updateItineraryDetails);
+router.patch('/:itineraryId/add-international-flights', verifyToken, addInternationalFlights)
 router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, addUpdateComment, deleteDaysFromCity);
 router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addUpdateComment, addDaysToCity);
 router.patch('/:itineraryId/cities/add-city', verifyToken, addUpdateComment, addCityToItineraryAtPosition);
