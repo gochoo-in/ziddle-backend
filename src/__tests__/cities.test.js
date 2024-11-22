@@ -64,6 +64,10 @@ describe('City Management Tests', () => {
         longitude: 25.1234,
         languageSpoken: 'English',
         hotelApiCityName:"Rongcheng",
+        nearbyInternationalAirportCity: {
+          name: "Test city 2",
+          iataCode: "SSS"
+        }
       },
     };
 

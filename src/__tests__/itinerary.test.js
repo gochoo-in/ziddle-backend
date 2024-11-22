@@ -168,13 +168,34 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should create 7 cities for India", async () => {
     const cities = [
-      { name: "New Delhi", iataCode: "DEL", hotelApiCityName: "New Delhi,   DELHI" },
-      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra" },
-      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan" },
-      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka" },
-      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu" },
-      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal" },
-      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat" }
+      { name: "New Delhi", iataCode: "DEL", hotelApiCityName: "New Delhi,   DELHI", nearbyInternationalAirportCity: {
+        name: "New Delhi",
+        iataCode: "DEL"
+      } },
+      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra", nearbyInternationalAirportCity: {
+        name: "Mumbai",
+        iataCode: "BOM"
+      } },
+      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan", nearbyInternationalAirportCity: {
+        name: "Jaipur",
+        iataCode: "JAI"
+      } },
+      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka", nearbyInternationalAirportCity: {
+        name: "Bangalore",
+        iataCode: "BLR"
+      } },
+      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu", nearbyInternationalAirportCity: {
+        name: "Chennai",
+        iataCode: "MAA"
+      } },
+      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal" , nearbyInternationalAirportCity: {
+        name: "Kolkata",
+        iataCode: "CCU"
+      }},
+      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat", nearbyInternationalAirportCity: {
+        name: "Ahmedabad",
+        iataCode: "AMD"
+      } }
     ];
 
     for (const city of cities) {
@@ -204,6 +225,10 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
                   city.name === "Ahemdabad" ? 72.5714 :
                     city.name === "Chennai" ? 80.2707 : 88.3639,
           languageSpoken: "Hindi, English",
+          nearbyInternationalAirportCity: {
+            name: city.nearbyInternationalAirportCity.name,
+            iataCode: city.nearbyInternationalAirportCity.iataCode
+          }
         },
       };
 

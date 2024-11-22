@@ -65,7 +65,11 @@ describe('Destination, City, and Activity Management Tests', () => {
         latitude: 15.6789,
         longitude: 25.1234,
         languageSpoken: 'English',
-        hotelApiCityName:"Rongcheng"
+        hotelApiCityName:"Rongcheng",
+        nearbyInternationalAirportCity: {
+          name: "Test2",
+          iataCode: "TTC"
+        }
       },
     };
 

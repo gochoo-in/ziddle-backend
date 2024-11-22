@@ -58,9 +58,18 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
 
     it("should create 3 cities for China", async () => {
         const cities = [
-            { name: "Beijing", iataCode: "PEK",hotelApiCityName:"Beijing" },
-            { name: "Shanghai", iataCode: "PVG" ,hotelApiCityName:"Shanghai"},
-            { name: "Xi'an", iataCode: "XIY",hotelApiCityName:"Xiaguan" },
+            { name: "Beijing", iataCode: "PEK",hotelApiCityName:"Beijing",  nearbyInternationalAirportCity: {
+                name: "Beijing",
+                iataCode: "PEK"
+              } },
+            { name: "Shanghai", iataCode: "PVG" ,hotelApiCityName:"Shanghai", nearbyInternationalAirportCity: {
+                name: "Shanghai",
+                iataCode: "PVG"
+              }},
+            { name: "Xi'an", iataCode: "XIY",hotelApiCityName:"Xiaguan", nearbyInternationalAirportCity: {
+                name: "Xi'an",
+                iataCode: "XIY"
+              } },
         ];
 
         for (const city of cities) {
@@ -83,7 +92,11 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
                             city.name === "Shanghai" ? 121.4737 : 108.9398,
                     country: "China",
                     languageSpoken: "Mandarin",
-                    hotelApiCityName:city.hotelApiCityName
+                    hotelApiCityName:city.hotelApiCityName,
+                    nearbyInternationalAirportCity: {
+                        name: city.nearbyInternationalAirportCity.name,
+                        iataCode: city.nearbyInternationalAirportCity.iataCode
+                    }
                 },
             };
 
