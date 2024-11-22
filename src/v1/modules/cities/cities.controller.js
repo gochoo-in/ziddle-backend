@@ -5,7 +5,13 @@ import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
 import mongoose from 'mongoose'
+import axios from 'axios';
 // Create a new city
+
+const HOTEL_CITY_API_URL = process.env.HOTEL_CITY_API_URL
+const PREDEFINED_USERNAME = process.env.TBO_HOTEL_PREDEFINED_USERNAME
+const PREDEFINED_PASSWORD = process.env.TBO_HOTEL_PREDEFINED_PASSWORD
+
 export const addCity = async (req, res) => {
     try {
         const {
@@ -21,10 +27,12 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName
         } = req.body;
 
-        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken) {
+
+        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken || !hotelApiCityName) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
@@ -46,7 +54,9 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName,
+            countryName: destination.country,
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));
@@ -81,7 +91,6 @@ export const getCityWithActivities = async (req, res) => {
         const objectIdCity = new mongoose.Types.ObjectId(cityId);
 
         // Adding a log for debugging
-        console.log(`Fetching activities for cityId: ${cityId}`);
 
         const city = await City.aggregate([
             { $match: { _id: objectIdCity } },  // Match by cityId as ObjectId
@@ -96,11 +105,9 @@ export const getCityWithActivities = async (req, res) => {
         ]);
 
         if (city.length === 0) {
-            console.log(`No city found for cityId: ${cityId}`);
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        console.log(`Activities found for city: ${city[0].activities}`);
         
         return res.status(StatusCodes.OK).json(httpFormatter({ data: city[0].activities }, 'City with activities retrieved successfully', true));
     } catch (error) {
@@ -138,21 +145,18 @@ export const toggleCityActiveStatus = async (req, res) => {
       const city = await City.findById(id);
   
       if (!city) {
-        return res.status(404).json({ message: 'City not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
       }
   
       // Toggle the isActive status
       city.isActive = !city.isActive;
       await city.save();
-  
-      return res.status(200).json({
-        success: true,
-        message: `City ${city.isActive ? 'activated' : 'deactivated'} successfully`,
-        isActive: city.isActive,
-      });
+
+      return res.status(StatusCodes.OK).json(httpFormatter({ isActive: city.isActive }, `City ${city.isActive ? 'activated' : 'deactivated'} successfully` , true));
+      
     } catch (error) {
       console.error('Error updating city status:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
   };
   
@@ -258,3 +262,26 @@ export const getActivitiesForMultipleCities = async (req, res) => {
     }
 };
 
+
+export const getCityName = async (req, res) => {
+    const {countryCode} = req.body
+   
+    try {
+        const response = await axios.post(
+            HOTEL_CITY_API_URL,
+            { CountryCode: countryCode },
+            {
+                auth: {
+                    username: PREDEFINED_USERNAME,
+                    password: PREDEFINED_PASSWORD
+                }
+            }
+        );
+        const data = response.data.CityList
+        return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Cities for destination ', true));
+        
+    } catch (error) {
+        logger.error('Error retrieving cities:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Error retrieving cities', false));
+    }
+}

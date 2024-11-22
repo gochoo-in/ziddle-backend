@@ -61,7 +61,7 @@ async function getHotelCodes(cityCode) {
 }
 
 // Function to fetch the country code based on the country name
-async function getCountryCode(countryName) {
+export async function getCountryCode(countryName) {
    
     try {
         const response = await axios.get('http://api.tbotechnology.in/TBOHolidays_HotelAPI/CountryList', {
@@ -127,14 +127,34 @@ async function getCityCode(countryCode, cityName) {
 
 // Function to fetch hotel details by hotel codes
 async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNationality, adults, childrenAges) {
+
+
+    let formattedCheckIn, formattedCheckOut;
+
+    if (checkIn instanceof Date) {
+        formattedCheckIn = checkIn.toISOString().split("T")[0];
+    } else if (typeof checkIn === "string" && checkIn.includes("T")) {
+        formattedCheckIn = checkIn.split("T")[0];
+    } else {
+        formattedCheckIn = checkIn;
+    }
+
+    if (checkOut instanceof Date) {
+        formattedCheckOut = checkOut.toISOString().split("T")[0];
+    } else if (typeof checkOut === "string" && checkOut.includes("T")) {
+        formattedCheckOut = checkOut.split("T")[0];
+    } else {
+        formattedCheckOut = checkOut;
+    }
+
   
     try {
         const response = await axios.post(
             'https://affiliate.tektravels.com/HotelAPI/Search',
             {
-                CheckIn: checkIn,
-                CheckOut: checkOut,
-                HotelCodes: hotelCodes.join(','),  // Join codes as comma-separated values
+                CheckIn: formattedCheckIn,
+                CheckOut: formattedCheckOut,
+                HotelCodes: hotelCodes.join(','),  
                 GuestNationality: guestNationality,
                 PaxRooms: [
                     {
@@ -152,8 +172,7 @@ async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNation
             }
         );
 
-   
-
+        
         if (response.data && response.data.HotelResult) {
             
             return response.data.HotelResult;  // Return the hotel search results
@@ -184,18 +203,21 @@ async function getHotelDetails(hotelCode) {
                 }
             }
         );
-
         if (response.data) {
-            console.log("Hotel Details for HotelCode", hotelCode, ":", response.data);
             return response.data;
         } else {
             console.warn(`No details found for HotelCode ${hotelCode}.`);
             return null;
         }
     } catch (error) {
-        console.error("Error fetching hotel details:", error.message);
+        if (error.response) {
+            console.error("Response error:", error.response.status, error.response.data);
+        } else {
+            console.error("Error:", error.message);
+        }
         return null;
     }
+    
 }
 
 
@@ -209,7 +231,6 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
         // Fetch hotel codes for the specified city code
         const hotelCodes = await getHotelCodes(cityCode);
         if (hotelCodes) {
-            console.log(`Fetched Hotel Codes for CityCode ${cityCode}:`, hotelCodes);
         } else {
             throw new Error('No hotel codes found for the specified city.');
         }
@@ -245,7 +266,6 @@ export default async function fetchHotelDetails(latitude, longitude, arrivalDate
 
             // Fetch and log additional details for the cheapest hotel
             const detailedHotelInfo = await getHotelDetails(cheapestHotel.HotelCode);
-            console.log("Detailed information for the cheapest hotel:", detailedHotelInfo.HotelDetails[0].Images);
 
             
 
@@ -290,6 +310,8 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
 
         for (let i = 0; i < itinerary.length; i++) {
             const currentCityName = itinerary[i].currentCity;
+
+            // Fetch the city from the City table
             const city = await City.findOne({ name: currentCityName });
             if (!city) {
                 logger.warn(`City ${currentCityName} not found in the database.`);
@@ -297,8 +319,14 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            const { country } = city; // assuming city has countryName field
-            console.log("City:", JSON.stringify(city));
+            const { country, hotelApiCityName, latitude, longitude } = city;
+
+            // Ensure `hotelApiCityName` exists in the city record
+            if (!hotelApiCityName) {
+                logger.warn(`Hotel API City Name for ${currentCityName} not found.`);
+                itinerary[i].hotelDetails = null;
+                continue;
+            }
 
             if (!country) {
                 logger.warn(`Country for city ${currentCityName} not found in the database.`);
@@ -312,13 +340,12 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            const cityCode = await getCityCode(countryCode, currentCityName);
+            const cityCode = await getCityCode(countryCode, hotelApiCityName); // Use `hotelApiCityName` here
             if (!cityCode) {
                 itinerary[i].hotelDetails = null;
                 continue;
             }
 
-            const { latitude, longitude } = city;
             const roomQty = rooms;
             const days = itinerary[i].days;
             const arrivalDate = days.length > 0 ? days[0].date : null;
@@ -332,8 +359,18 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
                 continue;
             }
 
-            // Pass city ID and country code to fetchHotelDetails function if required
-            const currentCityHotel = await fetchHotelDetails(latitude, longitude, arrivalDate, departureDate, adults, childrenAges, roomQty, city._id,cityCode);
+            // Pass city ID and `hotelApiCityName` to fetchHotelDetails function
+            const currentCityHotel = await fetchHotelDetails(
+                latitude,
+                longitude,
+                arrivalDate,
+                departureDate,
+                adults,
+                childrenAges,
+                roomQty,
+                city._id,
+                cityCode
+            );
 
             if (currentCityHotel) {
                 const newHotel = new Hotel(currentCityHotel);
@@ -353,4 +390,5 @@ export async function addHotelDetailsToItinerary(data, adults, childrenAges, roo
         return { error: "Error adding hotel details" };
     }
 }
+
 

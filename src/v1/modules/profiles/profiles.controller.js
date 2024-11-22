@@ -235,7 +235,6 @@ export const addContact = async (req, res) => {
         );
     } catch (error) {
         logger.error('Error adding contact:', error);
-        console.log(error)
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
             httpFormatter({}, 'Internal server error', false)
         );

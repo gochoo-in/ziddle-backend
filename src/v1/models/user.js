@@ -1,61 +1,34 @@
 import mongoose from 'mongoose';
 
-
-
+// Counter schema for generating unique IDs
 const counterSchema = new mongoose.Schema({
     _id: { type: String, required: true },
-    seq: { type: Number, default: 0 }
-  });
-  
-  // Check if the 'Counter' model is already defined, and reuse it if it exists
-  const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
+    seq: { type: Number, default: 0 },
+});
 
-const userLoginSchema = new mongoose.Schema({
-    loginTime: {
-        type: Date,
-        default: Date.now,
-    },
-    smallId: {
-        type: String,
-        unique: true,
-      },
-    ipAddress: {
-        type: String,
-        default: 'Unknown IP',
-    },
-    deviceType: {
-        type: String,
-        default: 'Unknown device',
-    },
-    browser: {
-        type: String,
-        default: 'Unknown browser',
-    },
-    os: {
-        type: String,
-        default: 'Unknown OS',
-    }
-}, { _id: false });
+// Counter model (reuse if already defined)
+const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
+// User schema
 const userSchema = new mongoose.Schema({
     phoneNumber: {
-        type: String, 
+        type: String,
         required: true,
         unique: true,
     },
-    firstName: { 
-        type: String, 
-        required: true 
-    },     
-    lastName: { 
-        type: String, 
-        required: true 
-    },   
-    email: { 
-        type: String, 
-        required: true, 
-        unique: true 
-    },     
+    firstName: {
+        type: String,
+        required: true,
+    },
+    lastName: {
+        type: String,
+        required: true,
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+    },
     otp: {
         type: String,
     },
@@ -67,7 +40,7 @@ const userSchema = new mongoose.Schema({
     },
     verified: {
         type: Boolean,
-        default: false, 
+        default: false,
     },
     isLoggedIn: {
         type: Boolean,
@@ -77,30 +50,24 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
-    referralCode: {
+    uniqueSmallId: {
         type: String,
         unique: true,
-        required: true,
     },
-    userLogins: [userLoginSchema],
 }, { timestamps: true, versionKey: false });
 
-
-
+// Pre-save hook to generate uniqueSmallId
 userSchema.pre('save', async function (next) {
     if (this.isNew) {
         try {
-            // Find and increment the counter for 'activity' collection
             const counter = await Counter.findByIdAndUpdate(
-                { _id: 'user' },  // Using 'activity' as the counter ID
+                { _id: 'user' },
                 { $inc: { seq: 1 } },
-                { new: true, upsert: true }  // Upsert in case counter doesn't exist
+                { new: true, upsert: true }
             );
 
-            // Generate the smallId in the format 'A00001'
-            const sequenceNumber = String(counter.seq).padStart(5, '0');  // Pad with zeros to get 5 digits
-            this.smallId = `U${sequenceNumber}`;
-
+            const sequenceNumber = String(counter.seq).padStart(5, '0'); // Pad with zeros to make it 5 digits
+            this.uniqueSmallId = `U${sequenceNumber}`;
             next();
         } catch (err) {
             next(err);
@@ -110,5 +77,6 @@ userSchema.pre('save', async function (next) {
     }
 });
 
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
-export default mongoose.model('User', userSchema);
+export default User;

@@ -1,5 +1,5 @@
 {
-  "name": "gatoes-backend-template",
+  "name": "ziddle-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "src/server.js",

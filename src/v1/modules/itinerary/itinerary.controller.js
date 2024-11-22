@@ -22,7 +22,6 @@ import Taxi from '../../models/taxi.js'
 import { addDaysToCityService } from '../../services/itineraryService.js'
 import { refetchFlightAndHotelDetails, deleteDaysFromCityService } from '../../services/itineraryService.js';
 import Lead from '../../models/lead.js';
-import Notification from '../../models/notification.js';
 import { getAdminsWithAccess, checkOwnershipOrAdminAccess } from '../../../utils/casbinService.js';
 import Ferry from '../../models/ferry.js';
 import mongoose from 'mongoose'
@@ -32,7 +31,7 @@ import { generateTransportDetails } from '../../services/gptTransfer.js';
 import { calculateTotalPriceMiddleware } from '../../../utils/calculateCostMiddleware.js';
 import Settings from '../../models/settings.js'
 import axios from 'axios';
-import Discount from '../../models/discount.js'; 
+import Discount from '../../models/discount.js';
 import { applyDiscountFunction } from '../discount/discount.controller.js';
 
 
@@ -55,6 +54,7 @@ export const createItinerary = async (req, res) => {
       activities,
       tripDuration,
       travellingWith,
+      chooseBestForMe
     } = req.body;
 
     // Check for required fields
@@ -103,15 +103,24 @@ export const createItinerary = async (req, res) => {
 
     const discount = await Discount.findOne({
       destination: countryId,
-      discountType: 'couponless' 
+      discountType: 'couponless'
     }).sort({ createdAt: -1 });
-    
+
     // Ensure `cities` is always an array
     const cityIds = Array.isArray(cities) ? cities : [cities];
 
     // Find city and activity details
     const cityDetails = await City.find({ _id: { $in: cityIds } });
-    const activityDetails = await Activity.find({ _id: { $in: activities } });
+    let selectedActivities = activities;
+    if (chooseBestForMe) {
+      const featuredActivities = await Activity.find({
+        city: { $in: cityIds },
+        featured: true
+      }).select('_id');
+
+      selectedActivities = featuredActivities.map(activity => activity._id);
+    }
+    const activityDetails = await Activity.find({ _id: { $in: selectedActivities } });
 
     if (!cityDetails.length) {
       return res
@@ -123,6 +132,7 @@ export const createItinerary = async (req, res) => {
     const result = await generateItinerary({
       ...req.body,
       country: country.name,
+      destinationId: countryId,
       cities: cityDetails.map((city) => ({
         name: city.name,
         iataCode: city.iataCode,
@@ -150,7 +160,7 @@ export const createItinerary = async (req, res) => {
 
     // If there's more than one city, add transfer activities
     // if (cityDetails.length > 1) {
-      itineraryWithTitles = addTransferActivity(itineraryWithTitles);
+    itineraryWithTitles = addTransferActivity(itineraryWithTitles);
     //}
 
     // Add leisure activities if needed based on trip duration
@@ -304,7 +314,7 @@ export const createItinerary = async (req, res) => {
     let totalActivitiesPrice = 0;
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
     // Add transport prices if available from modeDetails
     for (const city of enrichedItinerary.itinerary) {
@@ -322,31 +332,29 @@ export const createItinerary = async (req, res) => {
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
             price += transferPrice;
-            totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100); 
+            totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100);
             transferPrice += transferPrice * (settings.flightMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
 
             // Apply flight markup
-            
-            if(discount && discount.discountType!=null)
-            {
-              if(discount.discountType === 'couponless' && discount.applicableOn.flights===true)
-                {
-                  let response = await applyDiscountFunction({
-                    discountId: discount._id,
-                    userId: userId,
-                    totalAmount: transferPrice
-                  });
-                  transferPrice -= response.discountAmount
-                }
+
+            if (discount && discount.discountType != null) {
+              if (discount.discountType === 'couponless' && discount.applicableOn.flights === true) {
+                let response = await applyDiscountFunction({
+                  discountId: discount._id,
+                  userId: userId,
+                  totalAmount: transferPrice
+                });
+                transferPrice -= response.discountAmount ?? 0;
+              }
             }
-            
+
           }
         } if (mode === 'Car') {
           modeDetails = await Taxi.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
-            totalTaxisPrice += transferPrice * (1 + settings.taxiMarkup / 100); 
+            totalTaxisPrice += transferPrice * (1 + settings.taxiMarkup / 100);
             price += transferPrice;
             // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
@@ -372,29 +380,39 @@ export const createItinerary = async (req, res) => {
 
     // Add hotel prices if available
     for (const city of enrichedItinerary.itinerary) {
-      if (city.hotelDetails && city.hotelDetails.price) {
-        const hotelPrice = parseFloat(city.hotelDetails.price) * city.stayDays * rooms.length;
+
+      // Fetch hotel details from the hotel table if hotelDetails is an ObjectId
+      let hotelPrice = 0;
+      if (city.hotelDetails && typeof city.hotelDetails === 'object') {
+        const hotel = await Hotel.findById(city.hotelDetails); // Assuming 'Hotel' is the model for the hotel table
+        if (hotel && hotel.price) {
+          hotelPrice = parseFloat(hotel.price) * rooms.length;
+        }
+      } else if (city.hotelDetails && city.hotelDetails.price) {
+        hotelPrice = parseFloat(city.hotelDetails.price) * rooms.length;
+      }
+
+      if (hotelPrice > 0) {
         totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
         logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
         priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
-        
 
         price += hotelPrice;
-        if(discount && discount.discountType!=null){
-          if(discount.discountType === 'couponless' && discount.applicableOn.hotels===true)
-            {
-              let response = await applyDiscountFunction({
-                discountId: discount._id,
-                userId: userId,
-                totalAmount: hotelPrice
-              });
-              hotelPrice -= response.discountAmount
-            }
+        if (discount && discount.discountType != null) {
+          if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
+            let response = await applyDiscountFunction({
+              discountId: discount._id,
+              userId: userId,
+              totalAmount: hotelPrice,
+            });
+            hotelPrice -= response.discountAmount ?? 0;
+          }
         }
         totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
         logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
       }
     }
+
     const activityPricesPromisesWithoutCoupon = enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
         day.activities.map(async (activityId) => {
@@ -403,7 +421,7 @@ export const createItinerary = async (req, res) => {
             const originalActivity = await Activity.findOne({ name: gptActivity.name });
             if (originalActivity && originalActivity.price) {
               const activityPricePerPerson = parseFloat(originalActivity.price);
-              let totalActivityPrice = activityPricePerPerson * (adults + children); 
+              let totalActivityPrice = activityPricePerPerson * (adults + children);
               return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
             } else {
               return 0;
@@ -415,69 +433,70 @@ export const createItinerary = async (req, res) => {
         })
       )
     );
-    
+
     const activityPricesWithoutCoupon = await Promise.all(activityPricesPromisesWithoutCoupon);
     price += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     let activityPrices = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    if(discount){
-      if(discount.discountType === 'couponless' && discount.applicableOn.activities===true)
-        {
-          let response = await applyDiscountFunction({
-            discountId: discount._id,
-            userId: userId,
-            totalAmount: activityPrices
-          });
-          activityPrices -= response.discountAmount
-        }
+    if (discount) {
+      if (discount.discountType === 'couponless' && discount.applicableOn.activities === true) {
+        let response = await applyDiscountFunction({
+          discountId: discount._id,
+          userId: userId,
+          totalAmount: activityPrices
+        });
+        activityPrices -= response.discountAmount ?? 0;
+      }
     }
     totalPrice += activityPrices
     priceWithoutCoupon += activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
     totalActivitiesPrice = activityPricesWithoutCoupon.reduce((acc, price) => acc + price, 0);
-    priceWithoutCoupon += priceWithoutCoupon  * (country.markup / 100);
+    priceWithoutCoupon += priceWithoutCoupon * (country.markup / 100);
     totalPrice += totalPrice * (country.markup / 100);
 
-    if(discount && discount.discountType!=null){
-      if(discount.discountType === 'couponless' && discount.applicableOn.package===true)
-        {
-          let response = await applyDiscountFunction({
-            discountId: discount._id,
-            userId: userId,
-            totalAmount: totalPrice
-          });
-          totalPrice -= response.discountAmount
-        }
+    if (discount && discount.discountType != null) {
+      if (discount.discountType === 'couponless' && discount.applicableOn.package === true) {
+        let response = await applyDiscountFunction({
+          discountId: discount._id,
+          userId: userId,
+          totalAmount: totalPrice
+        });
+        totalPrice -= response.discountAmount ?? 0;
+      }
     }
     // Apply the destination's markup to the total price
-    
 
-    let currentTotalPrice = priceWithoutCoupon;
-    const disc = currentTotalPrice - totalPrice;
-    totalPrice+=disc
+
+    let grandTotal = priceWithoutCoupon;
+    const disc = grandTotal - totalPrice;
+    totalPrice += disc
     // Calculate and add 18% tax
-    const taxAmount = currentTotalPrice * 0.18; // 18% tax
+    const taxAmount = grandTotal * 0.18; // 18% tax
     const tax = totalPrice * 0.18;
-    
-    currentTotalPrice += taxAmount;
+
+    grandTotal += taxAmount;
 
     // Add service fee
-    currentTotalPrice += settings.serviceFee;
-    currentTotalPrice -=disc;
+    grandTotal += settings.serviceFee;
+    grandTotal -= disc;
 
     const serviceFee = settings.serviceFee;
-    
+
     // Convert totalPrice to a string
 
     // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
       createdBy: userId,
-      enrichedItinerary: enrichedItinerary,
+      enrichedItinerary: {
+        ...enrichedItinerary,
+        destinationId: countryId, 
+      },
       adults: adults,
       children: children,
       childrenAges: childrenAges,
       rooms: rooms,
       travellingWith: travellingWith,
       totalPrice: totalPrice.toFixed(2),
-      currentTotalPrice: currentTotalPrice.toFixed(2),
+      grandTotal: grandTotal.toFixed(2),
       totalPriceWithoutMarkup: price.toFixed(2),
       couponlessDiscount: disc.toFixed(2),
       totalFlightsPrice: totalFlightsPrice.toFixed(2),
@@ -512,15 +531,6 @@ export const createItinerary = async (req, res) => {
     });
     await newLead.save();
 
-    // Send notifications to admins with access
-    const employeesWithAccess = await getAdminsWithAccess('GET', '/api/v1/leads');
-    for (const employee of employeesWithAccess) {
-      await Notification.create({
-        employeeId: employee._id,
-        leadId: newLead._id,
-        message: `New lead generated !!`,
-      });
-    }
 
     // Return response with totalPersons
     return res
@@ -539,35 +549,40 @@ export const createItinerary = async (req, res) => {
   }
 };
 
-
 export const getItineraryDetails = async (req, res) => {
   try {
     const { itineraryId } = req.params;
 
-    // Find the itinerary by ID
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Assuming enrichedItinerary contains a destination name, find its corresponding destination ID
-    const destinationName = itinerary.enrichedItinerary?.destination;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastFetchedDate = itinerary.lastFetchedDate || new Date(0);
 
-    let destinationId = null;
-    if (destinationName) {
-      const destination = await Destination.findOne({ name: destinationName });
-      if (destination) {
-        destinationId = destination._id; // Assuming Destination model has an '_id' field representing the destinationId
-      }
+    if (lastFetchedDate >= today) {
+      return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
     }
 
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length;
 
-    // Add destinationId to enrichedItinerary without altering the existing response structure
-    if (destinationId) {
-      itinerary.enrichedItinerary.destinationId = destinationId; // Add destinationId to enrichedItinerary object
-    }
+    const updatedItineraryWithDetails = await refetchFlightAndHotelDetails(
+      { enrichedItinerary: itinerary.enrichedItinerary },
+      { adults, children, childrenAges, totalRooms }
+    );
 
-    return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
+    itinerary.enrichedItinerary = updatedItineraryWithDetails;
+    itinerary.lastFetchedDate = new Date();
+
+    await itinerary.save();
+
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: updatedItineraryWithDetails }, 'Itinerary details updated and retrieved successfully', true));
+    });
+
   } catch (error) {
     console.error('Error retrieving itinerary details:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
@@ -1156,7 +1171,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       const filteredActivities = [];
       for (let activityId of activityIds) {
         const activity = await GptActivity.findById(activityId);
-        if (activity && activity.category !== 'Travel' && activity.category!=='Arrival') {
+        if (activity && activity.category !== 'Travel' && activity.category !== 'Arrival') {
           filteredActivities.push(activityId);
         }
       }
@@ -1192,7 +1207,6 @@ export const addCityToItineraryAtPosition = async (req, res) => {
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      console.log("res shwdbjw  bd", req, res)
       res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added and price updated successfully', true));
     });
   } catch (error) {
@@ -1239,39 +1253,38 @@ export const deleteCityFromItinerary = async (req, res) => {
     if (itinerary.enrichedItinerary.itinerary.length === 0) {
       itinerary.enrichedItinerary.itinerary = [];
     } else if (parsedCityIndex === 0) {
-     // If deleting the first city, add an arrival activity to the new first city
-     const newFirstCity = itinerary.enrichedItinerary.itinerary[0];
-     const newFirstCityDetails = await City.findOne({ name: newFirstCity.currentCity });
-     console.log("jfds",newFirstCity);
-     const arrivalActivity = await GptActivity.create({
-       name: `Arrival in ${newFirstCity.currentCity}`,
-       startTime: '10:00 AM',
-       endTime: '11:00 AM',
-       duration: '1 hour',
-       timeStamp: 'All day',
-       category: 'Arrival',
-       cityId: newFirstCityDetails._id,
-     });
-// Remove old travel activity if any
-if (newFirstCity.days[0].activities.length >= 1) {
-  newFirstCity.days[0].activities.shift(); // Remove the first activity if it’s a travel activity
-}
-     // Add the arrival activity to the new first city’s first day
-     if (newFirstCity.days.length === 0) {
-       newFirstCity.days.push({
-         day: 1,
-         activities: [arrivalActivity._id],
-       });
-     } else {
-       newFirstCity.days[0].activities.unshift(arrivalActivity._id);
-     }
- 
-     // Update transport if needed
-     if (newFirstCity.transport && newFirstCity.transport.mode) { 
-       if (!newFirstCity.nextCity) {
-         newFirstCity.transport = { mode: null, modeDetails: null };
-       }
-     
+      // If deleting the first city, add an arrival activity to the new first city
+      const newFirstCity = itinerary.enrichedItinerary.itinerary[0];
+      const newFirstCityDetails = await City.findOne({ name: newFirstCity.currentCity });
+      const arrivalActivity = await GptActivity.create({
+        name: `Arrival in ${newFirstCity.currentCity}`,
+        startTime: '10:00 AM',
+        endTime: '11:00 AM',
+        duration: '1 hour',
+        timeStamp: 'All day',
+        category: 'Arrival',
+        cityId: newFirstCityDetails._id,
+      });
+      // Remove old travel activity if any
+      if (newFirstCity.days[0].activities.length >= 1) {
+        newFirstCity.days[0].activities.shift(); // Remove the first activity if it’s a travel activity
+      }
+      // Add the arrival activity to the new first city’s first day
+      if (newFirstCity.days.length === 0) {
+        newFirstCity.days.push({
+          day: 1,
+          activities: [arrivalActivity._id],
+        });
+      } else {
+        newFirstCity.days[0].activities.unshift(arrivalActivity._id);
+      }
+
+      // Update transport if needed
+      if (newFirstCity.transport && newFirstCity.transport.mode) {
+        if (!newFirstCity.nextCity) {
+          newFirstCity.transport = { mode: null, modeDetails: null };
+        }
+
       }
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length) {
       // If deleting the last city
@@ -1343,7 +1356,6 @@ if (newFirstCity.days[0].activities.length >= 1) {
 
     // Recalculate dates for the entire itinerary
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
-console.log(JSON.stringify(finalItinerary));
     // Refetch flight, taxi, and hotel details for all cities in the itinerary
     const enrichedItinerary = await refetchFlightAndHotelDetails(
       { enrichedItinerary: finalItinerary },
@@ -1616,7 +1628,7 @@ export const replaceFlightInItinerary = async (req, res) => {
   const arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
 
   if (!departureCity || !arrivalCity) {
-    return res.status(404).json({ message: 'City not found' });
+    return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
   }
 
 
@@ -1624,7 +1636,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     // Check if the user has ownership or admin access
@@ -1692,7 +1704,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     });
 
     if (!flightReplaced) {
-      return res.status(404).json({ message: 'Old flight not found in itinerary', success: false });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Old flight not found in itinerary', false));
     }
 
 
@@ -1754,7 +1766,7 @@ export const replaceHotelInItinerary = async (req, res) => {
       priceDrop: room.priceDrop,
     }));
 
-    
+
     // Create the new hotel with multiple rooms
     const newHotel = new Hotel({
       name: selectedHotel.hotelName,
@@ -1870,7 +1882,7 @@ export const getAllUsersStatistics = async (req, res) => {
     const statistics = await Itinerary.aggregate([
       {
         $group: {
-          _id: "$createdBy", 
+          _id: "$createdBy",
           totalItineraries: { $sum: 1 },
           uniqueDestinations: { $addToSet: "$enrichedItinerary.destination" },
           totalFlights: {
@@ -1897,7 +1909,7 @@ export const getAllUsersStatistics = async (req, res) => {
               }
             }
           },
-          totalPricePaid: { $sum: { $ifNull: [{ $toDouble: "$currentTotalPrice" }, 0] } },
+          totalPricePaid: { $sum: { $ifNull: [{ $toDouble: "$grandTotal" }, 0] } },
           totalTripPrice: { $sum: { $ifNull: [{ $toDouble: "$totalPrice" }, 0] } },
           totalDiscount: { $sum: { $add: [{ $toDouble: "$couponlessDiscount" }, { $toDouble: "$generalDiscount" }] } },
           totalServiceFee: { $sum: { $ifNull: [{ $toDouble: "$serviceFee" }, 0] } },
@@ -1973,7 +1985,7 @@ export const getAllUsersStatistics = async (req, res) => {
               }
             }
           },
-          
+
           totalActivities: { $size: { $ifNull: ["$filteredActivities", []] } } // Ensure this is always an array
         }
       },
@@ -2047,7 +2059,7 @@ export const getDestinationStatistics = async (req, res) => {
           groupedPackages: {
             $sum: {
               $cond: {
-                if: { 
+                if: {
                   $and: [
                     { $ne: ["$travellingWith", "Solo"] }, // Check at root level if not "Solo"
                     { $ne: ["$travellingWith", null] },    // Not null
@@ -2059,33 +2071,33 @@ export const getDestinationStatistics = async (req, res) => {
               }
             }
           },
-          totalPricePaid: { 
-            $sum: { 
-              $ifNull: [{ $toDouble: "$currentTotalPrice" }, 0] 
-            } 
-          }, // Sum of currentTotalPrice for this destination
-          totalTripPrice: { 
-            $sum: { 
-              $ifNull: [{ $toDouble: "$totalPrice" }, 0] 
-            } 
+          totalPricePaid: {
+            $sum: {
+              $ifNull: [{ $toDouble: "$grandTotal" }, 0]
+            }
+          }, // Sum of grandTotal for this destination
+          totalTripPrice: {
+            $sum: {
+              $ifNull: [{ $toDouble: "$totalPrice" }, 0]
+            }
           }, // Sum of totalPrice for this destination
-          totalDiscount: { 
-            $sum: { 
+          totalDiscount: {
+            $sum: {
               $add: [
-                { $toDouble: { $ifNull: ["$couponlessDiscount", 0] } }, 
+                { $toDouble: { $ifNull: ["$couponlessDiscount", 0] } },
                 { $toDouble: { $ifNull: ["$generalDiscount", 0] } }
               ]
-            } 
+            }
           }, // Sum of both couponlessDiscount and generalDiscount for this destination
-          totalServiceFee: { 
-            $sum: { 
-              $ifNull: [{ $toDouble: "$serviceFee" }, 0] 
-            } 
+          totalServiceFee: {
+            $sum: {
+              $ifNull: [{ $toDouble: "$serviceFee" }, 0]
+            }
           }, // Sum of serviceFee for this destination
-          totalTaxes: { 
-            $sum: { 
-              $ifNull: [{ $toDouble: "$tax" }, 0] 
-            } 
+          totalTaxes: {
+            $sum: {
+              $ifNull: [{ $toDouble: "$tax" }, 0]
+            }
           }, // Sum of tax for this destination
         }
       },
@@ -2135,7 +2147,7 @@ export const getDestinationStatistics = async (req, res) => {
           groupedPackages: 1,
           totalCities: 1, // Count of cities
           totalActivities: 1, // Total activities based on the cities
-          totalPricePaid: 1, // Sum of currentTotalPrice for all itineraries of the destination
+          totalPricePaid: 1, // Sum of grandTotal for all itineraries of the destination
           totalTripPrice: 1, // Sum of totalPrice for all itineraries of the destination
           totalDiscount: 1, // Sum of couponlessDiscount + generalDiscount
           totalServiceFee: 1, // Sum of serviceFee for all itineraries of the destination
@@ -2255,7 +2267,6 @@ export const getActivityStatistics = async (req, res) => {
       }
     ]);
 
-    console.log("successs1")
     if (!statistics.length) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activity statistics found', false));
     }
@@ -2503,10 +2514,10 @@ export const replaceCityInItinerary = async (req, res) => {
         if (activity && activity.category === 'Travel') {
           // Keep the travel activity
           newActivities.push(activity._id);
-        }else if(activity && activity.category === 'Arrival'){
-          
+        } else if (activity && activity.category === 'Arrival') {
+
         }
-         else {
+        else {
           // Replace other activities with leisure activities
           const leisureActivity = await GptActivity.create({
             name: 'Leisure',
@@ -2705,31 +2716,31 @@ export const addGeneralCoupon = async (req, res) => {
     const userId = req.user.userId;
     const settings = await Settings.findOne();
     if (!settings) {
-      return res.status(404).json({ message: 'Settings not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
     // Fetch the itinerary using the itineraryId
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
-      return res.status(404).json({ message: "Itinerary not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
     // Fetch the discount using the discountId
     const discount = await Discount.findById(discountId);
     if (!discount) {
-      return res.status(404).json({ message: "Discount not found" });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Discount not found', false));
     }
 
-    if(discount.discountType === 'general') {
+    if (discount.discountType === 'general') {
       let response = 0;
       let beforeDiscount = parseFloat(itinerary.totalPrice) || 0; // Ensure it's a number
 
-      // Ensure totalPrice, currentTotalPrice, and other fields are numbers
+      // Ensure totalPrice, grandTotal, and other fields are numbers
       let totalPrice = parseFloat(itinerary.totalPrice) || 0;
       let totalFlightsPrice = parseFloat(itinerary.totalFlightsPrice) || 0;
       let totalHotelsPrice = parseFloat(itinerary.totalHotelsPrice) || 0;
       let totalActivitiesPrice = parseFloat(itinerary.totalActivitiesPrice) || 0;
-      let currentTotalPrice = parseFloat(itinerary.currentTotalPrice) || 0;
+      let grandTotal = parseFloat(itinerary.grandTotal) || 0;
       let serviceFee = parseFloat(settings.serviceFee) || 0;
 
       // Handle discount on flights
@@ -2741,25 +2752,25 @@ export const addGeneralCoupon = async (req, res) => {
         });
 
         // Proper calculation of totalPrice
-        totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response.discountAmount)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalFlightsPrice + (totalFlightsPrice - response.discountAmount ?? 0)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
         totalPrice = parseFloat(totalPrice)
         disc = parseFloat(disc)
-        totalPrice+=disc;
+        totalPrice += disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
         itinerary.generalDiscount = disc;
-        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2);
         const couponless = parseFloat(itinerary.couponlessDiscount)
-        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
+        itinerary.grandTotal = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on flights applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on flights applied successfully', true));
       }
 
       // Handle discount on hotels
@@ -2770,25 +2781,25 @@ export const addGeneralCoupon = async (req, res) => {
           totalAmount: totalHotelsPrice
         });
 
-        totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response.discountAmount)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalHotelsPrice + (totalHotelsPrice - response.discountAmount ?? 0)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
         totalPrice = parseFloat(totalPrice)
         disc = parseFloat(disc)
-        totalPrice+=disc;
+        totalPrice += disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
         itinerary.generalDiscount = disc;
-        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2);
         const couponless = parseFloat(itinerary.couponlessDiscount)
-        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
+        itinerary.grandTotal = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on hotels applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on hotels applied successfully', true));
       }
 
       // Handle discount on activities
@@ -2799,25 +2810,25 @@ export const addGeneralCoupon = async (req, res) => {
           totalAmount: totalActivitiesPrice
         });
 
-        totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response.discountAmount)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalActivitiesPrice + (totalActivitiesPrice - response.discountAmount ?? 0)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
         totalPrice = parseFloat(totalPrice)
         disc = parseFloat(disc)
-        totalPrice+=disc;
+        totalPrice += disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
         itinerary.generalDiscount = disc;
-        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2);
         const couponless = parseFloat(itinerary.couponlessDiscount)
-        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc- couponless ).toFixed(2));
+        itinerary.grandTotal = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on activities applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on activities applied successfully', true));
       }
 
       // Handle discount on the entire package
@@ -2828,38 +2839,38 @@ export const addGeneralCoupon = async (req, res) => {
           totalAmount: totalPrice
         });
 
-        totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response.discountAmount)).toFixed(2));
+        totalPrice = parseFloat((totalPrice - totalPrice + (totalPrice - response.discountAmount ?? 0)).toFixed(2));
 
         // Calculate the discount and taxes properly
         let disc = (parseFloat(itinerary.totalPrice) - totalPrice).toFixed(2);
         totalPrice = parseFloat(totalPrice)
         disc = parseFloat(disc)
-        totalPrice+=disc;
+        totalPrice += disc;
         itinerary.tax = parseFloat((totalPrice * 0.18).toFixed(2)); // 18% tax
         itinerary.generalDiscount = disc;
-        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2); 
+        itinerary.totalPrice = parseFloat(totalPrice).toFixed(2);
         const couponless = parseFloat(itinerary.couponlessDiscount)
-        itinerary.currentTotalPrice = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless ).toFixed(2));
+        itinerary.grandTotal = parseFloat((totalPrice * (1 + 0.18) + serviceFee - disc - couponless).toFixed(2));
 
         if (!itinerary.discounts.includes(discountId)) {
           itinerary.discounts.push(discountId);
         }
 
         await itinerary.save();
-        return res.status(200).json({ message: "Discount on package applied successfully", itinerary });
+        return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Discount on package applied successfully', true));
       }
     }
 
-    return res.status(400).json({ message: "Discount not applicable" });
+    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Discount not applicable', false));
   } catch (error) {
     console.error("Error applying discount:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
 
-export const updateStartDateInItinerary = async (req, res) => {
+export const updateItineraryDetails = async (req, res) => {
   const { itineraryId } = req.params;
-  const { newStartDate } = req.body; // Get newStartDate from request body
+  const { newStartDate, travellingWith, rooms } = req.body;
 
   try {
     // Fetch the itinerary by ID
@@ -2868,73 +2879,27 @@ export const updateStartDateInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Use values from the itinerary
-    const { adults, children, childrenAges, rooms } = itinerary;
-    const totalRooms = rooms.length;
+    let { enrichedItinerary, adults, children, childrenAges } = itinerary;
+    let totalRooms = itinerary.rooms.length;
 
-    // Update the startDate of the itinerary
-    itinerary.enrichedItinerary.startDate = newStartDate;
+    // Flag to track if the enriched itinerary needs updates
+    let enrichedItineraryNeedsUpdate = false;
 
-    // Update dates for the entire itinerary using addDatesToItinerary
-    const updatedItineraryWithDates = addDatesToItinerary(itinerary.enrichedItinerary, newStartDate);
-
-    // Refetch flight, taxi, ferry, and hotel details based on new dates
-    const enrichedItineraryWithNewDetails = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: updatedItineraryWithDates },
-      { adults, children, childrenAges, totalRooms }
-    );
-
-    // Save the updated itinerary with recalculated details
-    await Itinerary.findByIdAndUpdate(
-      itineraryId,
-      { enrichedItinerary: enrichedItineraryWithNewDetails },
-      {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId
-        },
-        comment: req.comment
-      }
-    );
-
-    // Recalculate the total price after updating travel and accommodation details
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: enrichedItineraryWithNewDetails }, 'Start date updated and itinerary recalculated successfully', true));
-    });
-
-  } catch (error) {
-    console.error('Error updating start date:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
-  }
-};
-
-
-export const updateTravellingWithAndRoomsInItinerary = async (req, res) => {
-  const { itineraryId } = req.params;
-  const { travellingWith, rooms } = req.body;
-
-  try {
-    // Fetch the itinerary by ID
-    const itinerary = await Itinerary.findById(itineraryId).lean();
-    if (!itinerary) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    // Update startDate if provided
+    if (newStartDate) {
+      enrichedItinerary.startDate = newStartDate;
+      enrichedItinerary = addDatesToItinerary(enrichedItinerary, newStartDate);
+      enrichedItineraryNeedsUpdate = true; // Mark for refetching details
     }
 
-    // Check if only rooms should be updated (i.e., `travellingWith` is not provided)
-    if (travellingWith) {
-      itinerary.travellingWith = travellingWith;
-    }
-
-    // Update the rooms if provided
+    // Update travellingWith and rooms if provided
     if (rooms) {
       itinerary.rooms = rooms;
 
-      // Calculate updated counts for adults, children, and childrenAges based on the new rooms data
-      let adults = 0;
-      let children = 0;
-      let childrenAges = [];
-
+      // Recalculate counts for adults, children, and childrenAges based on the updated rooms
+      adults = 0;
+      children = 0;
+      childrenAges = [];
       rooms.forEach((room) => {
         adults += room.adults || 0;
         children += room.children || 0;
@@ -2943,43 +2908,54 @@ export const updateTravellingWithAndRoomsInItinerary = async (req, res) => {
         }
       });
 
-      // Use the total number of rooms for recalculations
-      const totalRooms = rooms.length;
+      totalRooms = rooms.length;
+      enrichedItineraryNeedsUpdate = true; // Mark for refetching details
+    }
 
-      // Refetch travel and accommodation details based on updated rooms and travellers
-      const updatedItinerary = await refetchFlightAndHotelDetails(
-        { enrichedItinerary: itinerary.enrichedItinerary },
+    if (travellingWith) {
+      itinerary.travellingWith = travellingWith;
+    }
+
+    // Refetch travel and accommodation details if necessary
+    if (enrichedItineraryNeedsUpdate) {
+      enrichedItinerary = await refetchFlightAndHotelDetails(
+        { enrichedItinerary },
         { adults, children, childrenAges, totalRooms }
       );
-
-      // Save the updated itinerary, including changedBy for tracking purposes
-      await Itinerary.findByIdAndUpdate(
-        itineraryId,
-        {
-          enrichedItinerary: updatedItinerary,
-          adults,
-          children,
-          childrenAges,
-          rooms,
-          ...(travellingWith ? { travellingWith } : {}) // Only update travellingWith if it was provided
-        },
-        {
-          new: true,
-          lean: true,
-          changedBy: { userId: req.user.userId },
-          comment: req.comment
-        }
-      );
-
-      // Call the price calculation middleware to update the total price
-      await calculateTotalPriceMiddleware(req, res, async () => {
-        res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: updatedItinerary }, 'Travelling with and/or rooms updated successfully', true));
-      });
-    } else {
-      res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Rooms information is required to update the itinerary.', false));
     }
+
+    // Save the updated itinerary, including tracking details
+    await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      {
+        enrichedItinerary,
+        adults,
+        children,
+        childrenAges,
+        rooms: rooms || itinerary.rooms, // Keep old rooms if not updated
+        ...(travellingWith ? { travellingWith } : {}), // Update travellingWith only if provided
+      },
+      {
+        new: true,
+        lean: true,
+        changedBy: { userId: req.user.userId },
+        comment: req.comment,
+      }
+    );
+
+    // Recalculate the total price after all updates
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      res.status(StatusCodes.OK).json(
+        httpFormatter(
+          { enrichedItinerary },
+          'Itinerary updated successfully',
+          true
+        )
+      );
+    });
   } catch (error) {
-    console.error('Error updating travelling with and rooms:', error);
+    console.error('Error updating itinerary details:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));
   }
 };
+

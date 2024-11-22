@@ -28,8 +28,7 @@ import {
   getAllUsersStatistics,
   getDestinationStatistics,
   getActivityStatistics,
-  updateStartDateInItinerary,
-  updateTravellingWithAndRoomsInItinerary
+  updateItineraryDetails
 } from './itinerary.controller.js';
 import { verifyToken } from '../../../utils/token.js';
 import { StatusCodes } from 'http-status-codes';
@@ -102,14 +101,13 @@ router.get('/statistics', verifyToken, getAllUsersStatistics);
 router.get('/destination-statistics', verifyToken, getDestinationStatistics);
 router.get('/activity-statistics', verifyToken, getActivityStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
-router.get('/:itineraryId', getItineraryDetails);
+router.get('/:itineraryId', verifyToken, getItineraryDetails);
 router.get('/:itineraryId/flights', getFlightsInItinerary);
 router.get('/:itineraryId/hotels', getHotelsInItinerary);
 router.get('/:itineraryId/transfer', getTransferDetails);
 router.get('/:itineraryId/activities', getAllActivities);
 router.get('/:historyId/history-activities', getAllActivitiesForHistory);
-router.patch('/:itineraryId/update-start-date', verifyToken, updateStartDateInItinerary);
-router.patch('/:itineraryId/update-travelling-with', verifyToken, updateTravellingWithAndRoomsInItinerary);
+router.patch('/:itineraryId/update-details', verifyToken, updateItineraryDetails);
 router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, addUpdateComment, deleteDaysFromCity);
 router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addUpdateComment, addDaysToCity);
 router.patch('/:itineraryId/cities/add-city', verifyToken, addUpdateComment, addCityToItineraryAtPosition);

@@ -5,6 +5,7 @@ import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 import mongoose from 'mongoose';
 import logger from '../../../config/logger.js';
+import { getCountryCode } from '../../services/hotelDetails.js';
 
 // Create a new destination
 export const addDestination = async (req, res) => {
@@ -64,10 +65,12 @@ export const addDestination = async (req, res) => {
             return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Destination with this name already exists', false));
         }
 
+        const countryCode = await getCountryCode(country);
+
         const data = await Destination.create({
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude,markup
+            latitude, longitude,markup, countryCode
         });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 
@@ -90,21 +93,17 @@ export const toggleDestinationActiveStatus = async (req, res) => {
     const destination = await Destination.findById(id);
 
     if (!destination) {
-      return res.status(404).json({ message: 'Destination not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
     }
 
     // Toggle the active status
     destination.active = !destination.active;
     await destination.save();
 
-    return res.status(200).json({
-      success: true,
-      message: `Destination ${destination.active ? 'activated' : 'deactivated'} successfully`,
-      active: destination.active,
-    });
+    return res.status(StatusCodes.OK).json(httpFormatter({ active: destination.active }, `Destination ${destination.active ? 'activated' : 'deactivated'} successfully` , true));
   } catch (error) {
     console.error('Error toggling destination status:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
   }
 };
 

@@ -7,4 +7,5 @@ router.get('/:cityId/hotels', getTopHotels);
 
 router.get('/:cityId/hotels/:hotelCode',getSpecificHotelDetails)
 
+
 export default router;

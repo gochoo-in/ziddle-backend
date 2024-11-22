@@ -10,6 +10,7 @@ export const addActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -32,7 +33,7 @@ export const addActivity = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!name || !duration || !opensAt || !closesAt || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || !featured || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -44,6 +45,7 @@ export const addActivity = async (req, res) => {
         const activity = await Activity.create({
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -81,21 +83,18 @@ export const toggleActivityActiveStatus = async (req, res) => {
       const activity = await Activity.findById(id);
   
       if (!activity) {
-        return res.status(404).json({ message: 'Activity not found' });
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Activity not found', false));
       }
   
       // Toggle the isActive status
       activity.isActive = !activity.isActive;
       await activity.save();
+
+      
   
-      return res.status(200).json({
-        success: true,
-        message: `Activity ${activity.isActive ? 'activated' : 'deactivated'} successfully`,
-        isActive: activity.isActive,
-      });
     } catch (error) {
       console.error('Error updating activity status:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
   };
 
@@ -129,6 +128,7 @@ export const updateActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -160,6 +160,7 @@ export const updateActivity = async (req, res) => {
 
         // Update fields if they are provided
         if (name) activity.name = name;
+        if(featured)  activity.featured = featured;
         if (duration) activity.duration = duration;
         if (description) activity.description = description;
         if (opensAt) activity.opensAt = opensAt;

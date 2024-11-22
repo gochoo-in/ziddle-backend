@@ -68,18 +68,20 @@ const itinerarySchema = new mongoose.Schema({
   rooms: { type: [roomSchema], required: true },
   travellingWith: { type: String, required: true },
   totalPrice: { type: String, required: true, default: "0" }, // Added totalPrice as a String
-  currentTotalPrice: { type: String, required: true, default: "0" }, // New field for current total price
+  grandTotal: { type: String, required: true, default: "0" }, // New field for current total price
   totalPriceWithoutMarkup: { type: String, required: true, default: "0" }, // New field for final total price
-  couponlessDiscount: { type: String, required: true, default: "0"},
-  totalFlightsPrice: { type: String, required: true, default: "0" }, 
-  totalFerriesPrice: { type: String, required: true, default: "0" }, 
-  totalTaxisPrice: { type: String, required: true, default: "0" }, 
+  couponlessDiscount: { type: String, required: true, default: "0" },
+  totalFlightsPrice: { type: String, required: true, default: "0" },
+  totalFerriesPrice: { type: String, required: true, default: "0" },
+  totalTaxisPrice: { type: String, required: true, default: "0" },
   totalHotelsPrice: { type: String, required: true, default: "0" },
   totalActivitiesPrice: { type: String, required: true, default: "0" },
   generalDiscount: { type: String, reuired: true, default: "0" },
   discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }],
   tax: { type: String },
-  serviceFee: { type: String }
+  serviceFee: { type: String },
+  chooseBestForMe: { type: Boolean, default: false },
+  lastFetchedDate: { type: Date, default: Date.now }
 }, { timestamps: true, versionKey: false });
 
 
@@ -109,7 +111,10 @@ itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (
       await ItineraryVersion.create({
         itineraryId,
         version: newVersionNumber,
-        enrichedItinerary: original.enrichedItinerary, // Save the current state before any changes
+        enrichedItinerary: {
+          ...original.enrichedItinerary,
+          destinationId: original.enrichedItinerary.destinationId, 
+        }, 
         changedBy: {
           userId: userId || null, // Assign userId if present
         },

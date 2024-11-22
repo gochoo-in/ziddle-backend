@@ -1,3 +1,5 @@
+import httpFormatter from '../../../utils/formatter.js';
+import StatusCodes from 'http-status-codes';
 import Settings from '../../models/settings.js'; 
 
 export const addSettings = async (req, res) => {
@@ -25,10 +27,9 @@ export const addSettings = async (req, res) => {
             orderPercentageReferredUser === undefined ||
             maxAmount === undefined
         ) {
-            return res.status(400).json({
-                success: false,
-                message: 'All fields are required',
-            });
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'All fields are required', false)
+            );
         }
 
         const newSettings = new Settings({
@@ -45,18 +46,14 @@ export const addSettings = async (req, res) => {
 
         const savedSettings = await newSettings.save();
 
-        res.status(201).json({
-            success: true,
-            message: 'Settings added successfully',
-            data: savedSettings
-        });
+        return res.status(StatusCodes.CREATED).json(
+            httpFormatter({ data: savedSettings }, 'Settings added successfully', true)
+        );
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: 'Error adding settings',
-            error: error.message
-        });
+        console.error('Error adding settings:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Error adding settings', false)
+        );
     }
 };
 
@@ -92,24 +89,19 @@ export const updateSettings = async (req, res) => {
         );
 
         if (!updatedSettings) {
-            return res.status(404).json({
-                success: false,
-                message: 'Settings not found'
-            });
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Settings not found', false)
+            );
         }
 
-        res.status(200).json({
-            success: true,
-            message: 'Settings updated successfully',
-            data: updatedSettings
-        });
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ data: updatedSettings }, 'Settings updated successfully', true)
+        );
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: 'Error updating settings',
-            error: error.message
-        });
+        console.error('Error updating settings:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Error updating settings', false)
+        );
     }
 };
 
@@ -121,25 +113,21 @@ export const getSettings = async (req, res) => {
         if (id) {
             settings = await Settings.findById(id);
             if (!settings) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Settings not found'
-                });
+                return res.status(StatusCodes.NOT_FOUND).json(
+                    httpFormatter({}, 'Settings not found', false)
+                );
             }
         } else {
             settings = await Settings.find();
         }
 
-        res.status(200).json({
-            success: true,
-            data: settings
-        });
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ data: settings }, 'Settings retrieved successfully', true)
+        );
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching settings',
-            error: error.message
-        });
+        console.error('Error fetching settings:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Error fetching settings', false)
+        );
     }
 };

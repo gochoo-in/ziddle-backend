@@ -115,6 +115,7 @@ async function getCityCode(countryCode, cityName) {
 }
 
 
+
 // Function to fetch hotel details by hotel codes
 async function getHotelDetailsByCodes(checkIn, checkOut, hotelCodes, guestNationality, adults, childrenAges) {
   
@@ -175,7 +176,6 @@ async function getHotelDetails(hotelCode) {
         );
 
         if (response.data) {
-            console.log("Hotel Details for HotelCode", hotelCode, ":", response.data);
             return response.data;
         } else {
             console.warn(`No details found for HotelCode ${hotelCode}.`);
@@ -232,7 +232,6 @@ async function fetchHotelDetails(latitude, longitude, arrivalDate, departureDate
         // Fetch detailed information for each selected hotel
         const detailedHotels = await Promise.all(selectedHotels.map(async (hotel) => {
             const detailedHotelInfo = await getHotelDetails(hotel.HotelCode);
-            console.log("seleced hotels aka data",detailedHotelInfo)
             const room = hotel.Rooms[0];
             return {
                 name: detailedHotelInfo?.HotelDetails[0]?.HotelName || 'Unknown Name',
@@ -285,7 +284,6 @@ export const getTopHotels = async (req, res) => {
 
 
         const { country } = city; // assuming city has countryName field
-        console.log("City:", JSON.stringify(city));
 
         if (!country) {
             logger.warn(`Country for city ${country} not found in the database.`);
@@ -299,9 +297,7 @@ export const getTopHotels = async (req, res) => {
             
         }
 
-        console.log("success3",countryCode,city.name)
         const cityCode = await getCityCode(countryCode, city.name);
-       console.log("citycodes",cityCode)
 
         const { latitude, longitude } = city;
         logger.info(`Found city: ${city.name}, latitude: ${latitude}, longitude: ${longitude}`);

@@ -223,7 +223,7 @@ export const togglestatus = async (req, res) => {
     const employee = await Employee.findById(employeeId);
 
     if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Employee not found', false));
     }
 
     // Toggle the blocked status if the request body has the blocked field

@@ -19,8 +19,6 @@ export const getAdminsWithAccess = async (action, resource) => {
 
 
 export const checkOwnershipOrAdminAccess = async (employeeId, ownerId, action, resource) => {
-    console.log("emp", employeeId)
-    console.log("user", ownerId)
   if (employeeId === ownerId.toString()) {
     return true;
   }
