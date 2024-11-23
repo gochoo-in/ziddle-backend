@@ -603,13 +603,15 @@ export const createItinerary = async (req, res) => {
     const serviceFee = settings.serviceFee;
 
     // Convert totalPrice to a string
-
+    console.log("depcity",departureCity)
     // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
       createdBy: userId,
       enrichedItinerary: {
         ...enrichedItinerary,
-        destinationId: countryId, 
+        destinationId: countryId,
+        departureCity: departureCity, 
+        arrivalCity: arrivalCity,     
       },
       adults: adults,
       children: children,

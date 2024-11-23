@@ -54,6 +54,8 @@ const enrichedItinerarySchema = new mongoose.Schema({
   itinerary: [itineraryDaySchema],
   totalDays: { type: Number, required: true },
   totalNights: { type: Number, required: true },
+  departureCity: { type: String },
+  arrivalCity: { type: String}
 }, { _id: false });
 
 // Main Itinerary Schema

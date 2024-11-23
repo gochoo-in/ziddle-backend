@@ -2,13 +2,15 @@ import City from '../models/city.js';
 import { addNewDaysToCity } from '../../utils/itineraryUtils.js';
 import { createLeisureActivityIfNotExist } from '../../utils/activityUtils.js';
 import { addDatesToItinerary } from '../../utils/dateUtils.js';
-import { addFlightDetailsToItinerary } from '../services/flightdetails.js';
+import { addFlightDetailsToItinerary, fetchFlightDetails } from '../services/flightdetails.js';
 import { addHotelDetailsToItinerary } from '../services/hotelDetails.js';
 import { addTaxiDetailsToItinerary } from '../services/taxiDetails.js';
 import {addFerryDetailsToItinerary} from '../../utils/dummyData.js'
 import Flight from '../models/flight.js'
 import Taxi from '../models/taxi.js'
 import Hotel from '../models/hotel.js'
+import moment from 'moment';
+import InternationalAirportCity from '../models/internationalAirportCity.js';
 export const addDaysToCityService = async (itinerary, cityIndex, additionalDays) => {
   if (!itinerary || !itinerary.enrichedItinerary || !itinerary.enrichedItinerary.itinerary) {
     throw new Error('Itinerary or enrichedItinerary is not properly defined.');
@@ -56,8 +58,12 @@ export const refetchFlightAndHotelDetails = async (itinerary, requestData) => {
   if (!itinerary || !itinerary.enrichedItinerary || !itinerary.enrichedItinerary.itinerary) {
     throw new Error('Itinerary or enrichedItinerary is not properly defined.');
   }
+
   itinerary=itinerary.enrichedItinerary
   
+  const { departureCity, arrivalCity} = itinerary;
+  console.log(itinerary)
+  console.log(departureCity, arrivalCity)
   // Fetch IATA codes from the City database
   const cityNames = itinerary.itinerary.map(city => city.currentCity);
 
@@ -81,10 +87,153 @@ export const refetchFlightAndHotelDetails = async (itinerary, requestData) => {
   const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
   const itineraryWithFerry = await addFerryDetailsToItinerary(itineraryWithTaxi);
   // Refetch hotel details
-  const itineraryWithHotels = await addHotelDetailsToItinerary(itineraryWithFerry, adults, childrenAges, rooms);
+  let itineraryWithHotels = await addHotelDetailsToItinerary(itineraryWithFerry, adults, childrenAges, rooms);
 
+  console.log("hatt", itinerary)
+
+  
+    itineraryWithHotels = await updateInternationalFlights(itineraryWithHotels, requestData, cityDetails, departureCity, arrivalCity);
   return itineraryWithHotels;
 };
+
+const updateInternationalFlights = async (itinerary, requestData, cityDetails, departureCity, arrivalCity) => {
+  console.log("called")
+  const { adults, children, childrenAges } = requestData;
+
+  console.log(departureCity, arrivalCity)
+
+  const departureCityData = await InternationalAirportCity.findOne({ name: departureCity });
+  const arrivalCityData = await InternationalAirportCity.findOne({ name: arrivalCity });
+
+  // Extract first and last city details
+  const firstCity = itinerary.itinerary[0];
+  const lastCity = itinerary.itinerary.at(-1);
+
+  const firstCityData = cityDetails.find(city => city.name === firstCity.currentCity);
+  const lastCityData = cityDetails.find(city => city.name === lastCity.currentCity);
+
+  if (!departureCityData || !arrivalCityData || !firstCityData || !lastCityData) {
+    throw new Error('City or airport data is missing for international flights.');
+  }
+
+  const firstCityNearbyAirport = firstCityData.nearbyInternationalAirportCity;
+  const lastCityNearbyAirport = lastCityData.nearbyInternationalAirportCity;
+
+  const firstCityDate = firstCity.days[0].date; // First city's first day date
+  const lastCityDate = lastCity.days.at(-1).date; // Last city's last day date
+  const cityIATACodesToFirst = [
+    { name: departureCity, iataCode: departureCityData.iataCode },
+    { name: firstCityNearbyAirport.name, iataCode: firstCityNearbyAirport.iataCode },
+  ];
+
+  const cityIATACodesToArrival = [
+    { name: lastCityNearbyAirport.name, iataCode: lastCityNearbyAirport.iataCode },
+    { name: arrivalCity, iataCode: arrivalCityData.iataCode },
+  ];
+
+  const flightsToFirstNearby = await fetchFlightDetails(
+    departureCity,
+    firstCityNearbyAirport.name,
+    firstCityDate,
+    adults,
+    children,
+    childrenAges,
+    cityIATACodesToFirst
+  );
+  console.log(lastCityDate)
+  const nextTravelDate = moment(lastCityDate).add(1, 'days').format('YYYY-MM-DD');
+
+  const flightsToArrival = await fetchFlightDetails(
+    lastCityNearbyAirport.name,
+    arrivalCity,
+    nextTravelDate,
+    adults,
+    children,
+    childrenAges,
+    cityIATACodesToArrival
+  );
+
+  // Initialize an array to store international flight IDs
+  let internationalFlightIds = [];
+
+  // Find and save the cheapest flights
+  const cheapestFlightToFirstNearby =
+          flightsToFirstNearby.length > 0
+            ? flightsToFirstNearby.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
+            : null;
+    
+        const cheapestFlightToArrival =
+          flightsToArrival.length > 0
+            ? flightsToArrival.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
+            : null;
+
+  if (cheapestFlightToFirstNearby) {
+    const flightToFirstNearbyDetails = await new Flight({
+      departureCityId: departureCityData._id,
+      arrivalCityId: firstCityData._id,
+      cityModelType: 'InternationalAirportCity',
+      baggageIncluded: cheapestFlightToFirstNearby.flightSegments.some(
+        segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'
+      ),
+      baggageDetails: {
+        cabinBag: cheapestFlightToFirstNearby.flightSegments[0]?.baggage?.cabinBag || 'N/A',
+        checkedBag: cheapestFlightToFirstNearby.flightSegments[0]?.baggage?.checkedBag || 'N/A',
+      },
+      price: cheapestFlightToFirstNearby.price,
+      currency: cheapestFlightToFirstNearby.currency || 'INR',
+      airline: cheapestFlightToFirstNearby.airline,
+      departureDate: cheapestFlightToFirstNearby.flightSegments[0]?.departureTime || null,
+      flightSegments: cheapestFlightToFirstNearby.flightSegments.map(segment => ({
+        img: segment.img || null,
+        departureTime: segment.departureTime,
+        arrivalTime: segment.arrivalTime,
+        flightNumber: segment.flightNumber.toString(),
+      })),
+    }).save();
+
+    internationalFlightIds.push(flightToFirstNearbyDetails._id);
+  }
+  console.log("cheapestFlightToFirstNearby", cheapestFlightToFirstNearby)
+
+
+  if (cheapestFlightToArrival) {
+    const date = new Date(cheapestFlightToArrival.flightSegments[0]?.departureTime);
+    const newDate = date.toLocaleDateString("default")
+    const flightToArrivalDetails = await new Flight({
+      departureCityId: lastCityData._id,
+      arrivalCityId: arrivalCityData._id,
+      cityModelType: 'InternationalAirportCity',
+      baggageIncluded: cheapestFlightToArrival.flightSegments.some(
+        segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'
+      ),
+      baggageDetails: {
+        cabinBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.cabinBag || 'N/A',
+        checkedBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.checkedBag || 'N/A',
+      },
+      price: cheapestFlightToArrival.price,
+      currency: cheapestFlightToArrival.currency || 'INR',
+      airline: cheapestFlightToArrival.airline,
+      departureDate: newDate || null,
+      flightSegments: cheapestFlightToArrival.flightSegments.map(segment => ({
+        img: segment.img || null,
+        departureTime: segment.departureTime,
+        arrivalTime: segment.arrivalTime,
+        flightNumber: segment.flightNumber.toString(),
+      })),
+    }).save();
+
+    internationalFlightIds.push(flightToArrivalDetails._id);
+  }
+  console.log("cheapestFlightToArrival", cheapestFlightToArrival)
+  console.log("internationalFlightIds", internationalFlightIds)
+
+  // Update the internationalFlights field in the itinerary
+  itinerary.internationalFlights = internationalFlightIds;
+
+  return itinerary;
+};
+
+
 
 const deleteOldDetails = async (itinerary) => {
   const { itinerary: itineraryList } = itinerary;
