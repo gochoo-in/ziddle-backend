@@ -94,6 +94,8 @@ export const createItinerary = async (req, res) => {
 
     // Calculate total persons (adults + children)
     const totalPersons = adults + children;
+    let internationalFlights = [];
+    let internationalFlightsPrice = 0;
 
     // Find the country (destination)
     const country = await Destination.findById(countryId);
@@ -305,7 +307,123 @@ export const createItinerary = async (req, res) => {
       }
     });
 
-    // Sum up the prices from flights, hotels, and activities
+    if (departureCity && arrivalCity) {
+      const departureCityData = await InternationalAirportCity.findOne({ name: departureCity });
+      const arrivalCityData = await InternationalAirportCity.findOne({ name: arrivalCity });
+      const firstCityData = await City.findOne({ name: enrichedItinerary.itinerary[0]?.currentCity });
+      const lastCityData = await City.findOne({ name: enrichedItinerary.itinerary.at(-1)?.currentCity });
+    
+      if (departureCityData && arrivalCityData && firstCityData && lastCityData) {
+        const firstCityNearbyAirport = firstCityData.nearbyInternationalAirportCity;
+        const lastCityNearbyAirport = lastCityData.nearbyInternationalAirportCity;
+    
+        const cityIATACodesToFirst = [
+          { name: departureCity, iataCode: departureCityData.iataCode },
+          { name: firstCityNearbyAirport.name, iataCode: firstCityNearbyAirport.iataCode },
+        ];
+    
+        const cityIATACodesToArrival = [
+          { name: lastCityNearbyAirport.name, iataCode: lastCityNearbyAirport.iataCode },
+          { name: arrivalCity, iataCode: arrivalCityData.iataCode },
+        ];
+    
+        const flightsToFirstNearby = await fetchFlightDetails(
+          departureCity,
+          firstCityNearbyAirport.name,
+          startDate,
+          adults,
+          children,
+          childrenAges,
+          cityIATACodesToFirst
+        );
+    
+        const lastCityEndDate = enrichedItinerary.itinerary.at(-1)?.days.at(-1)?.date;
+        const nextTravelDate = moment(lastCityEndDate).add(1, 'days').format('YYYY-MM-DD');
+    
+        const flightsToArrival = await fetchFlightDetails(
+          lastCityNearbyAirport.name,
+          arrivalCity,
+          nextTravelDate,
+          adults,
+          children,
+          childrenAges,
+          cityIATACodesToArrival
+        );
+    
+        // Select the cheapest flights for both legs
+        const cheapestFlightToFirstNearby =
+          flightsToFirstNearby.length > 0
+            ? flightsToFirstNearby.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
+            : null;
+    
+        const cheapestFlightToArrival =
+          flightsToArrival.length > 0
+            ? flightsToArrival.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
+            : null;
+    
+        // Add international flights to the itinerary
+        if (cheapestFlightToFirstNearby) {
+          const flightToFirstNearbyDetails = await new Flight({
+            departureCityId: departureCityData._id,
+            arrivalCityId: firstCityData._id,
+            cityModelType: 'InternationalAirportCity',
+            baggageIncluded: cheapestFlightToFirstNearby.flightSegments.some(
+              (segment) => segment.baggage && segment.baggage.checkedBag !== 'N/A'
+            ), // Check baggage inclusion
+            baggageDetails: {
+              cabinBag: cheapestFlightToFirstNearby.flightSegments[0]?.baggage?.cabinBag || 'N/A',
+              checkedBag: cheapestFlightToFirstNearby.flightSegments[0]?.baggage?.checkedBag || 'N/A',
+            },
+            price: cheapestFlightToFirstNearby.price,
+            currency: cheapestFlightToFirstNearby.currency || 'INR',
+            airline: cheapestFlightToFirstNearby.airline,
+            departureDate: cheapestFlightToFirstNearby.flightSegments[0]?.departureTime || null,
+            flightSegments: cheapestFlightToFirstNearby.flightSegments.map((segment) => ({
+              img: segment.img || null,
+              departureTime: segment.departureTime,
+              arrivalTime: segment.arrivalTime,
+              flightNumber: segment.flightNumber.toString(),
+            })),
+          }).save();
+    
+          enrichedItinerary.itinerary[0].internationalTransport = flightToFirstNearbyDetails._id;
+          internationalFlights.push(flightToFirstNearbyDetails._id);
+          internationalFlightsPrice += cheapestFlightToFirstNearby.price;
+        }
+    
+        if (cheapestFlightToArrival) {
+          const flightToArrivalDetails = await new Flight({
+            departureCityId: lastCityData._id,
+            arrivalCityId: arrivalCityData._id,
+            cityModelType: 'InternationalAirportCity',
+            baggageIncluded: cheapestFlightToArrival.flightSegments.some(
+              (segment) => segment.baggage && segment.baggage.checkedBag !== 'N/A'
+            ), 
+            baggageDetails: {
+              cabinBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.cabinBag || 'N/A',
+              checkedBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.checkedBag || 'N/A',
+            },
+            price: cheapestFlightToArrival.price,
+            currency: cheapestFlightToArrival.currency || 'INR',
+            airline: cheapestFlightToArrival.airline,
+            departureDate: cheapestFlightToArrival.flightSegments[0]?.departureTime || null,
+            flightSegments: cheapestFlightToArrival.flightSegments.map((segment) => ({
+              img: segment.img || null,
+              departureTime: segment.departureTime,
+              arrivalTime: segment.arrivalTime,
+              flightNumber: segment.flightNumber.toString(),
+            })),
+          }).save();
+    
+          enrichedItinerary.itinerary.at(-1).internationalTransport = flightToArrivalDetails._id;
+          internationalFlights.push(flightToArrivalDetails._id);
+          internationalFlightsPrice += cheapestFlightToArrival.price;
+        }
+      }
+    }
+
+
+
     let totalPrice = 0;
     let priceWithoutCoupon = 0;
     let price = 0;
@@ -318,7 +436,8 @@ export const createItinerary = async (req, res) => {
     if (!settings) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
-    // Add transport prices if available from modeDetails
+    totalPrice += internationalFlightsPrice;
+    priceWithoutCoupon += internationalFlightsPrice;
     for (const city of enrichedItinerary.itinerary) {
       let transferPrice = 0;
       let transferPriceWithoutCoupon = 0;
@@ -506,6 +625,8 @@ export const createItinerary = async (req, res) => {
       totalFerriesPrice: totalFerriesPrice.toFixed(2),
       totalTaxisPrice: totalTaxisPrice.toFixed(2),
       totalActivitiesPrice: totalActivitiesPrice.toFixed(2),
+      internationalTotalFlightsPrice: internationalFlightsPrice.toFixed(2), 
+      internationalFlights: internationalFlights,
       discounts: discount ? [discount._id] : [],
       tax: tax.toFixed(2),
       serviceFee: serviceFee.toFixed(2)
@@ -2961,203 +3082,4 @@ export const updateItineraryDetails = async (req, res) => {
   }
 };
 
-export const addInternationalFlights = async (req, res) => {
-  const { itineraryId } = req.params;
-  const { departureCity, arrivalCity, newStartDate, travellingWith, rooms } = req.body;
 
-
-  try {
-    const itinerary = await Itinerary.findById(itineraryId);
-    if (!itinerary) {
-      return res.status(404).json({ success: false, message: 'Itinerary not found' });
-    }
-
-    let { enrichedItinerary, adults, children, childrenAges } = itinerary;
-    let totalRooms = itinerary.rooms.length;
-
-    if (newStartDate) {
-      enrichedItinerary.startDate = newStartDate;
-      enrichedItinerary = addDatesToItinerary(enrichedItinerary, newStartDate);
-    }
-
-    if (rooms) {
-      itinerary.rooms = rooms;
-      adults = 0;
-      children = 0;
-      childrenAges = [];
-      rooms.forEach((room) => {
-        adults += room.adults || 0;
-        children += room.children || 0;
-        if (room.childrenAges && Array.isArray(room.childrenAges)) {
-          childrenAges = childrenAges.concat(room.childrenAges);
-        }
-      });
-      totalRooms = rooms.length;
-    }
-
-    if (travellingWith) {
-      itinerary.travellingWith = travellingWith;
-    }
-
-    enrichedItinerary = await refetchFlightAndHotelDetails(
-      { enrichedItinerary },
-      { adults, children, childrenAges, totalRooms }
-    );
-
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      try {
-        const firstCity = enrichedItinerary.itinerary[0].currentCity;
-        const lastCityIndex = enrichedItinerary.itinerary.length - 1;
-        const lastCity = enrichedItinerary.itinerary[lastCityIndex]?.currentCity;
-
-        const firstCityData = await City.findOne({ name: firstCity });
-        const lastCityData = await City.findOne({ name: lastCity });
-        const departureCityData = await InternationalAirportCity.findOne({ name: departureCity });
-        const arrivalCityData = await InternationalAirportCity.findOne({ name: arrivalCity });
-
-        if (!firstCityData || !lastCityData || !departureCityData || !arrivalCityData) {
-          return res.status(400).json({ success: false, message: 'City or airport data not found' });
-        }
-
-        const nearbyAirportCityName = firstCityData.nearbyInternationalAirportCity.name;
-        const nearbyAirportCityData = firstCityData.nearbyInternationalAirportCity
-
-    
-
-        const departureIataCode = departureCityData.iataCode;
-        const nearbyIataCode = nearbyAirportCityData.iataCode;
-        const arrivalIataCode = arrivalCityData.iataCode;
-
-        const cityIATACodes = [
-          { name: departureCity, iataCode: departureIataCode },
-          { name: nearbyAirportCityName, iataCode: nearbyIataCode },
-        ];
-
-        const cityIATACodes2 = [
-          { name: nearbyAirportCityName, iataCode: nearbyIataCode },
-          { name: arrivalCity, iataCode: arrivalIataCode },
-        ]
-
-        const flightToNearby = await fetchFlightDetails(
-          departureCity,
-          nearbyAirportCityName,
-          newStartDate,
-          adults,
-          children,
-          childrenAges,
-          cityIATACodes
-        );
-
-        const lastDayInLastCity = enrichedItinerary.itinerary[lastCityIndex]?.days.at(-1)?.date;
-        const nextTravelDate = moment(lastDayInLastCity).add(1, 'days').format('YYYY-MM-DD');
-
-        const flightToArrival = await fetchFlightDetails(
-          nearbyAirportCityName,
-          arrivalCity,
-          nextTravelDate,
-          adults,
-          children,
-          childrenAges,
-          cityIATACodes2
-        );
-
-
-        const cheapestFlightToNearby = flightToNearby.length > 0
-          ? flightToNearby.reduce((prev, curr) => prev.price < curr.price ? prev : curr)
-          : { price: 0 };
-
-
-        const cheapestFlightToArrival = flightToArrival.length > 0
-          ? flightToArrival.reduce((prev, curr) => prev.price < curr.price ? prev : curr)
-          : { price: 0 };
-          
-          const flightToNearbyDetails = cheapestFlightToNearby.price > 0
-          ? await new Flight({
-              departureCityId: departureCityData._id, 
-              arrivalCityId: firstCityData._id, 
-              cityModelType: 'InternationalAirportCity', 
-              baggageIncluded: cheapestFlightToNearby.flightSegments.some(segment => segment.baggage && segment.baggage.checkedBag !== "N/A"), // Check baggage inclusion
-              baggageDetails: {
-                  cabinBag: cheapestFlightToNearby.flightSegments[0]?.baggage?.cabinBag || "N/A",
-                  checkedBag: cheapestFlightToNearby.flightSegments[0]?.baggage?.checkedBag || "N/A",
-              },
-              price: cheapestFlightToNearby.price, 
-              currency: cheapestFlightToNearby.currency || 'INR', 
-              airline: cheapestFlightToNearby.airline, 
-              departureDate: cheapestFlightToNearby.flightSegments[0]?.departureTime || null, 
-              flightSegments: cheapestFlightToNearby.flightSegments.map(segment => ({
-                  img: segment.img || null, 
-                  departureTime: segment.departureTime,
-                  arrivalTime: segment.arrivalTime,
-                  flightNumber: segment.flightNumber.toString(), 
-              })),
-          }).save()
-          : null;
-
-          const flightToArrivalDetails = cheapestFlightToArrival.price > 0
-          ? await new Flight({
-              departureCityId: firstCityData._id, 
-              arrivalCityId: arrivalCityData._id, 
-              cityModelType: 'InternationalAirportCity', 
-              baggageIncluded: cheapestFlightToArrival.flightSegments.some(segment => segment.baggage && segment.baggage.checkedBag !== "N/A"), // Check baggage inclusion
-              baggageDetails: {
-                  cabinBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.cabinBag || "N/A",
-                  checkedBag: cheapestFlightToArrival.flightSegments[0]?.baggage?.checkedBag || "N/A",
-              },
-              price: cheapestFlightToArrival.price,
-              currency: cheapestFlightToArrival.currency || 'INR', 
-              airline: cheapestFlightToArrival.airline, 
-              departureDate: cheapestFlightToArrival.flightSegments[0]?.departureTime || null, 
-              flightSegments: cheapestFlightToArrival.flightSegments.map(segment => ({
-                  img: segment.img || null, 
-                  departureTime: segment.departureTime,
-                  arrivalTime: segment.arrivalTime,
-                  flightNumber: segment.flightNumber.toString(), 
-              })),
-          }).save()
-          : null;
-
-        itinerary.internationalFlights=itinerary.internationalFlights || [];
-        if (flightToNearbyDetails) itinerary.internationalFlights.push(flightToNearbyDetails._id);
-        if (flightToArrivalDetails) itinerary.internationalFlights.push(flightToArrivalDetails._id);
-
-
-        const totalInternationalFlightPrice = parseFloat(cheapestFlightToNearby.price || 0) +
-          parseFloat(cheapestFlightToArrival.price || 0);
-
-        itinerary.internationalTotalFlightsPrice = (
-          parseFloat(itinerary.internationalTotalFlightsPrice || 0) + totalInternationalFlightPrice
-        ).toFixed(2);
-
-        itinerary.totalPrice = (parseFloat(itinerary.totalPrice || 0) + totalInternationalFlightPrice
-      ).toFixed(2);
-
-      itinerary.tax = (parseFloat(itinerary.totalPrice || 0) * 0.18
-    ).toFixed(2);
-
-        itinerary.grandTotal = (
-          parseFloat(itinerary.grandTotal || 0) + totalInternationalFlightPrice
-        ).toFixed(2);
-
-        // Save the updated itinerary
-        await Itinerary.findByIdAndUpdate(itineraryId, {
-          enrichedItinerary,
-          internationalTotalFlightsPrice: itinerary.internationalTotalFlightsPrice,
-          grandTotal: itinerary.grandTotal,
-        });
-
-        res.status(200).json({
-          success: true,
-          message: 'Itinerary updated with international flight details',
-          data: { updatedItinerary: itinerary },
-        });
-      } catch (innerError) {
-        console.error('Error after calculateCostMiddleware:', innerError);
-        res.status(500).json({ success: false, message: 'Internal server error', error: innerError.message });
-      }
-    });
-  } catch (error) {
-    console.error('Error updating itinerary with flight details:', error);
-    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
-  }
-};
