@@ -59,7 +59,6 @@ async function convertToINR(amount, currency) {
 }
 
 export async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
-    console.log(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes)
     try {
         const fromCityData = cityIATACodes.find(city => city.name.toLowerCase() === fromCity.toLowerCase());
         const toCityData = cityIATACodes.find(city => city.name.toLowerCase() === toCity.toLowerCase());
@@ -104,7 +103,6 @@ export async function fetchFlightDetails(fromCity, toCity, departureDate, adults
         return flights.flatMap(innerArray => 
             innerArray.map(offer => {
                 const publishedFare = offer.Fare && offer.Fare.PublishedFare != null ? offer.Fare.PublishedFare : Infinity;
-
                 return {
                     fromCity,
                     toCity,

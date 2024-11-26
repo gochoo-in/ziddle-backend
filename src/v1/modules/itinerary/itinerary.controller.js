@@ -603,7 +603,6 @@ export const createItinerary = async (req, res) => {
     const serviceFee = settings.serviceFee;
 
     // Convert totalPrice to a string
-    console.log("depcity",departureCity)
     // Save the new itinerary with totalPrice as a string
     const newItinerary = new Itinerary({
       createdBy: userId,
@@ -635,6 +634,16 @@ export const createItinerary = async (req, res) => {
     });
     await newItinerary.save();
 
+    const sanitizedItinerary = {
+      ...newItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
+
     // Verify the user exists before creating the lead
     let user = await User.findById(userId);
     if (!user) {
@@ -662,7 +671,7 @@ export const createItinerary = async (req, res) => {
       .status(StatusCodes.OK)
       .json(
         httpFormatter(
-          { newItinerary, newLead, totalPersons },
+          { sanitizedItinerary, newLead, totalPersons },
           'Create Itinerary and Lead Successful'
         )
       );
@@ -688,24 +697,43 @@ export const getItineraryDetails = async (req, res) => {
     const lastFetchedDate = itinerary.lastFetchedDate || new Date(0);
 
     if (lastFetchedDate >= today) {
-      return res.status(StatusCodes.OK).json(httpFormatter({ itinerary }, 'Itinerary details retrieved successfully', true));
+      // Remove unnecessary fields from the response before returning
+      const sanitizedItinerary = itinerary.toObject();
+      delete sanitizedItinerary.totalHotelsPrice;
+      delete sanitizedItinerary.totalFlightsPrice;
+      delete sanitizedItinerary.internationalTotalFlightsPrice;
+      delete sanitizedItinerary.totalTaxisPrice;
+      delete sanitizedItinerary.totalFerriesPrice;
+
+      return res
+        .status(StatusCodes.OK)
+        .json(httpFormatter({ itinerary: sanitizedItinerary }, 'Itinerary details retrieved successfully', true));
     }
 
     const { adults, children, childrenAges, rooms } = itinerary;
     const totalRooms = rooms.length;
 
     const updatedItineraryWithDetails = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: itinerary.enrichedItinerary },
+      { itinerary },
       { adults, children, childrenAges, totalRooms }
     );
 
-    itinerary.enrichedItinerary = updatedItineraryWithDetails;
-    itinerary.lastFetchedDate = new Date();
+    updatedItineraryWithDetails.lastFetchedDate = new Date();
 
+    // Remove unnecessary fields from the response
+    const sanitizedItinerary = updatedItineraryWithDetails.toObject();
+    delete sanitizedItinerary.totalHotelsPrice;
+    delete sanitizedItinerary.totalFlightsPrice;
+    delete sanitizedItinerary.internationalTotalFlightsPrice;
+    delete sanitizedItinerary.totalTaxisPrice;
+    delete sanitizedItinerary.totalFerriesPrice;
+
+    // Save the itinerary with the updated lastFetchedDate
     await itinerary.save();
 
+    // Send the sanitized itinerary in the response
     await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: updatedItineraryWithDetails }, 'Itinerary details updated and retrieved successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Itinerary details updated and retrieved successfully', true));
     });
 
   } catch (error) {
@@ -724,16 +752,23 @@ export const getFlightsInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    // Extract flight IDs from the itinerary
-    const flightIds = itinerary.enrichedItinerary.itinerary
+    // Extract flight IDs from the itinerary's enriched itinerary (cities)
+    const cityFlightIds = itinerary.enrichedItinerary.itinerary
       .flatMap(city => {
         return city.transport && city.transport.mode === "Flight"
           ? [city.transport.modeDetails] // Return flight ID if transport is a flight
           : []; // Return an empty array if not a flight
       })
       .filter(id => id !== null); // Filter out any null values
-    // Fetch flight details from the Flight collection
-    const flights = await Flight.find({ _id: { $in: flightIds } });
+
+    // Get international flight IDs from the itinerary
+    const internationalFlightIds = itinerary.internationalFlights || [];
+
+    // Combine both city flights and international flights into one array
+    const allFlightIds = [...cityFlightIds, ...internationalFlightIds];
+
+    // Fetch flight details from the Flight collection for all flight IDs
+    const flights = await Flight.find({ _id: { $in: allFlightIds } });
 
     return res.status(StatusCodes.OK).json(httpFormatter({ flights }, 'Flights retrieved successfully', true));
   } catch (error) {
@@ -985,29 +1020,38 @@ export const addDaysToCity = async (req, res) => {
     const { adults, children, childrenAges, rooms } = itinerary;
     const totalRooms = rooms.length
 
+    itinerary.enrichedItinerary = finalItinerary;
+
     // Refetch flight, taxi, and hotel details after adding days
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: finalItinerary },
+      { itinerary },
       { adults, children, childrenAges, totalRooms }
     );
 
-    // Save the updated itinerary to the database, including 'changedBy'
-    await Itinerary.findByIdAndUpdate(
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary: itineraryWithNewDetails },
       {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId // Directly use req.user.userId without additional checks
-        },
-        comment: req.comment,
-      }
+        ...itineraryWithNewDetails, 
+        comment: req.comment, // Include the comment if provided
+        changedBy: { userId: req.user.userId }, // Track who made the change
+      },
+      { new: true }
     );
+    
+    let leanedItinerary = updatedItinerary.toObject();
+
+    const sanitizedItinerary = {
+      ...leanedItinerary,
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days added and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Days added and price updated successfully', true));
     });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -1063,30 +1107,38 @@ export const deleteDaysFromCity = async (req, res) => {
     // Use values from the itinerary to refetch details
     const { adults, children, childrenAges, rooms } = itinerary;
     const totalRooms = rooms.length
+
+    itinerary.enrichedItinerary = finalItinerary;
     // Refetch flight, taxi, and hotel details after deleting days
     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: finalItinerary },
+      { itinerary },
       { adults, children, childrenAges, totalRooms }
     );
 
-    // Save the updated itinerary to the database, including 'changedBy'
-    await Itinerary.findByIdAndUpdate(
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary: itineraryWithNewDetails },
       {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId, // Directly use req.user.userId without additional checks
-        },
-        comment: req.comment,
-      }
+        ...itineraryWithNewDetails, 
+        comment: req.comment, // Include the comment if provided
+        changedBy: { userId: req.user.userId }, // Track who made the change
+      },
+      { new: true }
     );
+    
+    let leanedItinerary = updatedItinerary.toObject();
 
+    const sanitizedItinerary = {
+      ...leanedItinerary,
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
     // Send back the cleaned enrichedItinerary field
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itineraryWithNewDetails }, 'Days deleted and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Days deleted and price updated successfully', true));
     });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
@@ -1107,6 +1159,7 @@ export const addCityToItineraryAtPosition = async (req, res) => {
         .status(StatusCodes.NOT_FOUND)
         .json(httpFormatter({}, 'Itinerary not found', false));
     }
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0]?.days[0]?.date || new Date());
 
     // Use values from the itinerary
     const { adults, children, childrenAges, rooms } = itinerary;
@@ -1308,31 +1361,42 @@ export const addCityToItineraryAtPosition = async (req, res) => {
       city.days = city.days.filter(day => day.activities.length > 0);
     });
 
-    // Update dates for the entire itinerary
-    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
+  
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
 
-    // Refetch flight, taxi, and hotel details for all cities
-    const enrichedItinerary = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: finalItinerary },
+    itinerary.enrichedItinerary = finalItinerary;
+
+    // Pass the full itinerary object for refetching
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary here
       { adults, children, childrenAges, totalRooms }
     );
 
-    // Save the updated itinerary
-    await Itinerary.findByIdAndUpdate(
+
+    // Refetch flight, taxi, and hotel details for all cities
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary },
       {
-        new: true,
-        lean: true,
-        changedBy: { userId: req.user.userId },
+        ...itineraryWithNewDetails,
         comment: req.comment,
-      }
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
     );
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City added and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'City added and price updated successfully', true));
     });
   } catch (error) {
     console.error('Error adding city to itinerary:', error);
@@ -1481,27 +1545,38 @@ export const deleteCityFromItinerary = async (req, res) => {
 
     // Recalculate dates for the entire itinerary
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
-    // Refetch flight, taxi, and hotel details for all cities in the itinerary
-    const enrichedItinerary = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: finalItinerary },
+    itinerary.enrichedItinerary = finalItinerary;
+
+    // Pass the full itinerary object for refetching
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary here
       { adults, children, childrenAges, totalRooms }
     );
 
-    // Save the updated itinerary
-    await Itinerary.findByIdAndUpdate(
+
+    // Refetch flight, taxi, and hotel details for all cities
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary },
       {
-        new: true,
-        lean: true,
-        changedBy: { userId: req.user.userId },
+        ...itineraryWithNewDetails,
         comment: req.comment,
-      }
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
     );
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
 
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City deleted and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'City deleted and price updated successfully', true));
     });
   } catch (error) {
     res
@@ -1596,31 +1671,52 @@ export const replaceActivityInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
     }
 
-    // Save the updated itinerary, including 'changedBy' for tracking purposes
-    await Itinerary.findByIdAndUpdate(
-      itineraryId,
-      { enrichedItinerary: itinerary.enrichedItinerary },
-      {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId // Use req.user.userId directly for tracking the change
-        },
-        comment: req.comment
-      }
+    // Recalculate dates for the entire itinerary
+    const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0].date);
+    const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
+    itinerary.enrichedItinerary = finalItinerary;
+
+    // Pass the full itinerary object for refetching
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length;
+
+    // Refetch flight, hotel, taxi, and other details
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary here
+      { adults, children, childrenAges, totalRooms }
     );
+
+    // Update the itinerary with new details
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      {
+        ...itineraryWithNewDetails,
+        comment: req.comment,
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
+    );
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
 
     // Call the price calculation middleware
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Activity replaced and price updated successfully', true));
     });
 
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
-
 
 
 export const deleteActivityInItinerary = async (req, res) => {
@@ -1638,17 +1734,18 @@ export const deleteActivityInItinerary = async (req, res) => {
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
+
     // Fetch the old activity from the GptActivity table
     const oldGptActivity = await GptActivity.findById(oldActivityId);
     if (!oldGptActivity) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
     }
 
-
-    const newGptActivity_id = await createLeisureActivityIfNotExist(oldGptActivity.cityId)
+    // Create a new leisure activity if the old one doesn't exist
+    const newGptActivity_id = await createLeisureActivityIfNotExist(oldGptActivity.cityId);
 
     // Replace the old activity in the itinerary with the new GptActivity ID
-    let activityReplaced = false; // To track if the activity was replaced
+    let activityReplaced = false;
     itinerary.enrichedItinerary.itinerary.forEach(city => {
       city.days.forEach(day => {
         const activityIndex = day.activities.indexOf(oldActivityId);
@@ -1664,30 +1761,49 @@ export const deleteActivityInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found in itinerary', success: false });
     }
 
-    // Save the updated itinerary, including 'changedBy' for tracking purposes
-    await Itinerary.findByIdAndUpdate(
-      itineraryId,
-      { enrichedItinerary: itinerary.enrichedItinerary },
-      {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId // Use req.user.userId directly for tracking the change
-        },
-        comment: req.comment
-      }
+    // Refetch flight and hotel details after the activity replacement
+    const { adults, children, childrenAges, rooms } = itinerary;
+    const totalRooms = rooms.length;
+    
+    // Pass the full itinerary (not just enrichedItinerary)
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary object here
+      { adults, children, childrenAges, totalRooms }
     );
 
-    // Call the price calculation middleware
+    // Save the updated itinerary with new details
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
+      itineraryId,
+      {
+        ...itineraryWithNewDetails,
+        comment: req.comment,
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
+    );
+
+
+    // Sanitize the itinerary before sending it in the response
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
+
+    // Call the price calculation middleware and send the response
     await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Activity replaced and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Activity deleted and price updated successfully', true));
     });
 
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 export const changeTransportModeInCity = async (req, res) => {
   const { itineraryId, cityIndex } = req.params;
@@ -1699,8 +1815,10 @@ export const changeTransportModeInCity = async (req, res) => {
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Itinerary not found' });
     }
+
     const { adults, children, childrenAges, rooms } = itinerary;
-    const totalRooms = rooms.length
+    const totalRooms = rooms.length;
+
     // Check if the user has ownership or admin access
     const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
     if (!hasAccess) {
@@ -1715,47 +1833,56 @@ export const changeTransportModeInCity = async (req, res) => {
 
     // Change the transport mode
     city.transport.mode = newMode;
-    const enrichedItinerary = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: itinerary.enrichedItinerary },
+
+
+     const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary object here
       { adults, children, childrenAges, totalRooms }
     );
-    // Save the updated itinerary
-    await Itinerary.findByIdAndUpdate(
+
+    // Save the updated itinerary with new details
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary: itinerary.enrichedItinerary },
       {
-        new: true,
-        lean: true,
-        changedBy: {
-          userId: req.user.userId // Use req.user.userId directly for tracking the change
-        },
-        comment: req.comment
-      }
+        ...itineraryWithNewDetails,
+        comment: req.comment,
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
     );
+
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
 
     // Call middleware to calculate the total price
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Transport mode changed and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Transport mode changed and price updated successfully', true));
     });
+    
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
 
-
 export const replaceFlightInItinerary = async (req, res) => {
   const { itineraryId, modeDetailsId } = req.params; // Get itinerary and flight ID (oldFlightId)
   const { selectedFlight } = req.body; // New flight details from the frontend
 
-
+  // Find the cities for the new flight
   const departureCity = await City.findOne({ name: selectedFlight.segments[0].from });
   const arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
 
   if (!departureCity || !arrivalCity) {
     return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
   }
-
 
   try {
     // Fetch the itinerary
@@ -1770,18 +1897,12 @@ export const replaceFlightInItinerary = async (req, res) => {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
-    // Prepare baggageIncluded based on the presence of baggage details
+    // Prepare baggageIncluded and baggageDetails
     const baggageIncluded = selectedFlight.segments.some(segment => segment.baggage && segment.baggage.length > 0);
-
-    // Convert the baggage details to fit the schema structure
     const baggageDetails = {
       cabinBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
       checkedBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0,
     };
-
-
-
-
 
     // Create the new flight
     const newFlight = new Flight({
@@ -1794,15 +1915,11 @@ export const replaceFlightInItinerary = async (req, res) => {
       airline: selectedFlight.airline,
       departureDate: new Date(selectedFlight.departureDate),
       flightSegments: selectedFlight.segments.map(segment => {
-        // Combine the departureDate with departureTime and arrivalTime to create a full date-time
         const departureDateTimeString = `${selectedFlight.departureDate} ${segment.departureTime}`;
         const arrivalDateTimeString = `${selectedFlight.departureDate} ${segment.arrivalTime}`;
-
-        // Create valid Date objects
         const departureTime = new Date(departureDateTimeString);
         const arrivalTime = new Date(arrivalDateTimeString);
 
-        // Validate that the dates are valid
         if (isNaN(departureTime.getTime()) || isNaN(arrivalTime.getTime())) {
           throw new Error("Invalid date format for departure or arrival time");
         }
@@ -1810,33 +1927,38 @@ export const replaceFlightInItinerary = async (req, res) => {
         return {
           departureTime,
           arrivalTime,
-          flightNumber: segment.flightNumber, // Keep it as a string
+          flightNumber: segment.flightNumber,
         };
       }),
     });
 
-    // Save the new flight to the DB
+    // Save the new flight
     const savedFlight = await newFlight.save();
 
-    // Replace the old flight in the itinerary with the new one
-    let flightReplaced = false; // To track if the flight was replaced
-
+    // Replace the old domestic flight in the itinerary (in itinerary.enrichedItinerary.itinerary)
+    let flightReplaced = false;
+    
+    // Check for domestic flights and replace the old flight
     itinerary.enrichedItinerary.itinerary.forEach(city => {
       if (city.transport && city.transport.modeDetails && city.transport.modeDetails.toString() === modeDetailsId) {
-        city.transport.modeDetails = savedFlight._id;
+        city.transport.modeDetails = savedFlight._id; // Replace with new flight ID
+        flightReplaced = true;
+      }
+    });
+
+    // Check for international flights and replace the old flight
+    itinerary.enrichedItinerary.internationalFlights.forEach((flightId, index) => {
+      if (flightId.toString() === modeDetailsId) {
+        itinerary.enrichedItinerary.internationalFlights[index] = savedFlight._id; // Replace with new flight ID
         flightReplaced = true;
       }
     });
 
     if (!flightReplaced) {
-      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Old flight not found in itinerary', false));
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Flight not found in itinerary', false));
     }
 
-
-    // Delete the old flight from the Flight table
-    await Flight.findByIdAndDelete(modeDetailsId);
-
-    // Save the updated itinerary, including 'changedBy' for tracking purposes
+    // Save the updated itinerary
     await Itinerary.findByIdAndUpdate(
       itineraryId,
       { enrichedItinerary: itinerary.enrichedItinerary },
@@ -1844,20 +1966,29 @@ export const replaceFlightInItinerary = async (req, res) => {
         new: true,
         lean: true,
         changedBy: {
-          userId: req.user.userId // Use req.user.userId directly for tracking the change
+          userId: req.user.userId // Track who changed the flight
         },
         comment: req.comment
       }
     );
 
+    const sanitizedItinerary = {
+      ...itinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
     await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Flight replaced and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Flight replaced successfully', true));
     });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 
 export const replaceHotelInItinerary = async (req, res) => {
@@ -1953,9 +2084,18 @@ export const replaceHotelInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json({ message: 'Updated itinerary not found' });
     }
 
+    const sanitizedItinerary = {
+      ...itinerary,
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
     await calculateTotalPriceMiddleware(req, res, async () => {
       // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary: itinerary.enrichedItinerary }, 'Hotel replaced and price updated successfully', true));
+      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Hotel replaced and price updated successfully', true));
     });
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
@@ -2767,23 +2907,44 @@ export const replaceCityInItinerary = async (req, res) => {
     const startDay = new Date(itinerary.enrichedItinerary.itinerary[0].days[0]?.date || new Date());
     const finalItinerary = addDatesToItinerary(itinerary.enrichedItinerary, startDay);
 
-    const enrichedItinerary = await refetchFlightAndHotelDetails(
-      { enrichedItinerary: finalItinerary },
+    itinerary.enrichedItinerary = finalItinerary;
+
+    const itineraryWithNewDetails = await refetchFlightAndHotelDetails(
+      itinerary, // Pass the entire itinerary object here
       { adults, children, childrenAges, totalRooms }
     );
 
-    await Itinerary.findByIdAndUpdate(
+    // Save the updated itinerary with new details
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary },
       {
-        new: true,
-        lean: true,
-        changedBy: { userId: req.user.userId },
+        ...itineraryWithNewDetails,
         comment: req.comment,
-      }
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
     );
 
-    res.status(StatusCodes.OK).json(httpFormatter({ enrichedItinerary }, 'City replaced successfully', true));
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
+
+    await calculateTotalPriceMiddleware(req, res, async () => {
+      res.status(StatusCodes.OK).json(
+        httpFormatter(
+          { itinerary: sanitizedItinerary },
+          'City replaced successfully',
+          true
+        )
+      );
+    });
+
   } catch (error) {
     logger.error('Error replacing city in itinerary:', error);
     return res
@@ -3041,38 +3202,44 @@ export const updateItineraryDetails = async (req, res) => {
       itinerary.travellingWith = travellingWith;
     }
 
+    itinerary.enrichedItinerary = enrichedItinerary;
+    
+    let finalItinerary;
     // Refetch travel and accommodation details if necessary
     if (enrichedItineraryNeedsUpdate) {
-      enrichedItinerary = await refetchFlightAndHotelDetails(
-        { enrichedItinerary },
+       finalItinerary = await refetchFlightAndHotelDetails(
+        { itinerary },
         { adults, children, childrenAges, totalRooms }
       );
     }
 
+
     // Save the updated itinerary, including tracking details
-    await Itinerary.findByIdAndUpdate(
+    const updatedItinerary = await Itinerary.findByIdAndUpdate(
       itineraryId,
       {
-        enrichedItinerary,
-        adults,
-        children,
-        childrenAges,
-        rooms: rooms || itinerary.rooms, // Keep old rooms if not updated
-        ...(travellingWith ? { travellingWith } : {}), // Update travellingWith only if provided
-      },
-      {
-        new: true,
-        lean: true,
-        changedBy: { userId: req.user.userId },
+        ...finalItinerary,
         comment: req.comment,
-      }
+        changedBy: { userId: req.user.userId },
+      },
+      { new: true }
     );
+
+
+    const sanitizedItinerary = {
+      ...updatedItinerary.toObject(),
+      totalHotelsPrice: undefined,
+      totalFlightsPrice: undefined,
+      internationalTotalFlightsPrice: undefined,
+      totalTaxisPrice: undefined,
+      totalFerriesPrice: undefined,
+    };
 
     // Recalculate the total price after all updates
     await calculateTotalPriceMiddleware(req, res, async () => {
       res.status(StatusCodes.OK).json(
         httpFormatter(
-          { enrichedItinerary },
+          { itinerary: sanitizedItinerary },
           'Itinerary updated successfully',
           true
         )

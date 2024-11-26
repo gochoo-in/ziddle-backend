@@ -13,13 +13,13 @@ export const getAllInternationalAirportCities = async (req, res) => {
 
 // Add a new Indian City
 export const addInternationalAirportCity = async (req, res) => {
-  const { name, imageUrl, country, iataCode } = req.body;
-  if (!name || !country || !iataCode) {
+  const { name, imageUrl, country, iataCode, countryCode, mobileCode, currency } = req.body;
+  if (!name || !country || !iataCode || !countryCode || !mobileCode || !currency) {
     return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Name, iata code and country are required', false));
   }
 
   try {
-    const newCity = new InternationalAirportCity({ name, imageUrl, country, iataCode });
+    const newCity = new InternationalAirportCity({ name, imageUrl, country, iataCode, countryCode, mobileCode, currency });
     await newCity.save();
     res.status(201).json(newCity);
   } catch (error) {

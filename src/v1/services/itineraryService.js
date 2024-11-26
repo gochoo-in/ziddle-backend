@@ -55,17 +55,24 @@ export const addDaysToCityService = async (itinerary, cityIndex, additionalDays)
 export const refetchFlightAndHotelDetails = async (itinerary, requestData) => {
   const { adults, children, childrenAges, rooms } = requestData;
 
-  if (!itinerary || !itinerary.enrichedItinerary || !itinerary.enrichedItinerary.itinerary) {
-    throw new Error('Itinerary or enrichedItinerary is not properly defined.');
+  // Normalize itinerary structure
+  let normalizedItinerary = itinerary.itinerary || itinerary;
+
+  // Access the enriched itinerary
+  let enrichedItinerary = normalizedItinerary.enrichedItinerary;
+
+  if (!enrichedItinerary) {
+    throw new Error('Missing enriched itinerary in the provided itinerary data');
   }
 
-  itinerary=itinerary.enrichedItinerary
-  
-  const { departureCity, arrivalCity} = itinerary;
-  console.log(itinerary)
-  console.log(departureCity, arrivalCity)
+  const { departureCity, arrivalCity } = enrichedItinerary;
+
+  if (!departureCity || !arrivalCity) {
+    throw new Error('Missing departure or arrival city in the enriched itinerary');
+  }
+
   // Fetch IATA codes from the City database
-  const cityNames = itinerary.itinerary.map(city => city.currentCity);
+  const cityNames = enrichedItinerary.itinerary.map((city) => city.currentCity);
 
   // Find all city details in one go based on city names
   const cityDetails = await City.find({ name: { $in: cityNames } });
@@ -73,41 +80,59 @@ export const refetchFlightAndHotelDetails = async (itinerary, requestData) => {
   if (cityDetails.length === 0) {
     throw new Error('No city details found for the itinerary');
   }
-  await deleteOldDetails(itinerary);
+
+  // Delete old details
+  await deleteOldDetails(enrichedItinerary);
+
   // Refetch flight details
-  const itineraryWithFlights = await addFlightDetailsToItinerary(
-    itinerary,
+  enrichedItinerary = await addFlightDetailsToItinerary(
+    enrichedItinerary,
     adults,
     children,
     childrenAges,
-    cityDetails// Use the cities with fetched IATA codes
+    cityDetails // Use the cities with fetched IATA codes
   );
 
   // Refetch taxi details
-  const itineraryWithTaxi = await addTaxiDetailsToItinerary(itineraryWithFlights);
-  const itineraryWithFerry = await addFerryDetailsToItinerary(itineraryWithTaxi);
+  enrichedItinerary = await addTaxiDetailsToItinerary(enrichedItinerary);
+  enrichedItinerary = await addFerryDetailsToItinerary(enrichedItinerary);
+
   // Refetch hotel details
-  let itineraryWithHotels = await addHotelDetailsToItinerary(itineraryWithFerry, adults, childrenAges, rooms);
+  enrichedItinerary = await addHotelDetailsToItinerary(enrichedItinerary, adults, childrenAges, rooms);
 
-  console.log("hatt", itinerary)
+  let updatedItinerary = normalizedItinerary;
+  console.log(normalizedItinerary.internationalFlights)
+  // Update international flights
+  if(normalizedItinerary.internationalFlights && normalizedItinerary.internationalFlights.length>0){
+     updatedItinerary = await updateInternationalFlights(normalizedItinerary, requestData, cityDetails, departureCity, arrivalCity);
+  }
 
-  
-    itineraryWithHotels = await updateInternationalFlights(itineraryWithHotels, requestData, cityDetails, departureCity, arrivalCity);
-  return itineraryWithHotels;
+
+  // Assign the updated enrichedItinerary back to the main itinerary
+  updatedItinerary.enrichedItinerary = enrichedItinerary;
+
+
+  return updatedItinerary; // Return the full itinerary with updated enrichedItinerary
 };
 
-const updateInternationalFlights = async (itinerary, requestData, cityDetails, departureCity, arrivalCity) => {
-  console.log("called")
+export const updateInternationalFlights = async (itinerary, requestData, cityDetails, departureCity, arrivalCity) => {
   const { adults, children, childrenAges } = requestData;
 
-  console.log(departureCity, arrivalCity)
+  // Normalize itinerary structure
+  const normalizedItinerary = itinerary.itinerary || itinerary;
+
+  const enrichedItinerary = normalizedItinerary.enrichedItinerary;
+
+  if (!enrichedItinerary || !enrichedItinerary.itinerary) {
+    throw new Error('Missing enriched itinerary data in the provided itinerary');
+  }
 
   const departureCityData = await InternationalAirportCity.findOne({ name: departureCity });
   const arrivalCityData = await InternationalAirportCity.findOne({ name: arrivalCity });
 
   // Extract first and last city details
-  const firstCity = itinerary.itinerary[0];
-  const lastCity = itinerary.itinerary.at(-1);
+  const firstCity = enrichedItinerary.itinerary[0];
+  const lastCity = enrichedItinerary.itinerary.at(-1);
 
   const firstCityData = cityDetails.find(city => city.name === firstCity.currentCity);
   const lastCityData = cityDetails.find(city => city.name === lastCity.currentCity);
@@ -119,8 +144,9 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
   const firstCityNearbyAirport = firstCityData.nearbyInternationalAirportCity;
   const lastCityNearbyAirport = lastCityData.nearbyInternationalAirportCity;
 
-  const firstCityDate = firstCity.days[0].date; // First city's first day date
-  const lastCityDate = lastCity.days.at(-1).date; // Last city's last day date
+  const firstCityDate = moment(firstCity.days[0].date).format('YYYY-MM-DD'); // First city's first day date
+  const lastCityDate = moment(lastCity.days.at(-1).date).format('YYYY-MM-DD'); // Last city's last day date
+
   const cityIATACodesToFirst = [
     { name: departureCity, iataCode: departureCityData.iataCode },
     { name: firstCityNearbyAirport.name, iataCode: firstCityNearbyAirport.iataCode },
@@ -140,7 +166,7 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
     childrenAges,
     cityIATACodesToFirst
   );
-  console.log(lastCityDate)
+
   const nextTravelDate = moment(lastCityDate).add(1, 'days').format('YYYY-MM-DD');
 
   const flightsToArrival = await fetchFlightDetails(
@@ -156,23 +182,25 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
   // Initialize an array to store international flight IDs
   let internationalFlightIds = [];
 
-  // Find and save the cheapest flights
-  const cheapestFlightToFirstNearby =
-          flightsToFirstNearby.length > 0
-            ? flightsToFirstNearby.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
-            : null;
-    
-        const cheapestFlightToArrival =
-          flightsToArrival.length > 0
-            ? flightsToArrival.reduce((prev, curr) => (prev.price < curr.price ? prev : curr))
-            : null;
+  // Find and save the cheapest flights if available
+  let cheapestFlightToFirstNearby = null;
+  let cheapestFlightToArrival = null;
 
+  if (flightsToFirstNearby && flightsToFirstNearby.length > 0) {
+    cheapestFlightToFirstNearby = flightsToFirstNearby.reduce((prev, curr) => (prev.price < curr.price ? prev : curr), {});
+  }
+
+  if (flightsToArrival && flightsToArrival.length > 0) {
+    cheapestFlightToArrival = flightsToArrival.reduce((prev, curr) => (prev.price < curr.price ? prev : curr), {});
+  }
+
+  // If no flight found for the first nearby city
   if (cheapestFlightToFirstNearby) {
     const flightToFirstNearbyDetails = await new Flight({
       departureCityId: departureCityData._id,
       arrivalCityId: firstCityData._id,
       cityModelType: 'InternationalAirportCity',
-      baggageIncluded: cheapestFlightToFirstNearby.flightSegments.some(
+      baggageIncluded: cheapestFlightToFirstNearby.flightSegments?.some(
         segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'
       ),
       baggageDetails: {
@@ -192,18 +220,17 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
     }).save();
 
     internationalFlightIds.push(flightToFirstNearbyDetails._id);
+  } else {
+    logger.error('No flights found for the first nearby city.', error);
   }
-  console.log("cheapestFlightToFirstNearby", cheapestFlightToFirstNearby)
 
-
+  // If no flight found for the arrival city
   if (cheapestFlightToArrival) {
-    const date = new Date(cheapestFlightToArrival.flightSegments[0]?.departureTime);
-    const newDate = date.toLocaleDateString("default")
     const flightToArrivalDetails = await new Flight({
       departureCityId: lastCityData._id,
       arrivalCityId: arrivalCityData._id,
       cityModelType: 'InternationalAirportCity',
-      baggageIncluded: cheapestFlightToArrival.flightSegments.some(
+      baggageIncluded: cheapestFlightToArrival.flightSegments?.some(
         segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'
       ),
       baggageDetails: {
@@ -213,7 +240,7 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
       price: cheapestFlightToArrival.price,
       currency: cheapestFlightToArrival.currency || 'INR',
       airline: cheapestFlightToArrival.airline,
-      departureDate: newDate || null,
+      departureDate: cheapestFlightToArrival.flightSegments[0]?.departureTime || null,
       flightSegments: cheapestFlightToArrival.flightSegments.map(segment => ({
         img: segment.img || null,
         departureTime: segment.departureTime,
@@ -223,16 +250,15 @@ const updateInternationalFlights = async (itinerary, requestData, cityDetails, d
     }).save();
 
     internationalFlightIds.push(flightToArrivalDetails._id);
+  } else {
+    logger.error('No flights found for the arrival city.', error);
   }
-  console.log("cheapestFlightToArrival", cheapestFlightToArrival)
-  console.log("internationalFlightIds", internationalFlightIds)
 
-  // Update the internationalFlights field in the itinerary
-  itinerary.internationalFlights = internationalFlightIds;
+  // Update the internationalFlights field in the normalized itinerary
+  normalizedItinerary.internationalFlights = internationalFlightIds;
 
-  return itinerary;
+  return normalizedItinerary;
 };
-
 
 
 const deleteOldDetails = async (itinerary) => {
@@ -256,6 +282,19 @@ const deleteOldDetails = async (itinerary) => {
       await Hotel.findByIdAndDelete(city.hotelDetails);
       city.hotelDetails = null; // Reset the field
     }
+  }
+  if (itinerary.internationalFlights && Array.isArray(itinerary.internationalFlights)) {
+    for (const flightId of itinerary.internationalFlights) {
+      try {
+        // Delete the flight document by its ID
+        await Flight.findByIdAndDelete(flightId);
+      } catch (error) {
+        console.error(`Error deleting international flight with ID: ${flightId}`, error);
+      }
+    }
+
+    // Clear the internationalFlights field from the itinerary
+    itinerary.internationalFlights = [];
   }
 };
 

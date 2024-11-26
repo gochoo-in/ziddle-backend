@@ -43,11 +43,25 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     let totalFerriesPrice = 0;
     let totalHotelsPrice = 0;
     let totalActivitiesPrice = 0;
+    let internationalTotalFlightsPrice = 0; 
 
     // Fetch settings to access markup values and service fee
     const settings = await Settings.findOne();
     if (!settings) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
+    }
+
+    if (itinerary.internationalFlights && Array.isArray(itinerary.internationalFlights) && itinerary.internationalFlights.length > 0) {
+      // Fetch the international flight details from the database
+      const internationalFlights = await Flight.find({ '_id': { $in: itinerary.internationalFlights } });
+      for (const flight of internationalFlights) {
+        if (flight.price) {
+          // Add flight price to internationalTotalFlightsPrice
+          internationalTotalFlightsPrice += parseFloat(flight.price);
+          totalPrice += parseFloat(flight.price);
+          price += parseFloat(flight.price);
+        }
+      }
     }
 
     // Calculate transport prices
@@ -271,6 +285,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
     itinerary.totalFerriesPrice = totalFerriesPrice.toFixed(2);
     itinerary.totalHotelsPrice = totalHotelsPrice.toFixed(2);
     itinerary.totalActivitiesPrice = totalActivitiesPrice.toFixed(2);
+    itinerary.internationalTotalFlightsPrice = internationalTotalFlightsPrice.toFixed(2); 
     itinerary.tax = tax.toFixed(2);
 
 
