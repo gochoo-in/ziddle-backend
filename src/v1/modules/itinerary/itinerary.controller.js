@@ -432,21 +432,26 @@ export const createItinerary = async (req, res) => {
     let totalFerriesPrice = 0;
     let totalHotelsPrice = 0;
     let totalActivitiesPrice = 0;
+    
+    // Fetch settings
     const settings = await Settings.findOne();
     if (!settings) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
+    
+    // Add international flights price first
     totalPrice += internationalFlightsPrice;
     priceWithoutCoupon += internationalFlightsPrice;
+    
     for (const city of enrichedItinerary.itinerary) {
       let transferPrice = 0;
       let transferPriceWithoutCoupon = 0;
-
+    
       if (city.transport && city.transport.mode && city.transport.modeDetails) {
         const modeId = city.transport.modeDetails;
         const mode = city.transport.mode;
         let modeDetails = null;
-
+    
         // Handling different transport modes with respective markups
         if (mode === 'Flight') {
           modeDetails = await Flight.findById(modeId);
@@ -456,22 +461,25 @@ export const createItinerary = async (req, res) => {
             totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100);
             transferPrice += transferPrice * (settings.flightMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
-
-            // Apply flight markup
-
-            if (discount && discount.discountType != null) {
+    
+            // Apply discount if applicable (combine domestic flights with international flights)
+            if (discount && discount.discountType !== null) {
               if (discount.discountType === 'couponless' && discount.applicableOn.flights === true) {
+                let combinedFlightPrice = internationalFlightsPrice + transferPrice; // Combine international and domestic flights
                 let response = await applyDiscountFunction({
                   discountId: discount._id,
                   userId: userId,
-                  totalAmount: transferPrice
+                  totalAmount: combinedFlightPrice
                 });
+    
+                // Apply the discount to the transferPrice after combining with international flights
                 transferPrice -= response.discountAmount ?? 0;
               }
             }
-
           }
-        } if (mode === 'Car') {
+        } 
+    
+        if (mode === 'Car') {
           modeDetails = await Taxi.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
@@ -479,25 +487,28 @@ export const createItinerary = async (req, res) => {
             price += transferPrice;
             // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
-            transferPriceWithoutCoupon = transferPrice
+            transferPriceWithoutCoupon = transferPrice;
           }
-        } if (mode === 'Ferry') {
+        } 
+    
+        if (mode === 'Ferry') {
           modeDetails = await Ferry.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
             totalFerriesPrice += transferPrice * (1 + settings.ferryMarkup / 100);
             price += transferPrice;
-
+    
             // Apply ferry markup
             transferPrice += transferPrice * (settings.ferryMarkup / 100);
-            transferPriceWithoutCoupon = transferPrice
+            transferPriceWithoutCoupon = transferPrice;
           }
         }
       }
-
+    
       totalPrice += transferPrice;
       priceWithoutCoupon += transferPriceWithoutCoupon;
     }
+        
 
     // Add hotel prices if available
     for (const city of enrichedItinerary.itinerary) {
@@ -636,9 +647,6 @@ export const createItinerary = async (req, res) => {
 
     const sanitizedItinerary = {
       ...newItinerary.toObject(),
-      totalHotelsPrice: undefined,
-      totalFlightsPrice: undefined,
-      internationalTotalFlightsPrice: undefined,
       totalTaxisPrice: undefined,
       totalFerriesPrice: undefined,
     };
@@ -732,9 +740,9 @@ export const getItineraryDetails = async (req, res) => {
     await itinerary.save();
 
     // Send the sanitized itinerary in the response
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Itinerary details updated and retrieved successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Itinerary details and price updated successfully', true));
 
   } catch (error) {
     console.error('Error retrieving itinerary details:', error);
@@ -1049,10 +1057,9 @@ export const addDaysToCity = async (req, res) => {
       totalFerriesPrice: undefined,
     };
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Days added and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Days added and price updated successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
@@ -1136,10 +1143,9 @@ export const deleteDaysFromCity = async (req, res) => {
       totalFerriesPrice: undefined,
     };
     // Send back the cleaned enrichedItinerary field
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Days deleted and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Days deleted and price updated successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, error.message, false));
   }
@@ -1394,10 +1400,9 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     };
 
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'City added and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'City added and price updated successfully', true));
   } catch (error) {
     console.error('Error adding city to itinerary:', error);
     return res
@@ -1574,10 +1579,9 @@ export const deleteCityFromItinerary = async (req, res) => {
       totalFerriesPrice: undefined,
     };
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'City deleted and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'City deleted and price updated successfully', true));
   } catch (error) {
     res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -1708,10 +1712,9 @@ export const replaceActivityInItinerary = async (req, res) => {
 
 
     // Call the price calculation middleware
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Activity replaced and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Activity replaced and price updated successfully', true));
 
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
@@ -1795,9 +1798,9 @@ export const deleteActivityInItinerary = async (req, res) => {
 
 
     // Call the price calculation middleware and send the response
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Activity deleted and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Activity deleted and price updated successfully', true));
 
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
@@ -1862,10 +1865,9 @@ export const changeTransportModeInCity = async (req, res) => {
     };
 
     // Call middleware to calculate the total price
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Transport mode changed and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Transport mode changed and price updated successfully', true));
     
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
@@ -1981,9 +1983,9 @@ export const replaceFlightInItinerary = async (req, res) => {
       totalFerriesPrice: undefined,
     };
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Flight replaced successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Flight replaced and price updated successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -2093,10 +2095,9 @@ export const replaceHotelInItinerary = async (req, res) => {
       totalFerriesPrice: undefined,
     };
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      // Respond after price calculation
-      res.status(StatusCodes.OK).json(httpFormatter({ itinerary: sanitizedItinerary }, 'Hotel replaced and price updated successfully', true));
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Hotel replaced and price updated successfully', true));
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
@@ -2935,15 +2936,9 @@ export const replaceCityInItinerary = async (req, res) => {
       totalFerriesPrice: undefined,
     };
 
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(
-        httpFormatter(
-          { itinerary: sanitizedItinerary },
-          'City replaced successfully',
-          true
-        )
-      );
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'City replaced and price updated successfully', true));
 
   } catch (error) {
     logger.error('Error replacing city in itinerary:', error);
@@ -3236,15 +3231,9 @@ export const updateItineraryDetails = async (req, res) => {
     };
 
     // Recalculate the total price after all updates
-    await calculateTotalPriceMiddleware(req, res, async () => {
-      res.status(StatusCodes.OK).json(
-        httpFormatter(
-          { itinerary: sanitizedItinerary },
-          'Itinerary updated successfully',
-          true
-        )
-      );
-    });
+    const itineraryWithCalculatedPrices = await calculateTotalPriceMiddleware(req, res);
+
+    res.status(StatusCodes.OK).json(httpFormatter({ itinerary: itineraryWithCalculatedPrices }, 'Itinerary and price updated successfully', true));
   } catch (error) {
     console.error('Error updating itinerary details:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal Server Error', false));

@@ -51,52 +51,38 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Settings not found', false));
     }
 
-    if (itinerary.internationalFlights && Array.isArray(itinerary.internationalFlights) && itinerary.internationalFlights.length > 0) {
-      // Fetch the international flight details from the database
+    if (itinerary.internationalFlights && itinerary.internationalFlights.length > 0) {
       const internationalFlights = await Flight.find({ '_id': { $in: itinerary.internationalFlights } });
       for (const flight of internationalFlights) {
         if (flight.price) {
-          // Add flight price to internationalTotalFlightsPrice
-          internationalTotalFlightsPrice += parseFloat(flight.price);
-          totalPrice += parseFloat(flight.price);
-          price += parseFloat(flight.price);
+          const flightPrice = parseFloat(flight.price);
+          internationalTotalFlightsPrice += flightPrice;
+          totalPrice += flightPrice; // Add to totalPrice
+          priceWithoutCoupon += flightPrice; // Add to priceWithoutCoupon
         }
       }
     }
-
-    // Calculate transport prices
+    
+    // Calculate transport prices (including domestic flights) and add to priceWithoutCoupon
+    let domesticFlightsPrice = 0;
     for (const city of itinerary.enrichedItinerary.itinerary) {
       let transferPrice = 0;
       let transferPriceWithoutCoupon = 0;
-
+    
       if (city.transport && city.transport.mode && city.transport.modeDetails) {
         const modeId = city.transport.modeDetails;
         const mode = city.transport.mode;
         let modeDetails = null;
-
+    
         // Handling different transport modes with respective markups
         if (mode === 'Flight') {
           modeDetails = await Flight.findById(modeId);
           if (modeDetails && modeDetails.price) {
             transferPrice = parseFloat(modeDetails.price);
-            totalFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100); // Include markup
+            domesticFlightsPrice += transferPrice * (1 + settings.flightMarkup / 100); // Include markup
             price += transferPrice;
             transferPrice += transferPrice * (settings.flightMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
-
-            // Apply flight markup
-            if (discount && discount.discountType != null) {
-              if (discount.discountType === 'couponless' && discount.applicableOn.flights === true) {
-                let response = await applyDiscountFunction({
-                  discountId: discount._id,
-                  userId: userId,
-                  totalAmount: transferPrice
-                });
-                if(response.discountAmount){
-                  transferPrice -= response.discountAmount
-                }
-              }
-            }
           }
         } else if (mode === 'Car') {
           modeDetails = await Taxi.findById(modeId);
@@ -104,7 +90,6 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             transferPrice = parseFloat(modeDetails.price);
             totalTaxisPrice += transferPrice * (1 + settings.taxiMarkup / 100); // Include markup
             price += transferPrice;
-            // Apply taxi markup
             transferPrice += transferPrice * (settings.taxiMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
           }
@@ -114,92 +99,75 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
             transferPrice = parseFloat(modeDetails.price);
             totalFerriesPrice += transferPrice * (1 + settings.ferryMarkup / 100); // Include markup
             price += transferPrice;
-            // Apply ferry markup
             transferPrice += transferPrice * (settings.ferryMarkup / 100);
             transferPriceWithoutCoupon = transferPrice;
           }
         }
       }
-
+    
       totalPrice += transferPrice;
       priceWithoutCoupon += transferPriceWithoutCoupon;
     }
-
-    // Calculate hotel prices for each city
-
-    const rooms = itinerary.rooms.length;
+    
+    // Calculate total flight price (domestic + international) and apply discount
+    const totalFlightPrice = internationalTotalFlightsPrice + domesticFlightsPrice;
+    
+    if (discount && discount.discountType === 'couponless' && discount.applicableOn.flights) {
+      const response = await applyDiscountFunction({
+        discountId: discount._id,
+        userId: userId,
+        totalAmount: totalFlightPrice
+      });
+      if (response.discountAmount) {
+        const discountAmount = response.discountAmount;
+        totalPrice  -= discountAmount; 
+      } 
+    }
+    const rooms = itinerary.rooms;
     for (const city of itinerary.enrichedItinerary.itinerary) {
-
-      // Fetch hotel details from the hotel table if hotelDetails is an ObjectId
       let hotelPrice = 0;
-      if (city.hotelDetails && typeof city.hotelDetails === 'object') {
-        const hotel = await Hotel.findById(city.hotelDetails); // Assuming 'Hotel' is the model for the hotel table
+    
+      // Check if hotelDetails is not null (it should be a string (ID) or null)
+      if (city.hotelDetails) {
+        const hotel = await Hotel.findById(city.hotelDetails); // Fetch the hotel by ID
         if (hotel && hotel.price) {
-          hotelPrice = parseFloat(hotel.price) * rooms.length;
+          hotelPrice = parseFloat(hotel.price) * rooms.length; // Assuming 'rooms' is an array with room count
         }
-      } else if (city.hotelDetails && city.hotelDetails.price) {
-        hotelPrice = parseFloat(city.hotelDetails.price) * rooms.length;
       }
-
+    
+      // If hotelPrice is greater than 0, add it to the total prices
       if (hotelPrice > 0) {
-        totalHotelsPrice += hotelPrice * (1 + settings.stayMarkup / 100);
-        logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
-        priceWithoutCoupon += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
-
-        price += hotelPrice;
-        if (discount && discount.discountType != null) {
+        // Apply markup to hotel price
+        const hotelPriceWithMarkup = hotelPrice * (1 + settings.stayMarkup / 100);
+        totalHotelsPrice += hotelPriceWithMarkup; // Add hotel price with markup to totalHotelsPrice
+        priceWithoutCoupon += hotelPrice + hotelPriceWithMarkup; // Add base price + markup to priceWithoutCoupon
+    
+        // Log the hotel price without coupon
+        logger.info(`Added hotel cost for city ${city.currentCity}: ${hotelPrice}, Total Price Now (without coupon): ${priceWithoutCoupon}`);
+    
+        price += hotelPrice; // Add the base price to price (this is before discount application)
+    
+        // Apply discount if applicable
+        if (discount && discount.discountType !== null) {
           if (discount.discountType === 'couponless' && discount.applicableOn.hotels === true) {
             let response = await applyDiscountFunction({
               discountId: discount._id,
               userId: userId,
               totalAmount: hotelPrice,
             });
-            if(response.discountAmount){
-              hotelPrice -= response.discountAmount;
+            if (response.discountAmount) {
+              hotelPrice -= response.discountAmount; // Apply discount to hotel price
             }
           }
         }
-
-        totalPrice += hotelPrice + (hotelPrice * (settings.stayMarkup / 100));
-        logger.info(`Added hotel cost for city with markup ${city.currentCity}: ${hotelPrice}, Total Price Now: ${totalPrice}`);
+    
+        // Add final hotel price (with discount and markup) to totalPrice
+        totalPrice += hotelPrice + hotelPriceWithMarkup; // Add hotel price with discount and markup to totalPrice
+        logger.info(`Added hotel cost for city ${city.currentCity} with markup and discount: ${hotelPrice + hotelPriceWithMarkup}, Total Price Now: ${totalPrice}`);
       }
     }
+    
 
-    // Calculate activity prices
-    const activityPricesPromises = itinerary.enrichedItinerary.itinerary.flatMap(city =>
-      city.days.flatMap(day =>
-        day.activities.map(async (activityId) => {
-          const gptActivity = await GptActivity.findById(activityId);
-          if (gptActivity) {
-            const originalActivity = await Activity.findOne({ name: gptActivity.name });
-            if (originalActivity && originalActivity.price) {
-              const activityPricePerPerson = parseFloat(originalActivity.price);
-              let totalActivityPrice = activityPricePerPerson * (adults + children);
-
-              // Apply discount logic if applicable
-              if (discount && discount.discountType != null) {
-                if (discount.discountType === 'couponless' && discount.applicableOn.activities) {
-                  const response = await applyDiscountFunction({
-                    discountId: discount._id,
-                    userId: userId,
-                    totalAmount: totalActivityPrice
-                  });
-                  if(response.discountAmount){
-                    totalActivityPrice -= response.discountAmount
-                  }
-                }
-              }
-
-              return isNaN(totalActivityPrice) ? 0 : totalActivityPrice;
-            } else {
-              logger.info(`No price found for activity with ID ${activityId} in city ${city.currentCity}`);
-              return 0;
-            }
-          }
-          return 0;
-        })
-      )
-    );
 
     const activityPricesPromisesWithoutCoupon = itinerary.enrichedItinerary.itinerary.flatMap(city =>
       city.days.flatMap(day =>
@@ -302,7 +270,7 @@ export const calculateTotalPriceMiddleware = async (req, res, next) => {
       }
     }
     await itinerary.save();
-    next();
+    return itinerary;
   } catch (error) {
     console.error('Error calculating total price:', error);
     res.status(500).json({ message: 'Error calculating total price', error });
