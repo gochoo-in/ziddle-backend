@@ -95,7 +95,7 @@ describe("Profiles API Tests", () => {
   it("should update the user's profile", async () => {
     const url = `${BASE_URL}/profile/${userId}`;
     const options = {
-      method: "PATCH",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${testUserToken}`,
         "Content-Type": "application/json",
