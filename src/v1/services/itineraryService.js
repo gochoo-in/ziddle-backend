@@ -11,6 +11,8 @@ import Taxi from '../models/taxi.js'
 import Hotel from '../models/hotel.js'
 import moment from 'moment';
 import InternationalAirportCity from '../models/internationalAirportCity.js';
+import logger from '../../config/logger.js';
+
 export const addDaysToCityService = async (itinerary, cityIndex, additionalDays) => {
   if (!itinerary || !itinerary.enrichedItinerary || !itinerary.enrichedItinerary.itinerary) {
     throw new Error('Itinerary or enrichedItinerary is not properly defined.');
@@ -221,7 +223,7 @@ export const updateInternationalFlights = async (itinerary, requestData, cityDet
 
     internationalFlightIds.push(flightToFirstNearbyDetails._id);
   } else {
-    logger.error('No flights found for the first nearby city.', error);
+    logger.error('No flights found for the first nearby city.');
   }
 
   // If no flight found for the arrival city
