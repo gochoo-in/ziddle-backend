@@ -1,8 +1,7 @@
 import express from 'express';
 import { 
-    addProfileDetails, 
+    upsertProfileDetails, 
     getProfileById, 
-    updateProfileDetails, 
     deleteProfile,
     upsertCommunicationPreferences,
     getCommunicationPreferences,
@@ -16,9 +15,8 @@ import { verifyToken } from '../../../utils/token.js';
 
 const router = express.Router();
 
-router.post('/:userId', verifyToken, addProfileDetails);
+router.post('/:userId', verifyToken, upsertProfileDetails);
 router.get('/:userId', getProfileById);
-router.patch('/:userId', verifyToken, updateProfileDetails);
 router.delete('/:userId', verifyToken, deleteProfile);
 router.get('/:userId/getCommunicationPreferences', getCommunicationPreferences)
 router.post('/:userId/communicationPreferences', verifyToken, upsertCommunicationPreferences);

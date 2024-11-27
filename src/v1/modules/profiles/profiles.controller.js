@@ -93,10 +93,10 @@ export const getCommunicationPreferences = async (req, res) => {
     }
 };
 
-export const addProfileDetails = async (req, res) => {
+export const upsertProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { preferredLanguage, address, profilePhoto } = req.body;
+        const { preferredLanguage, address, profilePhoto, fullName, email, phoneNumber } = req.body;
 
         if (req.user.userId !== userId) {
             return res.status(StatusCodes.FORBIDDEN).json(
@@ -104,8 +104,8 @@ export const addProfileDetails = async (req, res) => {
             );
         }
 
-        if (!address || !address.line1 || !address.pincode) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
+        if (address && (!address.line1 || !address.pincode)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing in the address', false));
         }
 
         const userExists = await User.findById(userId);
@@ -113,22 +113,46 @@ export const addProfileDetails = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
         }
 
-        // Use fullName, email, and phoneNumber from the User table
         const profileData = {
-            fullName: `${userExists.firstName} ${userExists.lastName}`,  // assuming full name is a combination of first and last names
-            email: userExists.email,
-            phoneNumber: userExists.phoneNumber,
+            fullName: fullName || `${userExists.firstName} ${userExists.lastName}`,
+            email: email || userExists.email,
+            phoneNumber: phoneNumber || userExists.phoneNumber,
             preferredLanguage,
             address,
             profilePhoto,
             user: userId
         };
 
-        const savedProfile = await Profile.create(profileData);
+        const existingProfile = await Profile.findOne({ user: userId });
 
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: savedProfile }, 'Profile created successfully', true));
+        if (existingProfile) {
+            const updatedProfile = await Profile.findOneAndUpdate(
+                { user: userId },
+                { $set: profileData },
+                { new: true, runValidators: true }
+            );
+
+            const userUpdates = {};
+            if (fullName) {
+                const [firstName, ...lastName] = fullName.split(' ');
+                userUpdates.firstName = firstName;
+                userUpdates.lastName = lastName.join(' ') || '';
+            }
+            if (email) userUpdates.email = email;
+            if (phoneNumber) userUpdates.phoneNumber = phoneNumber;
+
+            if (Object.keys(userUpdates).length > 0) {
+                await User.findByIdAndUpdate(userId, userUpdates, { new: true });
+            }
+
+            return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
+        } else {
+            const newProfile = await Profile.create(profileData);
+            return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: newProfile }, 'Profile created successfully', true));
+        }
+
     } catch (error) {
-        logger.error('Error adding profile details:', error);
+        logger.error('Error upserting profile details:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -183,56 +207,6 @@ export const getProfileById = async (req, res) => {
     }
 };
 
-
-export const updateProfileDetails = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const updates = req.body;
-
-        if (req.user.userId !== userId) {
-            return res.status(StatusCodes.FORBIDDEN).json(
-                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
-            );
-        }
-
-        // Check if the profile exists
-        const profile = await Profile.findOne({ user: userId });
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
-        }
-
-        // Update the Profile document
-        const updatedProfile = await Profile.findOneAndUpdate(
-            { user: userId },
-            updates,
-            { new: true, runValidators: true }
-        );
-
-        // Update User table if specific fields are included in the updates
-        const userUpdates = {};
-        if (updates.fullName) {
-            const [firstName, ...lastName] = updates.fullName.split(' ');
-            userUpdates.firstName = firstName;
-            userUpdates.lastName = lastName.join(' ') || '';
-        }
-        if (updates.email) {
-            userUpdates.email = updates.email;
-        }
-        if (updates.phoneNumber) {
-            userUpdates.phoneNumber = updates.phoneNumber;
-        }
-
-        // If user updates are present, update the User table
-        if (Object.keys(userUpdates).length > 0) {
-            await User.findByIdAndUpdate(userId, userUpdates, { new: true });
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
-    } catch (error) {
-        logger.error('Error updating profile details:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};
 
 // Delete profile by userId
 export const deleteProfile = async (req, res) => {
