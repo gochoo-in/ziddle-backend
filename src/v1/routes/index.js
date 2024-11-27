@@ -17,6 +17,7 @@ import internationalAirportCities from '../modules/internationalAirportCities/in
 import settings from '../modules/settings/settings.routes.js'
 import adminPackage from '../modules/adminPackages/adminpackages.routes.js'
 import discounts from '../modules/discount/discount.routes.js'
+import country from '../modules/countries/countries.routes.js'
 
 const allRoutes = Router()
 
@@ -97,6 +98,10 @@ const defaultRoutes = [
     {
         path: '/discounts',
         route: discounts
+    },
+    {
+        path: '/country',
+        route: country
     }
 
 ]
