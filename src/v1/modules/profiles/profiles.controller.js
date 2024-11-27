@@ -6,11 +6,16 @@ import logger from '../../../config/logger.js';
 import CommunicationPreference from '../../models/communicationPreference.js'; 
 import SavedContact from '../../models/savedContact.js'; 
 
-// Add or update communication preferences using userId
-export const addOrUpdateCommunicationPreferences = async (req, res) => {
+export const createCommunicationPreferences = async (req, res) => {
     try {
-        const { userId } = req.params;  // changed from profileId to userId
-        const { preferences } = req.body;
+        const { userId } = req.params; 
+        const { preferences } = req.body; 
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         if (!preferences) {
             return res.status(StatusCodes.BAD_REQUEST).json(
@@ -18,32 +23,94 @@ export const addOrUpdateCommunicationPreferences = async (req, res) => {
             );
         }
 
-        const profile = await Profile.findOne({ user: userId });
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(
-                httpFormatter({}, 'Profile not found', false)
-            );
-        }
-
-        let existingPreferences = await CommunicationPreference.findOne({ profile: profile._id });
+        const existingPreferences = await CommunicationPreference.findOne({ user: userId });
 
         if (existingPreferences) {
-            existingPreferences.preferences = preferences;
-            await existingPreferences.save();
-
-            return res.status(StatusCodes.OK).json(
-                httpFormatter({ preferences: existingPreferences }, 'Preferences updated successfully', true)
-            );
-        } else {
-            const newPreferences = await CommunicationPreference.create({ user: userId, preferences });
-
-            return res.status(StatusCodes.CREATED).json(
-                httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
+            return res.status(StatusCodes.CONFLICT).json(
+                httpFormatter({}, 'Preferences already exist for this user', false)
             );
         }
 
+        const newPreferences = await CommunicationPreference.create({
+            user: userId,
+            preferences
+        });
+
+        return res.status(StatusCodes.CREATED).json(
+            httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
+        );
     } catch (error) {
-        logger.error('Error adding or updating communication preferences:', error);
+        logger.error('Error creating communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const updateCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params; 
+        const { preferences } = req.body; 
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        if (!preferences) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Preferences are required', false)
+            );
+        }
+
+        const updateFields = {};
+        for (const key in preferences) {
+            for (const subKey in preferences[key]) {
+                updateFields[`preferences.${key}.${subKey}`] = preferences[key][subKey];
+            }
+        }
+
+        const updatedPreferences = await CommunicationPreference.findOneAndUpdate(
+            { user: userId },
+            { $set: updateFields }, 
+            { new: true, runValidators: true } 
+        );
+
+        if (!updatedPreferences) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Preferences not found for this user', false)
+            );
+        }
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ preferences: updatedPreferences }, 'Preferences updated successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error updating communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const getCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params; 
+
+        const preferences = await CommunicationPreference.findOne({ user: userId });
+
+        if (!preferences) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Communication preferences not found for this user', false)
+            );
+        }
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ preferences }, 'Communication preferences retrieved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error retrieving communication preferences:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
             httpFormatter({}, 'Internal server error', false)
         );
@@ -54,6 +121,12 @@ export const addProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
         const { preferredLanguage, address, profilePhoto } = req.body;
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         if (!address || !address.line1 || !address.pincode) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
@@ -140,6 +213,12 @@ export const updateProfileDetails = async (req, res) => {
         const { userId } = req.params;
         const updates = req.body;
 
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
         // Check if the profile exists
         const profile = await Profile.findOne({ user: userId });
         if (!profile) {
@@ -184,6 +263,12 @@ export const deleteProfile = async (req, res) => {
     try {
         const { userId } = req.params;
 
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
         const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
         if (!deletedProfile) {
@@ -202,6 +287,12 @@ export const addContact = async (req, res) => {
     try {
         const { userId } = req.params;
         const { salutation, firstName, surname, dob, passport } = req.body;
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
             return res.status(StatusCodes.BAD_REQUEST).json(
@@ -273,6 +364,12 @@ export const updateContact = async (req, res) => {
     const { userId, contactId } = req.params;
     const { salutation, firstName, surname, dob, passport } = req.body;
 
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
+
     try {
         // Check if the contact exists for the user
         const contact = await SavedContact.findOne({ _id: contactId, user: userId });
@@ -307,6 +404,12 @@ export const updateContact = async (req, res) => {
 
 export const deleteContact = async (req, res) => {
     const { userId, contactId } = req.params;
+
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
 
     try {
         // Find and delete the contact

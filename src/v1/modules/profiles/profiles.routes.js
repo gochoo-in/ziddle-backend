@@ -4,25 +4,30 @@ import {
     getProfileById, 
     updateProfileDetails, 
     deleteProfile,
-    addOrUpdateCommunicationPreferences,
+    createCommunicationPreferences,
+    updateCommunicationPreferences,
+    getCommunicationPreferences,
     addContact,
     getContacts,
     updateContact,
     deleteContact
 } from './profiles.controller.js';
+import { verifyToken } from '../../../utils/token.js';
 
 
 const router = express.Router();
 
-router.post('/:userId', addProfileDetails);
+router.post('/:userId', verifyToken, addProfileDetails);
 router.get('/:userId', getProfileById);
-router.patch('/:userId', updateProfileDetails);
-router.delete('/:userId', deleteProfile);
-router.post('/:userId/communicationPreferences', addOrUpdateCommunicationPreferences);
-router.post('/:userId/addContact', addContact)
+router.patch('/:userId', verifyToken, updateProfileDetails);
+router.delete('/:userId', verifyToken, deleteProfile);
+router.get('/:userId/getCommunicationPreferences', getCommunicationPreferences)
+router.post('/:userId/communicationPreferences', verifyToken, createCommunicationPreferences);
+router.post('/:userId/addContact', verifyToken, addContact)
 router.get('/:userId/contact', getContacts)
-router.patch('/:userId/contact/:contactId', updateContact);
-router.delete('/:userId/contact/:contactId', deleteContact);
+router.patch('/:userId/contact/:contactId', verifyToken, updateContact);
+router.patch('/:userId/communicationPreferences', verifyToken, updateCommunicationPreferences);
+router.delete('/:userId/contact/:contactId', verifyToken, deleteContact);
 
 
 export default router;
