@@ -895,12 +895,12 @@ export const getAllActivities = async (req, res) => {
     const { itineraryId } = req.params;
 
     // Find the itinerary by ID and extract all activity IDs
-    const itinerary = await Itinerary.findById(itineraryId).select('enrichedItinerary.itinerary.days.activities');
+    const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
-
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}/activities`);
+    
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'GET', `/api/v1/itinerary/${itineraryId}/activities`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }

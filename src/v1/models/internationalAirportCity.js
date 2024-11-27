@@ -19,7 +19,8 @@ const InternationalAirportCitySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Country', 
     required: true 
-  }
+  },
+  iataCode: { type: String, required: true }
 }, { versionKey: false, timestamps: true });
 
 export default mongoose.model('InternationalAirportCity', InternationalAirportCitySchema);

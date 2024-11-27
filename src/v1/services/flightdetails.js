@@ -59,6 +59,7 @@ async function convertToINR(amount, currency) {
 }
 
 export async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
+    console.log(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes)
     try {
         const fromCityData = cityIATACodes.find(city => city.name.toLowerCase() === fromCity.toLowerCase());
         const toCityData = cityIATACodes.find(city => city.name.toLowerCase() === toCity.toLowerCase());
