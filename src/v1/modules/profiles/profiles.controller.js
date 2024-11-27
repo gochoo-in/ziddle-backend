@@ -6,7 +6,7 @@ import logger from '../../../config/logger.js';
 import CommunicationPreference from '../../models/communicationPreference.js'; 
 import SavedContact from '../../models/savedContact.js'; 
 
-export const createCommunicationPreferences = async (req, res) => {
+export const upsertCommunicationPreferences = async (req, res) => {
     try {
         const { userId } = req.params; 
         const { preferences } = req.body; 
@@ -23,76 +23,52 @@ export const createCommunicationPreferences = async (req, res) => {
             );
         }
 
+        // Check if the preferences already exist for the user
         const existingPreferences = await CommunicationPreference.findOne({ user: userId });
 
+        // If preferences exist, update them
         if (existingPreferences) {
-            return res.status(StatusCodes.CONFLICT).json(
-                httpFormatter({}, 'Preferences already exist for this user', false)
-            );
-        }
-
-        const newPreferences = await CommunicationPreference.create({
-            user: userId,
-            preferences
-        });
-
-        return res.status(StatusCodes.CREATED).json(
-            httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
-        );
-    } catch (error) {
-        logger.error('Error creating communication preferences:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
-            httpFormatter({}, 'Internal server error', false)
-        );
-    }
-};
-
-export const updateCommunicationPreferences = async (req, res) => {
-    try {
-        const { userId } = req.params; 
-        const { preferences } = req.body; 
-
-        if (req.user.userId !== userId) {
-            return res.status(StatusCodes.FORBIDDEN).json(
-                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
-            );
-        }
-
-        if (!preferences) {
-            return res.status(StatusCodes.BAD_REQUEST).json(
-                httpFormatter({}, 'Preferences are required', false)
-            );
-        }
-
-        const updateFields = {};
-        for (const key in preferences) {
-            for (const subKey in preferences[key]) {
-                updateFields[`preferences.${key}.${subKey}`] = preferences[key][subKey];
+            const updateFields = {};
+            for (const key in preferences) {
+                for (const subKey in preferences[key]) {
+                    updateFields[`preferences.${key}.${subKey}`] = preferences[key][subKey];
+                }
             }
-        }
 
-        const updatedPreferences = await CommunicationPreference.findOneAndUpdate(
-            { user: userId },
-            { $set: updateFields }, 
-            { new: true, runValidators: true } 
-        );
+            const updatedPreferences = await CommunicationPreference.findOneAndUpdate(
+                { user: userId },
+                { $set: updateFields }, 
+                { new: true, runValidators: true } 
+            );
 
-        if (!updatedPreferences) {
-            return res.status(StatusCodes.NOT_FOUND).json(
-                httpFormatter({}, 'Preferences not found for this user', false)
+            if (!updatedPreferences) {
+                return res.status(StatusCodes.NOT_FOUND).json(
+                    httpFormatter({}, 'Preferences not found for this user', false)
+                );
+            }
+
+            return res.status(StatusCodes.OK).json(
+                httpFormatter({ preferences: updatedPreferences }, 'Preferences updated successfully', true)
+            );
+        } else {
+            // If no preferences exist, create new ones
+            const newPreferences = await CommunicationPreference.create({
+                user: userId,
+                preferences
+            });
+
+            return res.status(StatusCodes.CREATED).json(
+                httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
             );
         }
-
-        return res.status(StatusCodes.OK).json(
-            httpFormatter({ preferences: updatedPreferences }, 'Preferences updated successfully', true)
-        );
     } catch (error) {
-        logger.error('Error updating communication preferences:', error);
+        logger.error('Error upserting communication preferences:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
             httpFormatter({}, 'Internal server error', false)
         );
     }
 };
+
 
 export const getCommunicationPreferences = async (req, res) => {
     try {

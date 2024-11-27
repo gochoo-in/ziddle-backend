@@ -4,8 +4,7 @@ import {
     getProfileById, 
     updateProfileDetails, 
     deleteProfile,
-    createCommunicationPreferences,
-    updateCommunicationPreferences,
+    upsertCommunicationPreferences,
     getCommunicationPreferences,
     addContact,
     getContacts,
@@ -22,11 +21,10 @@ router.get('/:userId', getProfileById);
 router.patch('/:userId', verifyToken, updateProfileDetails);
 router.delete('/:userId', verifyToken, deleteProfile);
 router.get('/:userId/getCommunicationPreferences', getCommunicationPreferences)
-router.post('/:userId/communicationPreferences', verifyToken, createCommunicationPreferences);
+router.post('/:userId/communicationPreferences', verifyToken, upsertCommunicationPreferences);
 router.post('/:userId/addContact', verifyToken, addContact)
 router.get('/:userId/contact', getContacts)
 router.patch('/:userId/contact/:contactId', verifyToken, updateContact);
-router.patch('/:userId/communicationPreferences', verifyToken, updateCommunicationPreferences);
 router.delete('/:userId/contact/:contactId', verifyToken, deleteContact);
 
 
