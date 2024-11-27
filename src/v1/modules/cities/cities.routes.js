@@ -11,7 +11,7 @@ router.get('/', getAllCities);
 router.get('/activities', getActivitiesForMultipleCities); 
 router.get('/:cityId/activities', getCityWithActivities);
 router.get('/:cityId', getCityById);
-router.patch('/:id/toggle-city-active',toggleCityActiveStatus)
+router.patch('/:id/toggle-city-active', casbinMiddleware, toggleCityActiveStatus)
 router.patch('/:cityId', casbinMiddleware,  updateCityById)
 router.delete('/:cityId', casbinMiddleware,  deleteCityById)
 router.post('/hotelCityNames', getCityName)

@@ -760,6 +760,11 @@ export const getFlightsInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'GET', `/api/v1/itinerary/${itineraryId}/flights`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
+    }
+
     // Extract flight IDs from the itinerary's enriched itinerary (cities)
     const cityFlightIds = itinerary.enrichedItinerary.itinerary
       .flatMap(city => {
@@ -795,6 +800,11 @@ export const getHotelsInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'GET', `/api/v1/itinerary/${itineraryId}/hotels`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
+    }
+
     // Extract hotel IDs from the itinerary
     const hotelIds = itinerary.enrichedItinerary.itinerary
       .flatMap(city => city.hotelDetails) // Assuming hotelDetails holds the hotel IDs
@@ -818,6 +828,11 @@ export const getTransferDetails = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'GET', `/api/v1/itinerary/${itineraryId}/transfer`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
     // Extract transport details from the itinerary
@@ -883,6 +898,11 @@ export const getAllActivities = async (req, res) => {
     const itinerary = await Itinerary.findById(itineraryId).select('enrichedItinerary.itinerary.days.activities');
     if (!itinerary) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+    }
+
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}/activities`);
+    if (!hasAccess) {
+      return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
 
     // Extract all GPT activity IDs from the itinerary
@@ -975,7 +995,7 @@ export const addDaysToCity = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
@@ -1077,7 +1097,7 @@ export const deleteDaysFromCity = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json(httpFormatter({}, 'Access denied', false));
     }
@@ -1603,7 +1623,7 @@ export const replaceActivityInItinerary = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
@@ -1733,7 +1753,7 @@ export const deleteActivityInItinerary = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
@@ -1823,7 +1843,7 @@ export const changeTransportModeInCity = async (req, res) => {
     const totalRooms = rooms.length;
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
@@ -1894,7 +1914,7 @@ export const replaceFlightInItinerary = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
@@ -2005,7 +2025,7 @@ export const replaceHotelInItinerary = async (req, res) => {
     }
 
     // Check if the user has ownership or admin access
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itineraries/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }

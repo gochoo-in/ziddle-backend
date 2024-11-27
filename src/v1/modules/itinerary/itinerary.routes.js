@@ -43,53 +43,83 @@ const router = express.Router();
 
 const addUpdateComment = async (req, res, next) => {
   const { itineraryId, cityIndex, oldActivityId, hotelDetailsId, modeDetailsId } = req.params;
-  const { additionalDays, newActivityId, selectedHotel, selectedFlight, newCity, stayDays, daysToDelete } = req.body;
+  const { additionalDays, newActivityId, selectedHotel, newCity, daysToDelete, newMode } = req.body;
 
   try {
-    if (req.method === 'PATCH') {
-      const itinerary = await Itinerary.findById(itineraryId).lean();
-      if (!itinerary) {
-        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
+      if (req.method === 'PATCH') {
+          const itinerary = await Itinerary.findById(itineraryId).lean();
+          if (!itinerary) {
+              return res.status(StatusCodes.NOT_FOUND).json(
+                  httpFormatter({}, 'Itinerary not found', false)
+              );
+          }
+
+          let cityName =
+              cityIndex !== undefined && cityIndex >= 0
+                  ? itinerary.enrichedItinerary.itinerary[cityIndex]?.currentCity || `City at index ${cityIndex}`
+                  : null;
+
+          // Handle specific operations based on the route path
+          if (req.path.includes('add-days')) {
+              req.comment = `Added ${additionalDays} days to ${cityName} in itinerary.`;
+          } else if (req.path.includes('delete-days')) {
+              req.comment = `Deleted ${daysToDelete} days from ${cityName} in itinerary.`;
+          } else if (req.path.includes('delete-city')) {
+              req.comment = `${cityName} deleted from itinerary.`;
+          } else if (req.path.includes('add-city')) {
+              req.comment = `Added city ${newCity} to itinerary.`;
+          } else if (req.path.includes('replace-city')) {
+              req.comment = `City at index ${cityIndex} has been replaced with ${newCity} in itinerary.`;
+          } else if (req.path.includes('activity') && req.path.includes('replace')) {
+              const oldActivity = await GptActivity.findById(oldActivityId);
+              const newActivity = await Activity.findById(newActivityId);
+              if (oldActivity && newActivity) {
+                  req.comment = `${oldActivity.name} has been replaced with ${newActivity.name} in itinerary.`;
+              } else {
+                  return res.status(StatusCodes.NOT_FOUND).json(
+                      httpFormatter({}, 'Old or new activity not found', false)
+                  );
+              }
+          } else if (req.path.includes('activity') && req.path.includes('replaceLeisure')) {
+              const oldActivity = await GptActivity.findById(oldActivityId);
+              if (oldActivity) {
+                  req.comment = `${oldActivity.name} has been replaced with leisure.`;
+              } else {
+                  return res.status(StatusCodes.NOT_FOUND).json(
+                      httpFormatter({}, 'Old activity not found', false)
+                  );
+              }
+          } else if (req.path.includes('flight') && req.path.includes('replace')) {
+              req.comment = `Flight with ID ${modeDetailsId} has been replaced with a new flight in itinerary.`;
+          } else if (req.path.includes('hotel') && req.path.includes('replace')) {
+              req.comment = `Hotel with ID ${hotelDetailsId} has been replaced with new hotel (${selectedHotel?.name}) in itinerary.`;
+          } else if (req.path.includes('transport-mode')) {
+              req.comment = `Transport mode for city at index ${cityIndex} has been changed to ${newMode}.`;
+          } else if (req.path.includes('update-details')) {
+              const updatedFields = [];
+              if (req.body.date) updatedFields.push(`Date changed to ${req.body.date}`);
+              if (req.body.travelingWith) updatedFields.push(`Traveling with changed to ${req.body.travelingWith}`);
+              if (req.body.rooms && Array.isArray(req.body.rooms)) {
+                  const roomDetails = req.body.rooms.map((room, index) => {
+                      const adults = room.adults || 0;
+                      const children = room.children || 0;
+                      const childrenAges = room.childrenAges?.join(', ') || 'N/A';
+                      return `Room ${index + 1}: ${adults} adults, ${children} children (Ages: ${childrenAges})`;
+                  });
+                  updatedFields.push(`Rooms updated: ${roomDetails.join('; ')}`);
+              }
+              req.comment = updatedFields.length
+                  ? `Updated itinerary details: ${updatedFields.join(', ')}.`
+                  : null;
+          }
       }
 
-      if (cityIndex !== undefined && cityIndex >= 0) {
-        const cityName = itinerary.enrichedItinerary.itinerary[cityIndex]?.currentCity || `City at index ${cityIndex}`;
-
-        if (req.path.includes('add-days')) {
-          req.comment = `Added ${additionalDays} days to ${cityName} in itinerary.`;
-        } else if (req.path.includes('delete-days')) {
-          req.comment = `Deleted ${daysToDelete} days from ${cityName} in itinerary.`;
-        } else if (req.path.includes('delete-city')) {
-          req.comment = `${cityName} deleted from itinerary.`;
-        }
-      }
-
-      if (req.path.includes('add-city')) {
-        req.comment = `Added city ${newCity} in itinerary.`;
-      } else if (req.path.includes('activity') && req.path.includes('replace')) {
-        const oldActivity = await GptActivity.findById(oldActivityId);
-        const newActivity = await Activity.findById(newActivityId);
-        if (oldActivity && newActivity) {
-          req.comment = `${oldActivity.name} has been replaced with ${newActivity.name} in itinerary.`;
-        } else if (!oldActivity) {
-          return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old activity not found' });
-        } else if (!newActivity) {
-          return res.status(StatusCodes.NOT_FOUND).json({ message: 'Old or new activity not found' });
-        }
-      } else if (req.path.includes('flight') && req.path.includes('replace')) {
-        req.comment = `Flight with ID ${modeDetailsId} has been replaced with a new flight in itinerary.`;
-      } else if (req.path.includes('hotel') && req.path.includes('replace')) {
-        req.comment = `Hotel with ID ${hotelDetailsId} has been replaced with new hotel (${selectedHotel.name}) in itinerary.`;
-      } else if (req.path.includes('replace-city')) {
-        req.comment = `City at index ${cityIndex} has been replaced with ${newCity} in itinerary.`;
-      } else if (req.path.includes('transport-mode')) { // New comment for changing transport mode
-        req.comment = `Transport mode for city at index ${cityIndex} has been changed to ${req.body.newMode}.`;
-      }
-    }
-    next();
+      next();
   } catch (error) {
-    console.error(error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
+      console.error(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+          httpFormatter({}, 'Internal server error', false)
+      );
   }
 };
 
@@ -102,11 +132,11 @@ router.get('/destination-statistics', verifyToken, getDestinationStatistics);
 router.get('/activity-statistics', verifyToken, getActivityStatistics);
 router.get('/total-trips', verifyToken, getTotalTripsByUsers);
 router.get('/:itineraryId', verifyToken, getItineraryDetails);
-router.get('/:itineraryId/flights', getFlightsInItinerary);
-router.get('/:itineraryId/hotels', getHotelsInItinerary);
-router.get('/:itineraryId/transfer', getTransferDetails);
-router.get('/:itineraryId/activities', getAllActivities);
-router.get('/:historyId/history-activities', getAllActivitiesForHistory);
+router.get('/:itineraryId/flights', verifyToken, getFlightsInItinerary);
+router.get('/:itineraryId/hotels', verifyToken, getHotelsInItinerary);
+router.get('/:itineraryId/transfer', verifyToken, getTransferDetails);
+router.get('/:itineraryId/activities', verifyToken, getAllActivities);
+router.get('/:historyId/history-activities', casbinMiddleware, getAllActivitiesForHistory);
 router.patch('/:itineraryId/update-details', verifyToken, updateItineraryDetails);
 router.patch('/:itineraryId/cities/:cityIndex/delete-days', verifyToken, addUpdateComment, deleteDaysFromCity);
 router.patch('/:itineraryId/cities/:cityIndex/add-days', verifyToken, addUpdateComment, addDaysToCity);
