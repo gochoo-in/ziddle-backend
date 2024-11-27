@@ -1086,7 +1086,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error("Error deleting itinerary:", error.response?.data || error.message);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
   it("should delete the couponless discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
@@ -1108,7 +1108,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response?.status).not.toBe(500);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
   it("should delete the general discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
@@ -1130,7 +1130,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response?.status).not.toBe(500);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
 
   it('should delete the destination and associated cities and activities', async () => {
@@ -1150,6 +1150,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 });

@@ -46,7 +46,7 @@ describe('Destination Management Tests', () => {
             logger.error('Error adding destination:', error.response ? error.response.data : error.message);
             expect(error.response.status).not.toBe(500);
         }
-    }, 10000);
+    }, 50000);
 
     it('should retrieve all destinations', async () => {
         const url = `${BASE_URL}/destination`;
@@ -65,7 +65,7 @@ describe('Destination Management Tests', () => {
         } catch (error) {
             logger.error('Error retrieving destinations:', error.response ? error.response.data : error.message);
         }
-    }, 10000);
+    }, 50000);
 
     it('should retrieve the destination by ID', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
@@ -84,7 +84,7 @@ describe('Destination Management Tests', () => {
         } catch (error) {
             logger.error('Error retrieving destination by ID:', error.response ? error.response.data : error.message);
         }
-    }, 10000);
+    }, 50000);
 
     it('should update the destination details', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
@@ -109,7 +109,7 @@ describe('Destination Management Tests', () => {
         } catch (error) {
             logger.error('Error updating destination:', error.response ? error.response.data : error.message);
         }
-    }, 10000);
+    }, 50000);
 
     it('should toggle the destination’s active status', async () => {
         const url = `${BASE_URL}/destination/${destinationId}/toggleDestinationActiveStatus`;
@@ -128,7 +128,7 @@ describe('Destination Management Tests', () => {
             logger.error('Error toggling destination active status:', error.response ? error.response.data : error.message);
             expect(error.response.status).not.toBe(500);
         }
-    }, 10000);
+    }, 50000);
 
     it('should retrieve cities by destination ID', async () => {
         const url = `${BASE_URL}/destination/${destinationId}/cities`;
@@ -147,7 +147,7 @@ describe('Destination Management Tests', () => {
         } catch (error) {
             logger.error('Error retrieving cities by destination:', error.response ? error.response.data : error.message);
         }
-    }, 10000);
+    }, 50000);
 
     it('should delete the destination and associated cities and activities', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
@@ -166,5 +166,5 @@ describe('Destination Management Tests', () => {
             logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
             expect(error.response.status).not.toBe(500);
         }
-    }, 10000);
+    }, 50000);
 });

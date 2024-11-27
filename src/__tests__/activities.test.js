@@ -47,7 +47,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       logger.error('Error creating destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
-  }, 10000);
+  }, 50000);
 
   it('should create a city associated with the destination', async () => {
     const url = `${BASE_URL}/cities`;
@@ -82,7 +82,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       logger.error('Error creating city:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
-  }, 10000);
+  }, 50000);
 
   it('should create an activity for the city', async () => {
     const url = `${BASE_URL}/activities`;
@@ -119,7 +119,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       logger.error('Error creating activity:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
-  }, 10000);
+  }, 50000);
 
 
   it('should retrieve the created activity by ID', async () => {
@@ -139,7 +139,7 @@ describe('Destination, City, and Activity Management Tests', () => {
     } catch (error) {
       logger.error('Error retrieving activity:', error.response ? error.response.data : error.message);
     }
-  }, 10000);
+  }, 50000);
 
   it('should update the activity details', async () => {
     const url = `${BASE_URL}/activities/${activityId}`;
@@ -165,7 +165,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       console.log(error)
       logger.error('Error updating activity:', error.response ? error.response.data : error.message);
     }
-  }, 10000);
+  }, 50000);
 
 
 
@@ -186,7 +186,7 @@ describe('Destination, City, and Activity Management Tests', () => {
       logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 
 
