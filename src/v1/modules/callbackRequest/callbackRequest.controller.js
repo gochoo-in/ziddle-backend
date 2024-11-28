@@ -16,7 +16,7 @@ export const callbackRequest = async(req,res,next) => {
         return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'phoneNumber is required', false));
     }
     if(!destination){
-        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Full name is required', false));
+        return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Destination is required', false));
     }
 
     const data = await CallbackRequest.create({fullName, email, phoneNumber, destination});
