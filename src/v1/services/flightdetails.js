@@ -58,7 +58,8 @@ async function convertToINR(amount, currency) {
     }
 }
 
-async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
+export async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
+    console.log(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes)
     try {
         const fromCityData = cityIATACodes.find(city => city.name.toLowerCase() === fromCity.toLowerCase());
         const toCityData = cityIATACodes.find(city => city.name.toLowerCase() === toCity.toLowerCase());
@@ -97,12 +98,12 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
         if (!flights || flights.length === 0) {
             return [];
         }
+        
 
         // Flatten the nested arrays and map the response to include necessary flight details
         return flights.flatMap(innerArray => 
             innerArray.map(offer => {
                 const publishedFare = offer.Fare && offer.Fare.PublishedFare != null ? offer.Fare.PublishedFare : Infinity;
-
                 return {
                     fromCity,
                     toCity,

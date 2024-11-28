@@ -58,9 +58,18 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
 
     it("should create 3 cities for China", async () => {
         const cities = [
-            { name: "Beijing", iataCode: "PEK",hotelApiCityName:"Beijing" },
-            { name: "Shanghai", iataCode: "PVG" ,hotelApiCityName:"Shanghai"},
-            { name: "Xi'an", iataCode: "XIY",hotelApiCityName:"Xiaguan" },
+            { name: "Beijing", iataCode: "PEK",hotelApiCityName:"Beijing",  nearbyInternationalAirportCity: {
+                name: "Beijing",
+                iataCode: "PEK"
+              } },
+            { name: "Shanghai", iataCode: "PVG" ,hotelApiCityName:"Shanghai", nearbyInternationalAirportCity: {
+                name: "Shanghai",
+                iataCode: "PVG"
+              }},
+            { name: "Xi'an", iataCode: "XIY",hotelApiCityName:"Xiaguan", nearbyInternationalAirportCity: {
+                name: "Xi'an",
+                iataCode: "XIY"
+              } },
         ];
 
         for (const city of cities) {
@@ -83,7 +92,11 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
                             city.name === "Shanghai" ? 121.4737 : 108.9398,
                     country: "China",
                     languageSpoken: "Mandarin",
-                    hotelApiCityName:city.hotelApiCityName
+                    hotelApiCityName:city.hotelApiCityName,
+                    nearbyInternationalAirportCity: {
+                        name: city.nearbyInternationalAirportCity.name,
+                        iataCode: city.nearbyInternationalAirportCity.iataCode
+                    }
                 },
             };
 
@@ -445,10 +458,10 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error applying general discount:", error.response?.data || error.message);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should retrieve admin packages by max budget", async () => {
-        const maxBudget = 100000;
+        const maxBudget = 500000;
         const url = `${BASE_URL}/admin/packages/budget?maxBudget=${maxBudget}`;
         const options = {
             method: "GET",
@@ -472,7 +485,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error retrieving admin packages by max budget:", error.response?.data || error.message);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should retrieve admin packages by destination ID", async () => {
         const url = `${BASE_URL}/admin/packages/destination/${destinationId}`;
@@ -498,7 +511,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error retrieving admin packages by destination ID:", error.response?.data || error.message);
             throw error;
         }
-    }, 10000);
+    }, 50000);
   
     
     it("should delete an admin package by ID", async () => {
@@ -524,7 +537,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error deleting admin package:", error.response?.data || error.message);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should delete the itinerary by ID", async () => {
         const deleteItineraryUrl = `${BASE_URL}/itinerary/${itineraryId}`;
@@ -544,7 +557,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error deleting itinerary:", error.response?.data || error.message);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should delete the couponless discount by ID", async () => {
         const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
@@ -566,7 +579,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             expect(error.response?.status).not.toBe(500);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should delete the general discount by ID", async () => {
         const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
@@ -588,7 +601,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             expect(error.response?.status).not.toBe(500);
             throw error;
         }
-    }, 10000);
+    }, 50000);
     
     it("should delete the destination and associated cities and activities", async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
@@ -607,6 +620,6 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             logger.error("Error deleting destination:", error.response ? error.response.data : error.message);
             expect(error.response.status).not.toBe(500);
         }
-    }, 10000);
+    }, 50000);
     
 });

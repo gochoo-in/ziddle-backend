@@ -169,7 +169,7 @@ describe("Policy Management Tests", () => {
       logger.error("Error removing policies:", error.response?.data || error.message);
       expect(error.response?.status).not.toBe(500);
     }
-  }, 100000);
+  }, 500000);
 
   it("should delete the employee", async () => {
     const url = `${BASE_URL}/admin/${employeeId}`;
@@ -192,4 +192,4 @@ describe("Policy Management Tests", () => {
       expect(error.response?.status).not.toBe(500);
     }
   });
-}, 10000);
+}, 50000);

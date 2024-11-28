@@ -3,15 +3,15 @@ import logger from "../logger.js";
 import config from '../index.js';
 
 export const connectMongoDB = async () => {
-    try {
-      const connectionInstance = await mongoose.connect(config.mongoDb)
-      logger.info(
-        `MongoDB Connected! DB Host: ${connectionInstance.connection.host}`
-      )
-    } catch (error) {
-      logger.error("MongoDB connection error: ", error.message)
-      setTimeout(() => process.exit(1), 1000)
-    }
+  try {
+    const connectionInstance = await mongoose.connect(config.mongoDb, {
+      serverSelectionTimeoutMS: 30000,  // Increase the timeout to 30 seconds
+    });
+    logger.info(`MongoDB Connected! DB Host: ${connectionInstance.connection.host}`);
+  } catch (error) {
+    logger.error("MongoDB connection error: ", error.message);
+    setTimeout(() => process.exit(1), 1000);
+  }
 }
 export const checkMongoDBDatabaseHealth = async () => {
     try {

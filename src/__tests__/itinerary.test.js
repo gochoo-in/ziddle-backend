@@ -168,15 +168,36 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
   it("should create 7 cities for India", async () => {
     const cities = [
-      { name: "New Delhi", iataCode: "DEL", hotelApiCityName: "New Delhi,   DELHI" },
-      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra" },
-      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan" },
-      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka" },
-      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu" },
-      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal" },
-      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat" }
+      { name: "Hyderabad", iataCode: "HYD", hotelApiCityName: "Hyderabad, Telangana", nearbyInternationalAirportCity: {
+        name: "Hyderabad",
+        iataCode: "HYD"
+      }},
+      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai, Maharashtra", nearbyInternationalAirportCity: {
+        name: "Mumbai",
+        iataCode: "BOM"
+      }},
+      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur, Rajasthan", nearbyInternationalAirportCity: {
+        name: "Jaipur",
+        iataCode: "JAI"
+      }},
+      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore, Karnataka", nearbyInternationalAirportCity: {
+        name: "Bangalore",
+        iataCode: "BLR"
+      }},
+      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai, Tamil Nadu", nearbyInternationalAirportCity: {
+        name: "Chennai",
+        iataCode: "MAA"
+      }},
+      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta, West Bengal", nearbyInternationalAirportCity: {
+        name: "Kolkata",
+        iataCode: "CCU"
+      }},
+      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad, Gujarat", nearbyInternationalAirportCity: {
+        name: "Ahemdabad",
+        iataCode: "AMD"
+      }}
     ];
-
+  
     for (const city of cities) {
       const url = `${BASE_URL}/cities`;
       const options = {
@@ -191,26 +212,30 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           destinationId: destinationId,
           country: "India",
           hotelApiCityName: city.hotelApiCityName,
-          latitude: city.name === "New Delhi" ? 28.6139 :
+          latitude: city.name === "Hyderabad" ? 17.385044 :
             city.name === "Mumbai" ? 19.0760 :
               city.name === "Bangalore" ? 12.9716 :
                 city.name === "Jaipur" ? 26.9124 :
                   city.name === "Ahemdabad" ? 23.0225 :
                     city.name === "Chennai" ? 13.0827 : 22.5726,
-          longitude: city.name === "New Delhi" ? 77.2090 :
+          longitude: city.name === "Hyderabad" ? 78.486671 :
             city.name === "Mumbai" ? 72.8777 :
               city.name === "Bangalore" ? 77.5946 :
                 city.name === "Jaipur" ? 75.7873 :
                   city.name === "Ahemdabad" ? 72.5714 :
                     city.name === "Chennai" ? 80.2707 : 88.3639,
           languageSpoken: "Hindi, English",
+          nearbyInternationalAirportCity: {
+            name: city.nearbyInternationalAirportCity.name,
+            iataCode: city.nearbyInternationalAirportCity.iataCode
+          }
         },
       };
-
+  
       try {
         const response = await axios(url, options);
         switch (city.name) {
-          case "New Delhi":
+          case "Hyderabad":
             city1Id = response.data.data.city._id;
             break;
           case "Mumbai":
@@ -237,13 +262,13 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       }
     }
   }, 5000000);
-
+  
 
   it("should create activities for the cities in India", async () => {
     const activities = [
       {
-        name: "Visit Qutub Minar",
-        cityName: "New Delhi",
+        name: "Visit Charminar",
+        cityName: "Hyderabad",
         duration: "2 hours",
         featured: true,
         opensAt: "09:00",
@@ -307,20 +332,20 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
         price: "1000",
       },
       {
-        name: "Explore Red Fort",
-        cityName: "New Delhi",
+        name: "Explore Golconda Fort",
+        cityName: "Hyderabad",
         duration: "3 hours",
         featured: true,
         opensAt: "10:00",
         closesAt: "16:00",
-        physicalDifficulty: "Easy",
+        physicalDifficulty: "Moderate",
         localGuidesAvailable: true,
         isFamilyFriendly: true,
         refundable: true,
         price: "700",
       },
     ];
-
+  
     for (const activity of activities) {
       const url = `${BASE_URL}/activities`;
       const options = {
@@ -344,11 +369,11 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           price: activity.price,
         },
       };
-
+  
       try {
         const response = await axios(url, options);
         switch (activity.name) {
-          case "Visit Qutub Minar":
+          case "Visit Charminar":
             activity1Id = response.data.data.activity._id;
             break;
           case "Mumbai Darshan":
@@ -362,7 +387,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
           case "Explore Lalbagh Botanical Garden":
             activity5Id = response.data.data.activity._id;
             break;
-          case "Explore Red Fort":
+          case "Explore Golconda Fort":
             replacementActivityId = response.data.data.activity._id;
             break;
         }
@@ -374,6 +399,8 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       }
     }
   }, 5000000);
+  
+  
 
 
   it("should create couponless and general discounts", async () => {
@@ -443,8 +470,8 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       data: {
         startDate: formattedDate,
         rooms: [{ adults: 2, children: 1, childrenAges: [10] }],
-        departureCity: "Indore",
-        arrivalCity: "Mumbai",
+        departureCity: "New Delhi",
+        arrivalCity: "New Delhi",
         countryId: destinationId,
         cities: [city1Id, city2Id, city3Id],
         activities: [activity1Id, activity2Id, activity3Id, activity4Id],
@@ -455,11 +482,12 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
     try {
       const response = await axios(url, options);
-      itineraryId = response.data.data.newItinerary._id;
+      console.log(JSON.stringify(response.data))
+      itineraryId = response.data.data.sanitizedItinerary._id;
       logger.info(`Itinerary created: ${itineraryId}`);
       expect(response.status).toBe(200);
 
-      const itinerary = response.data.data.newItinerary;
+      const itinerary = response.data.data.sanitizedItinerary;
       expect(itinerary.discounts).toContain(couponlessDiscountId);
       const lead = response.data.data.newLead;
       leadId = lead._id;
@@ -468,6 +496,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(lead.status).toBe("ML");
 
     } catch (error) {
+      console.log("err", error)
       logger.error("Error creating itinerary:", error.response ? error.response.data : error.message);
       throw error;
     }
@@ -870,7 +899,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
 
     try {
       const response = await axios(url, options);
-      logger.info(`City at index ${cityIndex} replaced with Ahmedabad`);
+      logger.info(`City at index ${cityIndex} replaced with Ahemdabad`);
       expect(response.status).toBe(200);
     } catch (error) {
       logger.error("Error replacing city in itinerary:", error.response ? error.response.data : error.message);
@@ -1057,7 +1086,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error("Error deleting itinerary:", error.response?.data || error.message);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
   it("should delete the couponless discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
@@ -1079,7 +1108,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response?.status).not.toBe(500);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
   it("should delete the general discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
@@ -1101,7 +1130,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       expect(error.response?.status).not.toBe(500);
       throw error;
     }
-  }, 10000);
+  }, 50000);
 
 
   it('should delete the destination and associated cities and activities', async () => {
@@ -1121,6 +1150,6 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 });

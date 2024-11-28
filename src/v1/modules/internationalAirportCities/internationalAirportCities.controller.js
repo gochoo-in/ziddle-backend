@@ -1,4 +1,5 @@
 import InternationalAirportCity from '../../models/internationalAirportCity.js';
+import Country from '../../models/country.js';  
 import httpFormatter from '../../../utils/formatter.js';
 
 // Get all Indian Cities
@@ -11,17 +12,24 @@ export const getAllInternationalAirportCities = async (req, res) => {
   }
 };
 
-// Add a new Indian City
 export const addInternationalAirportCity = async (req, res) => {
   const { name, imageUrl, country, iataCode } = req.body;
+
   if (!name || !country || !iataCode) {
-    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Name, iata code and country are required', false));
+    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Name, IATA code, and country are required', false));
   }
 
   try {
+    const countryExists = await Country.findById(country);
+    if (!countryExists) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid country ID' });
+    }
+
     const newCity = new InternationalAirportCity({ name, imageUrl, country, iataCode });
+    
     await newCity.save();
     res.status(201).json(newCity);
+
   } catch (error) {
     res.status(500).json({ message: 'Failed to add city', error });
   }

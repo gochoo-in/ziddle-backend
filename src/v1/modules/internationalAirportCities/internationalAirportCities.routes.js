@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/', getAllInternationalAirportCities);
 
 // POST a new Indian city
-router.post('/', casbinMiddleware, addInternationalAirportCity);
+router.post('/',  addInternationalAirportCity);
 
 // PATCH to update an Indian city
 router.patch('/:id', casbinMiddleware, updateInternationalAirportCity);

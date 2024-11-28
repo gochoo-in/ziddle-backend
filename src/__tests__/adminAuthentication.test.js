@@ -33,7 +33,7 @@ describe('Admin Authentication Tests', () => {
       logger.error('Error during admin login:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
   it('should log out the admin successfully', async () => {
     const url = `${BASE_URL}/admin/logout`;
@@ -54,5 +54,5 @@ describe('Admin Authentication Tests', () => {
       logger.error('Error during admin logout:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 });

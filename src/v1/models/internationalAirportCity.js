@@ -14,10 +14,13 @@ const InternationalAirportCitySchema = new mongoose.Schema({
         }
     }],
     default: []
-},
-  country: { type: String, required: true },
-  iataCode: { type: String, required: true },
-  isActive: { type: Boolean, default: true }
+  },
+  country: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Country', 
+    required: true 
+  },
+  iataCode: { type: String, required: true }
 }, { versionKey: false, timestamps: true });
 
 export default mongoose.model('InternationalAirportCity', InternationalAirportCitySchema);

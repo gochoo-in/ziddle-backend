@@ -28,12 +28,12 @@ router.post('/package/basic', casbinMiddleware, createBasicAdminPackage);
 router.post('/package/details', casbinMiddleware, addDetailsToAdminPackage);
 router.patch('/package/:adminPackageId/addDays/:cityIndex', casbinMiddleware, addDaysToAdminPackage);
 router.patch('/package/:adminPackageId/deleteDays/:cityIndex', casbinMiddleware, deleteDaysFromAdminPackage);
-router.patch('/package/:adminPackageId/toggleAdminPackageStatus', toggleAdminPackageActiveStatus);
+router.patch('/package/:adminPackageId/toggleAdminPackageStatus', casbinMiddleware, toggleAdminPackageActiveStatus);
 router.get('/package/activity/:AdminPackageActivityId', casbinMiddleware, getAdminPackageActivityDetailsById);
 router.get('/package/:adminPackageId', getAdminPackageById);
 router.get('/packages/category/:category', getAdminPackagesByCategory);
 router.get('/package/:packageId/activities', getAllAdminPackageActivities );
-router.delete('/packages/:adminPackageId', deleteAdminPackageById);
+router.delete('/packages/:adminPackageId', casbinMiddleware, deleteAdminPackageById);
 router.post('/package/:adminPackageId/itinerary', verifyToken, createUserItinerary);
 router.patch('/package/:adminPackageId/itinerary/:itineraryId/addCoupon/:discountId', verifyToken, addGeneralDiscount)
 

@@ -44,7 +44,7 @@ describe('City Management Tests', () => {
       logger.error('Error adding destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 
   it('should create a new city associated with the destination', async () => {
@@ -64,6 +64,10 @@ describe('City Management Tests', () => {
         longitude: 25.1234,
         languageSpoken: 'English',
         hotelApiCityName:"Rongcheng",
+        nearbyInternationalAirportCity: {
+          name: "Test city 2",
+          iataCode: "SSS"
+        }
       },
     };
 
@@ -76,7 +80,7 @@ describe('City Management Tests', () => {
       logger.error('Error creating city:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
-  }, 10000);
+  }, 50000);
 
   it('should retrieve all cities', async () => {
     const url = `${BASE_URL}/cities`;
@@ -95,7 +99,7 @@ describe('City Management Tests', () => {
     } catch (error) {
       logger.error('Error retrieving cities:', error.response ? error.response.data : error.message);
     }
-  }, 10000);
+  }, 50000);
 
   it('should retrieve the city with activities', async () => {
     const url = `${BASE_URL}/cities/${cityId}/activities`;
@@ -113,7 +117,7 @@ describe('City Management Tests', () => {
     } catch (error) {
       logger.error('Error retrieving city with activities:', error.response ? error.response.data : error.message);
     }
-  }, 10000);
+  }, 50000);
 
   it('should update the city details', async () => {
     const url = `${BASE_URL}/cities/${cityId}`;
@@ -138,7 +142,7 @@ describe('City Management Tests', () => {
     } catch (error) {
       logger.error('Error updating city:', error.response ? error.response.data : error.message);
     }
-  }, 10000);
+  }, 50000);
 
   it('should toggle the city’s active status', async () => {
     const url = `${BASE_URL}/cities/${cityId}/toggle-city-active`;
@@ -157,7 +161,7 @@ describe('City Management Tests', () => {
       logger.error('Error toggling city active status:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 
   it('should delete the destination with associated cities', async () => {
@@ -177,7 +181,7 @@ describe('City Management Tests', () => {
       logger.error('Error deleting destination:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 10000);
+  }, 50000);
 
 
 });

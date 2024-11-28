@@ -33,7 +33,7 @@ export const addActivity = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!name || !duration || !opensAt || !closesAt || !featured || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || featured === undefined|| !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 

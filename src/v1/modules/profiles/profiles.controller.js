@@ -6,11 +6,16 @@ import logger from '../../../config/logger.js';
 import CommunicationPreference from '../../models/communicationPreference.js'; 
 import SavedContact from '../../models/savedContact.js'; 
 
-// Add or update communication preferences using userId
-export const addOrUpdateCommunicationPreferences = async (req, res) => {
+export const upsertCommunicationPreferences = async (req, res) => {
     try {
-        const { userId } = req.params;  // changed from profileId to userId
-        const { preferences } = req.body;
+        const { userId } = req.params; 
+        const { preferences } = req.body; 
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         if (!preferences) {
             return res.status(StatusCodes.BAD_REQUEST).json(
@@ -18,45 +23,89 @@ export const addOrUpdateCommunicationPreferences = async (req, res) => {
             );
         }
 
-        const profile = await Profile.findOne({ user: userId });
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(
-                httpFormatter({}, 'Profile not found', false)
-            );
-        }
+        // Check if the preferences already exist for the user
+        const existingPreferences = await CommunicationPreference.findOne({ user: userId });
 
-        let existingPreferences = await CommunicationPreference.findOne({ profile: profile._id });
-
+        // If preferences exist, update them
         if (existingPreferences) {
-            existingPreferences.preferences = preferences;
-            await existingPreferences.save();
+            const updateFields = {};
+            for (const key in preferences) {
+                for (const subKey in preferences[key]) {
+                    updateFields[`preferences.${key}.${subKey}`] = preferences[key][subKey];
+                }
+            }
+
+            const updatedPreferences = await CommunicationPreference.findOneAndUpdate(
+                { user: userId },
+                { $set: updateFields }, 
+                { new: true, runValidators: true } 
+            );
+
+            if (!updatedPreferences) {
+                return res.status(StatusCodes.NOT_FOUND).json(
+                    httpFormatter({}, 'Preferences not found for this user', false)
+                );
+            }
 
             return res.status(StatusCodes.OK).json(
-                httpFormatter({ preferences: existingPreferences }, 'Preferences updated successfully', true)
+                httpFormatter({ preferences: updatedPreferences }, 'Preferences updated successfully', true)
             );
         } else {
-            const newPreferences = await CommunicationPreference.create({ user: userId, preferences });
+            // If no preferences exist, create new ones
+            const newPreferences = await CommunicationPreference.create({
+                user: userId,
+                preferences
+            });
 
             return res.status(StatusCodes.CREATED).json(
                 httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
             );
         }
-
     } catch (error) {
-        logger.error('Error adding or updating communication preferences:', error);
+        logger.error('Error upserting communication preferences:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
             httpFormatter({}, 'Internal server error', false)
         );
     }
 };
 
-export const addProfileDetails = async (req, res) => {
+
+export const getCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params; 
+
+        const preferences = await CommunicationPreference.findOne({ user: userId });
+
+        if (!preferences) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Communication preferences not found for this user', false)
+            );
+        }
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ preferences }, 'Communication preferences retrieved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error retrieving communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const upsertProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { preferredLanguage, address, profilePhoto } = req.body;
+        const { preferredLanguage, address, profilePhoto, fullName, email, phoneNumber } = req.body;
 
-        if (!address || !address.line1 || !address.pincode) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        if (address && (!address.line1 || !address.pincode)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing in the address', false));
         }
 
         const userExists = await User.findById(userId);
@@ -64,22 +113,46 @@ export const addProfileDetails = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
         }
 
-        // Use fullName, email, and phoneNumber from the User table
         const profileData = {
-            fullName: `${userExists.firstName} ${userExists.lastName}`,  // assuming full name is a combination of first and last names
-            email: userExists.email,
-            phoneNumber: userExists.phoneNumber,
+            fullName: fullName || `${userExists.firstName} ${userExists.lastName}`,
+            email: email || userExists.email,
+            phoneNumber: phoneNumber || userExists.phoneNumber,
             preferredLanguage,
             address,
             profilePhoto,
             user: userId
         };
 
-        const savedProfile = await Profile.create(profileData);
+        const existingProfile = await Profile.findOne({ user: userId });
 
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: savedProfile }, 'Profile created successfully', true));
+        if (existingProfile) {
+            const updatedProfile = await Profile.findOneAndUpdate(
+                { user: userId },
+                { $set: profileData },
+                { new: true, runValidators: true }
+            );
+
+            const userUpdates = {};
+            if (fullName) {
+                const [firstName, ...lastName] = fullName.split(' ');
+                userUpdates.firstName = firstName;
+                userUpdates.lastName = lastName.join(' ') || '';
+            }
+            if (email) userUpdates.email = email;
+            if (phoneNumber) userUpdates.phoneNumber = phoneNumber;
+
+            if (Object.keys(userUpdates).length > 0) {
+                await User.findByIdAndUpdate(userId, userUpdates, { new: true });
+            }
+
+            return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
+        } else {
+            const newProfile = await Profile.create(profileData);
+            return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: newProfile }, 'Profile created successfully', true));
+        }
+
     } catch (error) {
-        logger.error('Error adding profile details:', error);
+        logger.error('Error upserting profile details:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
@@ -135,54 +208,16 @@ export const getProfileById = async (req, res) => {
 };
 
 
-export const updateProfileDetails = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const updates = req.body;
-
-        // Check if the profile exists
-        const profile = await Profile.findOne({ user: userId });
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
-        }
-
-        // Update the Profile document
-        const updatedProfile = await Profile.findOneAndUpdate(
-            { user: userId },
-            updates,
-            { new: true, runValidators: true }
-        );
-
-        // Update User table if specific fields are included in the updates
-        const userUpdates = {};
-        if (updates.fullName) {
-            const [firstName, ...lastName] = updates.fullName.split(' ');
-            userUpdates.firstName = firstName;
-            userUpdates.lastName = lastName.join(' ') || '';
-        }
-        if (updates.email) {
-            userUpdates.email = updates.email;
-        }
-        if (updates.phoneNumber) {
-            userUpdates.phoneNumber = updates.phoneNumber;
-        }
-
-        // If user updates are present, update the User table
-        if (Object.keys(userUpdates).length > 0) {
-            await User.findByIdAndUpdate(userId, userUpdates, { new: true });
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
-    } catch (error) {
-        logger.error('Error updating profile details:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};
-
 // Delete profile by userId
 export const deleteProfile = async (req, res) => {
     try {
         const { userId } = req.params;
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
@@ -202,6 +237,12 @@ export const addContact = async (req, res) => {
     try {
         const { userId } = req.params;
         const { salutation, firstName, surname, dob, passport } = req.body;
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
 
         if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
             return res.status(StatusCodes.BAD_REQUEST).json(
@@ -273,6 +314,12 @@ export const updateContact = async (req, res) => {
     const { userId, contactId } = req.params;
     const { salutation, firstName, surname, dob, passport } = req.body;
 
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
+
     try {
         // Check if the contact exists for the user
         const contact = await SavedContact.findOne({ _id: contactId, user: userId });
@@ -307,6 +354,12 @@ export const updateContact = async (req, res) => {
 
 export const deleteContact = async (req, res) => {
     const { userId, contactId } = req.params;
+
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
 
     try {
         // Find and delete the contact

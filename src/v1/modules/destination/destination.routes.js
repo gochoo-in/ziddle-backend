@@ -10,7 +10,7 @@ router.get('/', getAllDestinations);
 router.get('/:destinationId', getDestinationById);
 router.get('/:destinationId/activities', getActivitiesByDestination);
 router.get('/:destinationId/cities', getCitiesByDestination);
-router.patch('/:id/toggleDestinationActiveStatus', toggleDestinationActiveStatus);
+router.patch('/:id/toggleDestinationActiveStatus', casbinMiddleware, toggleDestinationActiveStatus);
 router.patch('/:destinationId', casbinMiddleware, updateDestination);
 router.delete('/:destinationId', casbinMiddleware,  deleteDestination);
 export default router;
