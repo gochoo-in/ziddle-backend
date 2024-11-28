@@ -9,6 +9,7 @@ const BASE_URL = process.env.BASE_URL;
 
 describe('Admin Authentication Tests', () => {
 
+// ---------------------------------------------------- SIGNING IN ADMIN ------------------------------------------------------------//
   it('should log in the admin successfully', async () => {
     const url = `${BASE_URL}/admin/signin`;
     const options = {
@@ -35,6 +36,7 @@ describe('Admin Authentication Tests', () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- LOG OUT ADMIN ------------------------------------------------------------//
   it('should log out the admin successfully', async () => {
     const url = `${BASE_URL}/admin/logout`;
     const options = {

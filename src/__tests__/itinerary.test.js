@@ -131,7 +131,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
   afterAll(async () => {
     logger.info("Cleaning up after tests");
   });
-
+ // --------------------------------------------------- CREATE NEW DESTINATION ------------------------------------------------------//
   it("should create a new destination for India", async () => {
     const url = `${BASE_URL}/destination`;
     const options = {
@@ -164,8 +164,9 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       logger.error("Error creating destination:", error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  });
+  }, 500000);
 
+ // ---------------------------------------------------- CREATE CITIES FOR DESTINATION ----------------------------------------------//
   it("should create 7 cities for India", async () => {
     const cities = [
       { name: "Hyderabad", iataCode: "HYD", hotelApiCityName: "Hyderabad, Telangana", nearbyInternationalAirportCity: {
@@ -263,7 +264,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
   
-
+// --------------------------------------------------- CREATE ACTIVITIES FOR DESTINATION --------------------------------------------//
   it("should create activities for the cities in India", async () => {
     const activities = [
       {
@@ -399,10 +400,8 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
       }
     }
   }, 5000000);
-  
-  
 
-
+// -------------------------------------- CREATE COUPONLESS AND GENERAL DISCOUNT FOR DESTINATION ------------------------------------//
   it("should create couponless and general discounts", async () => {
     try {
       // Add couponless discount
@@ -455,6 +454,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   });
 
+// ---------------------------------------------------- CREATE ITINERARY ------------------------------------------------------------//
   it("should create an itinerary with 3 cities and couponless discount applied", async () => {
     const currentDate = new Date();
     currentDate.setDate(currentDate.getDate() + 2);
@@ -502,7 +502,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
-
+// ------------------------------------------------ APPLY GENERAL DISCOUNT TO ITINERARY ---------------------------------------------//
   it("should apply a general discount to the itinerary", async () => {
     const applyGeneralDiscountUrl = `${BASE_URL}/itinerary/${itineraryId}/addCoupon/${generalDiscountId}`;
     const applyGeneralDiscountOptions = {
@@ -526,6 +526,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------------- RETRIEVE LEAD OF ITINERARY --------------------------------------------------//
   it("should retrieve the lead associated with the created itinerary", async () => {
     const url = `${BASE_URL}/leads/${leadId}`;
     const options = {
@@ -548,6 +549,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// --------------------------------------------------- UPDATE STATUS OF A LEAD  -----------------------------------------------------//
   it("should update the status of a lead", async () => {
     const url = `${BASE_URL}/leads/${leadId}/status`;
     const options = {
@@ -573,6 +575,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- RETRIEVE LEAD STATISTICS ---------------------------------------------------//
   it("should retrieve lead statistics", async () => {
     const url = `${BASE_URL}/leads/stats`;
     const options = {
@@ -596,6 +599,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- RETRIEVE TOP PREFERRED DESTINATIONS  ---------------------------------------------//
   it("should retrieve top destinations", async () => {
     const url = `${BASE_URL}/leads/top-destinations`;
     const options = {
@@ -622,6 +626,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- RETRIEVE TOP PREFERRED ACTIVITIES  -----------------------------------------------//
   it("should retrieve top activities", async () => {
     const url = `${BASE_URL}/leads/top-activities`;
     const options = {
@@ -648,6 +653,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- RETRIEVE EMPLOYEES WITH UPDATE LEAD ACCESS  --------------------------------------//
   it("should retrieve employees with update access to leads", async () => {
     const url = `${BASE_URL}/leads/employees-with-update-access`;
     const options = {
@@ -671,6 +677,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- ASSIGN LEAD TO AN EMPLOYEE  -----------------------------------------------------//
   it("should assign a lead to an employee", async () => {
     const url = `${BASE_URL}/leads/${leadId}/assign`;
     const options = {
@@ -696,6 +703,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- REPLACE ACTIVITY IN ITINERARY  ---------------------------------------------//
   it("should replace activity1 in the itinerary", async () => {
     try {
       const gptActivityId = await getGptActivityIdForActivity1(itineraryId, activity1Id); // Fetch GptActivity ID for activity1Id
@@ -720,6 +728,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- SHOULD DELETE ACTIVITY IN ITIENRARY  ---------------------------------------------//
   it("should delete activity1 in the itinerary", async () => {
     try {
       const gptActivityId = await getGptActivityIdForReplacementActivity(itineraryId, replacementActivityId); // Fetch GptActivity ID for activity1Id
@@ -741,6 +750,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- ADD CITY AT LAST POSITION IN ITINERARY  ------------------------------------------//
   it("should add a city at the last position", async () => {
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/add-city`;
     const options = {
@@ -765,6 +775,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+  // ---------------------------------------------- ADD CITY AT 0TH POSITION  ---------------------------------------------//
   it("should add a city at position 0", async () => {
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/add-city`;
     const options = {
@@ -789,6 +800,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+  // ---------------------------------------------- ADD CITY AT MIDDLE POSITION  ---------------------------------------------//
   it("should add a city at a middle position", async () => {
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/add-city`;
     const options = {
@@ -813,6 +825,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- ADD DAYS TO A CITY  ---------------------------------------------//
   it("should add 2 days to a city", async () => {
     const cityIndex = 1; // Index of the city to add days to
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/add-days`;
@@ -837,6 +850,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- DELETE DAYS FROM A CITY  ---------------------------------------------//
   it("should delete 1 day from a city", async () => {
     const cityIndex = 1; // Index of the city to delete days from
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-days`;
@@ -861,6 +875,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- DELETE CITY AT LAST POSITION  ---------------------------------------------//
   it("should delete the city at the last position", async () => {
     try {
       const enrichedItinerary = await fetchItineraryDetails(itineraryId);
@@ -883,6 +898,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- REPLACE CITY IN ITINERARY  ---------------------------------------------//
   it("should replace a city in the itinerary", async () => {
     const cityIndex = 0;
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/replace-city`;
@@ -907,6 +923,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- DELETE CITY AT 0TH POSITION  ---------------------------------------------//
   it("should delete the city at the 0th position", async () => {
     const cityIndex = 0; // First city index
     const url = `${BASE_URL}/itinerary/${itineraryId}/cities/${cityIndex}/delete-city`;
@@ -928,6 +945,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- DELETE CITY AT MIDDLE POSITION  ---------------------------------------------//
   it("should delete the city at a middle position", async () => {
 
     try {
@@ -951,6 +969,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- REPLACE TRANSFER MODE  ---------------------------------------------//
   it("should dynamically replace transport mode in the itinerary", async () => {
     try {
       const enrichedItinerary = await fetchItineraryDetails(itineraryId);
@@ -1017,6 +1036,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
+// ---------------------------------------------- UPDATE ITINERARY DETAILS LIKE DATE AND ROOMS  --------------------------------//
   it("should update the itinerary details", async () => {
     const currentDate = new Date();
     currentDate.setDate(currentDate.getDate() + 5);
@@ -1067,7 +1087,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 5000000);
 
-
+// ---------------------------------------------- DELETE ITINERARY  ---------------------------------------------//
   it("should delete the itinerary by ID", async () => {
     const deleteItineraryUrl = `${BASE_URL}/itinerary/${itineraryId}`;
     const deleteOptions = {
@@ -1088,6 +1108,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- DELETE COUPONLESS DISCOUNT  ---------------------------------------------//
   it("should delete the couponless discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
     const deleteOptions = {
@@ -1110,6 +1131,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
+// ---------------------------------------------- DELETE GENERAL DISCOUNT  ---------------------------------------------//
   it("should delete the general discount by ID", async () => {
     const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
     const deleteOptions = {
@@ -1132,7 +1154,7 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
     }
   }, 50000);
 
-
+// ---------------------------------------------- DELETE DESTINATION WITH CITIES AND ACTIVITIES  ---------------------------------------------//
   it('should delete the destination and associated cities and activities', async () => {
     const url = `${BASE_URL}/destination/${destinationId}`;
     const options = {

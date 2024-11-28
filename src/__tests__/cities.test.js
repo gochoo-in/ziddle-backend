@@ -11,7 +11,7 @@ const BASE_URL = process.env.BASE_URL;
 
 describe('City Management Tests', () => {
 
-
+// ---------------------------------------------------- CREATE DESTINATION ------------------------------------------------------------//
   it('should add a new destination successfully', async () => {
     const url = `${BASE_URL}/destination`;
     const options = {
@@ -46,7 +46,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
-
+// ---------------------------------------------------- CREATE CITIES ------------------------------------------------------------//
   it('should create a new city associated with the destination', async () => {
     const url = `${BASE_URL}/cities`;
     const options = {
@@ -82,6 +82,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- GET CITIES ------------------------------------------------------------//
   it('should retrieve all cities', async () => {
     const url = `${BASE_URL}/cities`;
     const options = {
@@ -101,6 +102,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- GET CITIES WITH ACTIVITIES ------------------------------------------------------------//
   it('should retrieve the city with activities', async () => {
     const url = `${BASE_URL}/cities/${cityId}/activities`;
     const options = {
@@ -119,6 +121,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- UPDATE CITY DETAILS ------------------------------------------------------------//
   it('should update the city details', async () => {
     const url = `${BASE_URL}/cities/${cityId}`;
     const options = {
@@ -144,6 +147,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- TOGGLE CITY ACTIVE STATUS ------------------------------------------------------------//
   it('should toggle the city’s active status', async () => {
     const url = `${BASE_URL}/cities/${cityId}/toggle-city-active`;
     const options = {
@@ -163,7 +167,7 @@ describe('City Management Tests', () => {
     }
   }, 50000);
 
-
+// ---------------------------------------------------- DELETE DESTINATION AND CITIES ------------------------------------------------------------//
   it('should delete the destination with associated cities', async () => {
     const url = `${BASE_URL}/destination/${destinationId}`;
     const options = {
