@@ -4,15 +4,22 @@ import Destination from '../../models/destination.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
-
+import mongoose from 'mongoose'
+import axios from 'axios';
 // Create a new city
+
+const HOTEL_CITY_API_URL = process.env.HOTEL_CITY_API_URL
+const PREDEFINED_USERNAME = process.env.TBO_HOTEL_PREDEFINED_USERNAME
+const PREDEFINED_PASSWORD = process.env.TBO_HOTEL_PREDEFINED_PASSWORD
+
 export const addCity = async (req, res) => {
     try {
         const {
             name,
             iataCode,
-            destinationName,
+            destinationId,
             country,
+            imageUrls,
             latitude,
             longitude,
             bestTimeToVisit,
@@ -20,23 +27,27 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName,
+            nearbyInternationalAirportCity
         } = req.body;
 
-        if (!name || !iataCode || !destinationName || !country || latitude === undefined || longitude === undefined || !languageSpoken) {
+
+        if (!name || !iataCode || !destinationId  || latitude === undefined || longitude === undefined || !languageSpoken || !hotelApiCityName || !nearbyInternationalAirportCity.name || !nearbyInternationalAirportCity.iataCode) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'All required fields must be provided', false));
         }
 
-        const destination = await Destination.findOne({ name: destinationName });
+        const destination = await Destination.findById(destinationId);
         if (!destination) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationName} not found`, false));
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `${destinationId} not found`, false));
         }
 
         const city = await City.create({
             name,
             iataCode,
             destination: destination._id,
-            country,
+            country:destination.name,
+            imageUrls,
             latitude,
             longitude,
             bestTimeToVisit,
@@ -44,7 +55,10 @@ export const addCity = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            hotelApiCityName,
+            countryName: destination.country,
+            nearbyInternationalAirportCity
         });
 
         return res.status(StatusCodes.CREATED).json(httpFormatter({ city }, 'City added successfully', true));
@@ -57,7 +71,11 @@ export const addCity = async (req, res) => {
 // Get all cities
 export const getAllCities = async (req, res) => {
     try {
-        const cities = await City.find();
+        const isActive = req.query.active === 'true';
+        const query = isActive ? { isActive: true } : {};
+
+        const cities = await City.find(query);
+
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, 'Cities retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving cities:', error);
@@ -65,13 +83,19 @@ export const getAllCities = async (req, res) => {
     }
 };
 
-// Get a city with its activities using aggregation
+
+
 export const getCityWithActivities = async (req, res) => {
     try {
-        const { cityName } = req.params;
+        const { cityId } = req.params;
+
+        // Ensure cityId is converted to ObjectId
+        const objectIdCity = new mongoose.Types.ObjectId(cityId);
+
+        // Adding a log for debugging
 
         const city = await City.aggregate([
-            { $match: { name: cityName } },
+            { $match: { _id: objectIdCity } },  // Match by cityId as ObjectId
             {
                 $lookup: {
                     from: 'activities',
@@ -86,12 +110,16 @@ export const getCityWithActivities = async (req, res) => {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
         }
 
-        return res.status(StatusCodes.OK).json(httpFormatter({ city: city[0] }, 'City with activities retrieved successfully', true));
+        
+        return res.status(StatusCodes.OK).json(httpFormatter({ data: city[0].activities }, 'City with activities retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving city with activities:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+
+
 
 // Get a city by ID
 export const getCityById = async (req, res) => {
@@ -110,6 +138,32 @@ export const getCityById = async (req, res) => {
     }
 };
 
+
+export const toggleCityActiveStatus = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      // Find the city by ID
+      const city = await City.findById(id);
+  
+      if (!city) {
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+      }
+  
+      // Toggle the isActive status
+      city.isActive = !city.isActive;
+      await city.save();
+
+      return res.status(StatusCodes.OK).json(httpFormatter({ isActive: city.isActive }, `City ${city.isActive ? 'activated' : 'deactivated'} successfully` , true));
+      
+    } catch (error) {
+      console.error('Error updating city status:', error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+  };
+  
+
+
 // Update a city by ID
 export const updateCityById = async (req, res) => {
     try {
@@ -126,10 +180,11 @@ export const updateCityById = async (req, res) => {
             pointsOfInterest,
             climate,
             languageSpoken,
-            travelTimeFromHub
+            travelTimeFromHub,
+            nearbyInternationalAirportCity
         } = req.body;
 
-        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !languageSpoken) {
+        if (!name && !iataCode && !destinationName && !country && latitude === undefined && longitude === undefined && !languageSpoken && (!nearbyInternationalAirportCity.name && !nearbyInternationalAirportCity.iataCode)) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'At least one field is required to update', false));
         }
 
@@ -156,6 +211,7 @@ export const updateCityById = async (req, res) => {
         if (climate) city.climate = climate;
         if (languageSpoken) city.languageSpoken = languageSpoken;
         if (travelTimeFromHub !== undefined) city.travelTimeFromHub = travelTimeFromHub;
+        if(nearbyInternationalAirportCity) city.nearbyInternationalAirportCity = nearbyInternationalAirportCity
 
         await city.save();
         return res.status(StatusCodes.OK).json(httpFormatter({ city }, 'City updated successfully', true));
@@ -184,3 +240,52 @@ export const deleteCityById = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+// get activities for multiple cities
+export const getActivitiesForMultipleCities = async (req, res) => {
+    try {
+        let { cityIds } = req.query;
+
+        if (!cityIds) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'cityIds query parameter is required', false));
+        }
+        if (!Array.isArray(cityIds)) {
+            cityIds = [cityIds];  
+        }
+
+        const activities = await Activity.find({ city: { $in: cityIds } });
+
+        if (activities.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No activities found for the specified cities', false));
+        }
+
+        return res.status(StatusCodes.OK).json(httpFormatter({ activities }, 'Activities retrieved successfully', true));
+    } catch (error) {
+        logger.error('Error retrieving activities for multiple cities:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+
+export const getCityName = async (req, res) => {
+    const {countryCode} = req.body
+   
+    try {
+        const response = await axios.post(
+            HOTEL_CITY_API_URL,
+            { CountryCode: countryCode },
+            {
+                auth: {
+                    username: PREDEFINED_USERNAME,
+                    password: PREDEFINED_PASSWORD
+                }
+            }
+        );
+        const data = response.data.CityList
+        return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Cities for destination ', true));
+        
+    } catch (error) {
+        logger.error('Error retrieving cities:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Error retrieving cities', false));
+    }
+}

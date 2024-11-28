@@ -1,9 +1,11 @@
 import express from 'express';
-import { getHotels } from './hotels.controller.js';
+import { getTopHotels,getSpecificHotelDetails } from './hotels.controller.js';
 
 const router = express.Router();
 
-// Route for fetching hotels based on cityId, dates, adults, and rooms
-router.get('/:cityId/hotels', getHotels);
+router.get('/:cityId/hotels', getTopHotels);
+
+router.get('/:cityId/hotels/:hotelCode',getSpecificHotelDetails)
+
 
 export default router;

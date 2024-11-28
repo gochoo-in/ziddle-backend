@@ -3,14 +3,17 @@ import Destination from '../../models/destination.js';
 import City from '../../models/city.js';
 import Activity from '../../models/activity.js';
 import StatusCodes from 'http-status-codes';
+import mongoose from 'mongoose';
 import logger from '../../../config/logger.js';
+import { getCountryCode } from '../../services/hotelDetails.js';
+
 // Create a new destination
 export const addDestination = async (req, res) => {
     try {
         const {
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude
+            latitude, longitude,markup
         } = req.body;
 
         // Validate required fields
@@ -62,10 +65,12 @@ export const addDestination = async (req, res) => {
             return res.status(StatusCodes.CONFLICT).json(httpFormatter({}, 'Destination with this name already exists', false));
         }
 
+        const countryCode = await getCountryCode(country);
+
         const data = await Destination.create({
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
-            latitude, longitude
+            latitude, longitude,markup, countryCode
         });
         return res.status(StatusCodes.CREATED).json(httpFormatter({ data }, 'Destination added successfully', true));
 
@@ -75,21 +80,109 @@ export const addDestination = async (req, res) => {
     }
 };
 
-// Get all destinations (countries)
+
+
+
+
+
+export const toggleDestinationActiveStatus = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find the destination by ID
+    const destination = await Destination.findById(id);
+
+    if (!destination) {
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
+    }
+
+    // Toggle the active status
+    destination.active = !destination.active;
+    await destination.save();
+
+    return res.status(StatusCodes.OK).json(httpFormatter({ active: destination.active }, `Destination ${destination.active ? 'activated' : 'deactivated'} successfully` , true));
+  } catch (error) {
+    console.error('Error toggling destination status:', error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+  }
+};
+
+
+
+// Get all destinations
+// export const getAllDestinations = async (req, res) => {
+//   try {
+//     const isActive = req.query.active === 'true';
+//     const query = isActive ? { active: true } : {};
+
+//     const destinations = await Destination.find(query);
+
+//     return res.status(StatusCodes.OK).json({
+//       data: {
+//         data: destinations,
+//       },
+//       message: 'Destinations retrieved successfully',
+//     });
+//   } catch (error) {
+//     console.error('Error retrieving destinations:', error);
+//     return res
+//       .status(StatusCodes.INTERNAL_SERVER_ERROR)
+//       .json({ message: 'Internal server error' });
+//   }
+// };
+// Get all destinations
 export const getAllDestinations = async (req, res) => {
     try {
-        const data = await Destination.find();
-        return res.status(StatusCodes.OK).json(httpFormatter({ data }, 'Destinations retrieved successfully', true));
+      const isActive = req.query.active === 'true';
+      const query = isActive ? { active: true } : {};
+  
+      // Fetch destinations with city counts
+      const destinations = await Destination.aggregate([
+        { $match: query },
+        {
+          $lookup: {
+            from: 'cities', // Name of the cities collection
+            localField: '_id',
+            foreignField: 'destination', // Field in the City collection that references the Destination
+            as: 'cities' // Name of the new array field to create
+          }
+        },
+        {
+          $addFields: {
+            cityCount: { $size: '$cities' } // Add cityCount field based on the size of the cities array
+          }
+        },
+        {
+          $project: {
+            cities: 0 // Exclude the cities array if you don't want to return it
+          }
+        }
+      ]);
+  
+      return res.status(StatusCodes.OK).json({
+        data: {
+          data: destinations,
+        },
+        message: 'Destinations retrieved successfully',
+      });
     } catch (error) {
-        logger.error('Error retrieving destinations:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+      console.error('Error retrieving destinations:', error);
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: 'Internal server error' });
     }
-};
+  };
+  
 
 // Get all activities for a specific destination
 export const getActivitiesByDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
 
         const destination = await Destination.findById(destinationId);
         if (!destination) {
@@ -114,20 +207,69 @@ export const getActivitiesByDestination = async (req, res) => {
 };
 
 // Get all cities for a specific destination
+// export const getCitiesByDestination = async (req, res) => {
+//     try {
+//         const { destinationId } = req.params;
+
+//         // Validate ObjectId
+//         if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+//             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+//         }
+
+//         const destination = await Destination.findById(destinationId);
+//         if (!destination) {
+//             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
+//         }
+
+//         const cities = await City.find({ destination: destination._id });
+
+
+
+//         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, `Cities for ${destination.name} retrieved successfully`, true));
+//     } catch (error) {
+//         logger.error('Error retrieving cities by destination:', error);
+//         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+//     }
+// };
+
 export const getCitiesByDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
 
         const destination = await Destination.findById(destinationId);
         if (!destination) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
         }
 
-        const cities = await City.find({ destination: destination._id });
-
-        if (cities.length === 0) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, `No cities found for ${destination.name}`, false));
-        }
+        // Aggregate cities with activity counts
+        const cities = await City.aggregate([
+            {
+                $match: { destination: destination._id } // Match cities by destination ID
+            },
+            {
+                $lookup: {
+                    from: 'activities', // Name of the activities collection
+                    localField: '_id', // Field in cities
+                    foreignField: 'city', // Field in activities that references the city
+                    as: 'activities' // Name of the new array field to create
+                }
+            },
+            {
+                $addFields: {
+                    activityCount: { $size: '$activities' } // Add activityCount field based on the size of the activities array
+                }
+            },
+            {
+                $project: {
+                    activities: 0 // Optionally exclude the activities array if not needed
+                }
+            }
+        ]);
 
         return res.status(StatusCodes.OK).json(httpFormatter({ cities }, `Cities for ${destination.name} retrieved successfully`, true));
     } catch (error) {
@@ -136,10 +278,17 @@ export const getCitiesByDestination = async (req, res) => {
     }
 };
 
+
 // Update a destination
 export const updateDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
+
         const {
             name, currency, timezone, tripDuration, description, category, visaType,
             country, continent, languagesSpoken, bestTimeToVisit, imageUrls,
@@ -196,7 +345,6 @@ export const updateDestination = async (req, res) => {
                 if (typeof image !== 'object' || !image.type || !image.url) {
                     return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Each image URL must be an object with type and URL fields', false));
                 }
-                // Check URL format
                 try {
                     new URL(image.url); // Validate URL
                 } catch (e) {
@@ -226,6 +374,11 @@ export const deleteDestination = async (req, res) => {
     try {
         const { destinationId } = req.params;
 
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
+
         const destination = await Destination.findById(destinationId);
         if (!destination) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Destination not found', false));
@@ -252,6 +405,11 @@ export const deleteDestination = async (req, res) => {
 export const getDestinationById = async (req, res) => {
     try {
         const { destinationId } = req.params;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Invalid destination ID', false));
+        }
 
         const destination = await Destination.findById(destinationId);
         if (!destination) {

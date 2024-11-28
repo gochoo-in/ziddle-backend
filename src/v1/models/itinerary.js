@@ -1,18 +1,138 @@
 import mongoose from 'mongoose';
-import Activity from './activity.js';
-import City from './city.js';
-import Flight from './flight.js';
-import Mode from './mode.js';
-import Transfer from './transfer.js';
+import ItineraryVersion from './itineraryVersion.js'; // Import ItineraryVersion model
+import Discount from './discount.js';
+import User from './user.js';
 
+// Activity Schema
+const activitySchema = new mongoose.Schema({
+  day: { type: Number, required: true },
+  date: { type: Date, required: true },
+  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'GptActivity', required: true }]
+}, { _id: false });
+
+// Transport Schema
+const transportSchema = new mongoose.Schema({
+  mode: { type: String, enum: ['Flight', 'Car', 'Ferry', null], required: false, default: null },
+  modeDetails: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'transport.modeDetailsModel',
+    default: null
+  },
+  modeDetailsModel: {
+    type: String,
+    enum: ['Flight', 'Taxi', 'Ferry', null],
+    required: false,
+    default: null
+  }
+}, { _id: false });
+
+// Room Schema
+const roomSchema = new mongoose.Schema({
+  adults: { type: Number, required: true },
+  children: { type: Number, required: true },
+  childrenAges: [{ type: Number, required: true }]
+}, { _id: false });
+
+// Itinerary Day Schema
+const itineraryDaySchema = new mongoose.Schema({
+  currentCity: { type: String, required: true },
+  nextCity: { type: String, default: null },
+  stayDays: { type: Number, required: true },
+  transport: { type: transportSchema, default: null },
+  transferCostPerPersonINR: { type: String, default: null },
+  transferDuration: { type: String, default: null },
+  days: [activitySchema],
+  hotelDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', default: null }
+}, { _id: false });
+
+// Enriched Itinerary Schema
+const enrichedItinerarySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  subtitle: { type: String, required: true },
+  destination: { type: String, required: true },
+  destinationId: { type: String },
+  itinerary: [itineraryDaySchema],
+  totalDays: { type: Number, required: true },
+  totalNights: { type: Number, required: true },
+  departureCity: { type: String },
+  arrivalCity: { type: String}
+}, { _id: false });
+
+// Main Itinerary Schema
 const itinerarySchema = new mongoose.Schema({
-  cities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'City' }],
-  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
-  flights: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Flight' }],
-  modes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mode' }],
-  transfers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transfer' }],
-  totalCost: { type: Number },
-  totalDuration: { type: String }
+  type: { type: String, enum: ['User', 'Admin'], default: 'User' },
+  adminPackage: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminPackage' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  enrichedItinerary: { type: enrichedItinerarySchema, required: true },
+  adults: { type: Number, required: true },
+  children: { type: Number, required: true },
+  childrenAges: [{ type: Number, required: true }],
+  rooms: { type: [roomSchema], required: true },
+  travellingWith: { type: String, required: true },
+  totalPrice: { type: String, required: true, default: "0" }, // Added totalPrice as a String
+  grandTotal: { type: String, required: true, default: "0" }, // New field for current total price
+  totalPriceWithoutMarkup: { type: String, required: true, default: "0" }, // New field for final total price
+  couponlessDiscount: { type: String, required: true, default: "0" },
+  totalFlightsPrice: { type: String, required: true, default: "0" },
+  totalFerriesPrice: { type: String, required: true, default: "0" },
+  totalTaxisPrice: { type: String, required: true, default: "0" },
+  totalHotelsPrice: { type: String, required: true, default: "0" },
+  totalActivitiesPrice: { type: String, required: true, default: "0" },
+  internationalTotalFlightsPrice: { type: String, required: true, default: "0" },
+  generalDiscount: { type: String, reuired: true, default: "0" },
+  discounts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Discount' }],
+  internationalFlights: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Flight', default: [] }],
+  tax: { type: String },
+  serviceFee: { type: String },
+  chooseBestForMe: { type: Boolean, default: false },
+  lastFetchedDate: { type: Date, default: Date.now }
 }, { timestamps: true, versionKey: false });
 
-export default mongoose.model('Itinerary', itinerarySchema);
+
+// Middleware to create a version before updating
+itinerarySchema.post(['findOneAndUpdate', 'findByIdAndUpdate'], async function (next) {
+  try {
+    const query = this;
+    const itineraryId = query.getQuery()._id || query.getQuery().itineraryId;
+
+    if (!itineraryId) {
+      return next(); // No itinerary ID, nothing to track
+    }
+
+    // Fetch the original itinerary document before making the update
+    const original = await Itinerary.findById(itineraryId).lean();
+    if (original) {
+      const { changedBy, comment } = query.options;
+
+      // Ensure that `changedBy` is properly formatted and only extracts the userId
+      const userId = changedBy && typeof changedBy === 'object' && changedBy.userId ? changedBy.userId : null;
+
+      // Determine the current version number
+      const latestVersion = await ItineraryVersion.findOne({ itineraryId }).sort({ version: -1 });
+      const newVersionNumber = latestVersion ? latestVersion.version + 1 : 1;
+
+      // Create a new version of the itinerary before the update
+      await ItineraryVersion.create({
+        itineraryId,
+        version: newVersionNumber,
+        enrichedItinerary: {
+          ...original.enrichedItinerary,
+          destinationId: original.enrichedItinerary.destinationId, 
+        }, 
+        changedBy: {
+          userId: userId || null, // Assign userId if present
+        },
+        comment: comment || '', // Store the comment separately
+        createdAt: new Date()
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in pre-update hook:', error);
+    next(error);
+  }
+});
+
+const Itinerary = mongoose.model('Itinerary', itinerarySchema);
+
+export default Itinerary;

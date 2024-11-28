@@ -1,100 +1,67 @@
-export function addGeneralDummyData(itinerary) {
-    itinerary.itinerary.forEach((segment, index) => {
-        const nextSegment = itinerary.itinerary[index + 1];
+import moment from 'moment';
+import logger from '../config/logger.js';
+import Ferry from '../v1/models/ferry.js'; // Assuming you have a Ferry model
+import httpFormatter from '../utils/formatter.js';
 
-        // Add transport details if transport exists
-        if (segment.transport) {
-            const mode = segment.transport.mode;
-            // Fetch transport details based on the mode of transport
-            segment.transport.modeDetails = getDummyTransportDetails(mode, segment, nextSegment);
-        } else {
-            // Handle missing transport information
-            segment.transport = {
-                modeDetails: { message: 'Transport details are not available' }
-            };
+async function generateDynamicFerryDetails(currentCity, nextCity, transferDuration, date) {
+    // Use the currentCity, nextCity, transferDuration, and date to generate ferry details dynamically
+    return {
+        transferId: `ferry_${currentCity}_${nextCity}`, // Unique transferId based on city names
+        pickupLocation: `${currentCity} Port`,  // Use the current city name
+        dropoffLocation: `${nextCity} Port`,  // Use the next city name
+        departureTime: moment(date).format('YYYY-MM-DDTHH:mm:ss'),
+        duration: transferDuration || 90,  // Use the transferDuration from the itinerary
+        arrivalTime: moment(date).add(transferDuration || 90, 'minutes').format('YYYY-MM-DDTHH:mm:ss'),
+        vehicleType: 'Ferry',
+        passengerCount: 100,
+        luggageAllowed: 50,
+        price: '500', 
+        currency: 'INR',
+        sharedTransfer: true
+    };
+}
+
+
+export async function addFerryDetailsToItinerary(data, currencyCode = 'INR') {
+    try {
+        const { itinerary } = data;
+
+        for (let i = 0; i < itinerary.length - 1; i++) {
+            const currentCity = itinerary[i].currentCity;
+            const nextCity = itinerary[i + 1].currentCity;
+            const transferDuration = itinerary[i].transferDuration;
+            const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
+            const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
+
+            // Check if the transport mode is 'Ferry'
+            if (itinerary[i].transport && itinerary[i].transport.mode === 'Ferry') {
+                try {
+                    // Generate ferry details dynamically using city names, duration, and dates
+                    const dynamicFerry = await generateDynamicFerryDetails(currentCity, nextCity, transferDuration, nextDay);
+
+                    // Create and save ferry details in the database
+                    const newFerry = new Ferry({
+                        ...dynamicFerry,
+                    });
+
+                    const savedFerry = await newFerry.save();
+
+                    // Assign the ferry details to modeDetails in the itinerary
+                    itinerary[i].transport.modeDetails = savedFerry._id;
+                } catch (innerError) {
+                    logger.error(`Error processing ferry details for leg ${i}:`, { error: innerError.message });
+                    itinerary[i].transport.modeDetails = null;
+                }
+            }
         }
 
-        // Update hotel booking details based on arrival and departure
-        const checkInDate = segment.days[0].date;
-        const checkOutDate = nextSegment ? nextSegment.days[0].date : segment.days[segment.days.length - 1].date; // Use next city's first day as check-out date
-
-        // Add hotel booking details dynamically
-        segment.hotelDetails = [
-            {
-                hotelName: "Hotel Sonnenberg",
-                checkInDate: `${checkInDate}T14:00:00`,  // Assuming check-in time is 2 PM
-                checkOutDate: `${checkOutDate}T12:00:00`, // Assuming check-out time is 12 PM
-                location: "Near Natur-Museum",
-                rooms: [
-                    {
-                        roomName: "Room 1",
-                        type: "Single room",
-                        area: "86 sqft",
-                        accommodates: "1 adult",
-                        bedType: "1 Queen bed",
-                        nonRefundable: true,
-                        amenities: [
-                            "Wifi",
-                            "Breakfast",
-                            "Air conditioner",
-                            "Elevator",
-                            "Pets allowed"
-                        ],
-                        rating: 3,
-                        starRating: "3 star",
-                        roomCategory: "Luxe"
-                    }
-                ]
-            }
-        ];
-    });
-
-    return itinerary;
-}
-
-function getDummyTransportDetails(mode, segment, nextSegment) {
-    if (!mode) {
-        // Handle case when mode is undefined
         return {
-            message: 'Transport mode is not specified'
+            ...data,
+            itinerary
         };
-    }
-
-    const departureCity = segment.currentCity || 'Unknown City';
-    const arrivalCity = nextSegment ? nextSegment.currentCity || 'Unknown City' : 'Unknown City';
-    
-    const departureDate = segment.days[0].date;
-    const arrivalDate = departureDate; 
-    
-    // Generate transport details based on the mode
-    switch (mode) {
-        case 'Ferry':
-            return {
-                ferryNumber: `FR${Math.floor(Math.random() * 1000)}`,
-                departure: `${departureCity} Pier`,
-                arrival: `${arrivalCity} Island Pier`,
-                departureTime: `${departureDate}T08:00:00`,
-                arrivalTime: `${arrivalDate}T10:30:00`,
-                duration: '2 hours 30 minutes',
-                refundable: true
-            };
-        case 'Car':
-            return segment.transport.modeDetails || { message: 'No transport details available for mode: Car' };
-        case 'Train':
-            return {
-                trainNumber: `TR${Math.floor(Math.random() * 1000)}`,
-                departure: `${departureCity} Station`,
-                arrival: `${arrivalCity} Station`,
-                departureTime: `${departureDate}T10:00:00`,
-                arrivalTime: `${arrivalDate}T18:00:00`,
-                duration: '8 hours',
-                refundable: true
-            };
-        case 'Flight':
-            return segment.transport.modeDetails || { message: 'No transport details available for mode: Flight' };
-        default:
-            return {
-                message: `No transport details available for mode: ${mode}`
-            };
+    } catch (error) {
+        logger.error("Error adding ferry details to itinerary:", { error: error.message });
+        return httpFormatter(null, 'Error adding ferry details to itinerary', false);
     }
 }
+

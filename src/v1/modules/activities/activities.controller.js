@@ -10,10 +10,12 @@ export const addActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
             cityName,
+            imageUrls,
             bestTimeToParticipate,
             physicalDifficulty,
             requiredEquipment,
@@ -31,7 +33,7 @@ export const addActivity = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!name || !duration || !opensAt || !closesAt || !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
+        if (!name || !duration || !opensAt || !closesAt || featured === undefined|| !cityName || !physicalDifficulty || localGuidesAvailable === undefined || isFamilyFriendly === undefined || refundable === undefined || price === undefined) {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
         }
 
@@ -43,11 +45,13 @@ export const addActivity = async (req, res) => {
         const activity = await Activity.create({
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
             city: city._id,
             bestTimeToParticipate,
+            imageUrls,
             physicalDifficulty,
             requiredEquipment,
             ageRestriction,
@@ -69,6 +73,31 @@ export const addActivity = async (req, res) => {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
+
+
+export const toggleActivityActiveStatus = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      // Find the city by ID
+      const activity = await Activity.findById(id);
+  
+      if (!activity) {
+        return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Activity not found', false));
+      }
+  
+      // Toggle the isActive status
+      activity.isActive = !activity.isActive;
+      await activity.save();
+
+      
+  
+    } catch (error) {
+      console.error('Error updating activity status:', error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+  };
+
 
 // Get an activity by ID
 export const getActivity = async (req, res) => {
@@ -99,6 +128,7 @@ export const updateActivity = async (req, res) => {
         const {
             name,
             duration,
+            featured,
             description,
             opensAt,
             closesAt,
@@ -130,6 +160,7 @@ export const updateActivity = async (req, res) => {
 
         // Update fields if they are provided
         if (name) activity.name = name;
+        if(featured)  activity.featured = featured;
         if (duration) activity.duration = duration;
         if (description) activity.description = description;
         if (opensAt) activity.opensAt = opensAt;

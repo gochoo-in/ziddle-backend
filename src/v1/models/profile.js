@@ -14,8 +14,15 @@ const profileSchema = new mongoose.Schema({
         pincode: { type: String, required: true },
         nationality: { type: String }
     },
-    profilePhoto: { type: String },
-    phoneNumber: { type: String, required: true, unique: true },
+    profilePhoto: {
+        type: {
+            type: String,
+        },
+        url: {
+            type: String,
+        }
+    },
+    phoneNumber: { type: String, required: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true, versionKey: false });
 

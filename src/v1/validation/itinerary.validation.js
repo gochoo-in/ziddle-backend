@@ -40,6 +40,30 @@ const activitySchema = Joi.object({
     }),
 });
 
+// Transport Schema
+const transportSchema = Joi.object({
+  mode: Joi.string()
+    .valid('Flight', 'Car', 'Ferry', null) 
+    .allow(null)
+    .messages({
+      'string.base': 'Transport mode must be a string',
+      'any.only': 'Transport mode must be Flight, Car, Ferry, or null',
+    }),
+  modeDetails: Joi.string()
+    .allow(null)
+    .messages({
+      'string.base': 'Mode details must be a string or null',
+    }),
+  modeDetailsModel: Joi.string()
+    .valid('Flight', 'Taxi', 'Ferry', null)
+    .allow(null)
+    .messages({
+      'string.base': 'Mode details model must be a string',
+      'any.only': 'Mode details model must be Flight, Taxi, Ferry, or null',
+    }),
+});
+
+
 // City Schema
 const citySchema = Joi.object({
   _id: Joi.string()
@@ -71,6 +95,39 @@ const citySchema = Joi.object({
       'array.base': 'Activities must be an array',
       'array.items': 'Each activity must follow the defined schema',
       'any.required': 'Activities are required',
+    }),
+  transport: transportSchema.allow(null).messages({
+    'object.base': 'Transport details must be a valid object',
+  }),
+});
+
+// Room Schema
+const roomSchema = Joi.object({
+  adults: Joi.number()
+    .integer()
+    .min(1)
+    .required()
+    .messages({
+      'number.base': 'Number of adults in room must be a number',
+      'number.integer': 'Number of adults in room must be an integer',
+      'number.min': 'Number of adults in room must be at least 1',
+      'any.required': 'Number of adults in room is required',
+    }),
+  children: Joi.number()
+    .integer()
+    .min(0)
+    .required()
+    .messages({
+      'number.base': 'Number of children in room must be a number',
+      'number.integer': 'Number of children in room must be an integer',
+      'number.min': 'Number of children in room cannot be negative',
+      'any.required': 'Number of children in room is required',
+    }),
+  childrenAges: Joi.array()
+    .items(Joi.number().min(0))
+    .messages({
+      'array.base': 'Children ages must be an array of numbers',
+      'array.items': 'Each child age must be a non-negative number',
     }),
 });
 
@@ -131,6 +188,14 @@ const itineraryValidation = {
         'array.base': 'Cities must be an array',
         'array.items': 'Each city must follow the defined schema',
         'any.required': 'Cities are required',
+      }),
+    rooms: Joi.array()
+      .items(roomSchema)
+      .required()
+      .messages({
+        'array.base': 'Rooms must be an array',
+        'array.items': 'Each room must follow the defined schema',
+        'any.required': 'Rooms are required',
       }),
   }),
 };

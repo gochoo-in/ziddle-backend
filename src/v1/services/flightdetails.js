@@ -1,17 +1,51 @@
 import dotenv from 'dotenv';
 import axios from 'axios';
 import moment from 'moment';
-import { Duffel } from '@duffel/api';
 import logger from '../../config/logger.js';
+import Flight from '../models/flight.js';
+
 dotenv.config();
 
-const duffel = new Duffel({
-    token: process.env.DUFFEL_ACCESS_TOKEN
-});
-
-// Replace with your actual currency conversion API endpoint
-const CONVERSION_API_URL = 'https://api.exchangerate-api.com/v4/latest/';
+const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
+const TBO_API_URL = process.env.TBO_FLIGHT_SEARCH_API;
+const AUTH_URL = process.env.TBO_AUTH_URL;
+
+// Server IP address from .env
+const SERVER_IP = process.env.SERVER_IP;
+
+let TBO_TOKEN = null;
+let LAST_TOKEN_FETCH = null;
+
+async function authenticateTBO() {
+    try {
+        const requestBody = {
+            ClientId: "ApiIntegrationNew",
+            UserName: "Yokuverse",
+            Password: "Yokuverse@1234",
+            EndUserIp: SERVER_IP
+        };
+
+        const response = await axios.post(AUTH_URL, requestBody);
+        if (response.data && response.data.Status === 1) {
+            TBO_TOKEN = response.data.TokenId;
+            LAST_TOKEN_FETCH = moment();
+            logger.info(`Authenticated with TBO API.`);
+        } else {
+            logger.error(`Authentication failed: ${response.data.Error.ErrorMessage}`);
+        }
+    } catch (error) {
+        logger.error("Error authenticating with TBO API:", error.message);
+    }
+}
+
+async function getTBOToken() {
+    // Check if token needs to be refreshed
+    if (!TBO_TOKEN || !LAST_TOKEN_FETCH || moment().diff(LAST_TOKEN_FETCH, 'hours') >= 6) {
+        await authenticateTBO();
+    }
+    return TBO_TOKEN;
+}
 
 async function convertToINR(amount, currency) {
     try {
@@ -20,14 +54,12 @@ async function convertToINR(amount, currency) {
         return amount * rate;
     } catch (error) {
         logger.error(`Error converting currency ${currency} to INR:`, error.message);
-        return amount; // Return the amount unchanged in case of an error
+        return amount;
     }
 }
 
-
-
-
-async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, cityIATACodes) {
+export async function fetchFlightDetails(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes) {
+    console.log(fromCity, toCity, departureDate, adults, children, childrenAges, cityIATACodes)
     try {
         const fromCityData = cityIATACodes.find(city => city.name.toLowerCase() === fromCity.toLowerCase());
         const toCityData = cityIATACodes.find(city => city.name.toLowerCase() === toCity.toLowerCase());
@@ -39,85 +71,112 @@ async function fetchFlightDetails(fromCity, toCity, departureDate, adults, child
         const fromIATACode = fromCityData.iataCode;
         const toIATACode = toCityData.iataCode;
 
-        const slices = [
-            {
-                origin: fromIATACode,
-                destination: toIATACode,
-                departure_date: departureDate
-            }
-        ];
+        const token = await getTBOToken();
 
-        const passengers = [
-            ...Array(adults).fill({ type: "adult" }),
-            ...Array(children).fill({ type: "child" })
-        ];
+        const requestBody = {
+            EndUserIp: SERVER_IP,
+            TokenId: token,
+            AdultCount: adults.toString(),
+            ChildCount: children.toString(),
+            InfantCount: '0',
+            DirectFlight: 'false',
+            OneStopFlight: 'false',
+            JourneyType: '1',
+            Segments: [
+                {
+                    Origin: fromIATACode,
+                    Destination: toIATACode,
+                    FlightCabinClass: '1',
+                    PreferredDepartureTime: `${departureDate}`
+                }
+            ]
+        };
 
-        const response = await duffel.offerRequests.create({
-            slices,
-            passengers,
-            cabin_class: 'economy' // Set the cabin class to economy
-        });
+        const response = await axios.post(TBO_API_URL, requestBody);
+        const flights = response.data.Response.Results;
 
-        return response.data.offers.map(offer => ({
-            fromCity,
-            toCity,
-            departureDate,
-            price: offer.total_amount,
-            currency: offer.total_currency,
-            airline: offer.slices[0].segments[0].marketing_carrier.name,
-            flightSegments: offer.slices[0].segments.map(segment => ({
-                departure: segment.origin.iataCode,
-                arrival: segment.destination.iataCode,
-                departureTime: segment.departing_at,
-                arrivalTime: segment.arriving_at,
-                carrierCode: segment.marketing_carrier.iataCode,
-                flightNumber: segment.marketing_carrier_flight_number,
-                baggage: segment.passengers[0].baggages
-            }))
-        }));
+        if (!flights || flights.length === 0) {
+            return [];
+        }
+        
+
+        // Flatten the nested arrays and map the response to include necessary flight details
+        return flights.flatMap(innerArray => 
+            innerArray.map(offer => {
+                const publishedFare = offer.Fare && offer.Fare.PublishedFare != null ? offer.Fare.PublishedFare : Infinity;
+                return {
+                    fromCity,
+                    toCity,
+                    departureDate,
+                    price: publishedFare,
+                    currency: offer.Fare?.Currency || BASE_CURRENCY,
+                    airline: offer.Segments[0][0].Airline.AirlineName,
+                    flightSegments: offer.Segments[0].map(segment => ({
+                        img: null, // Placeholder as TBO response doesn't include logo URL
+                        departure: segment.Origin.Airport.AirportCode,
+                        arrival: segment.Destination.Airport.AirportCode,
+                        departureTime: segment.Origin.DepTime,
+                        arrivalTime: segment.Destination.ArrTime,
+                        carrierCode: segment.Airline.AirlineCode,
+                        flightNumber: segment.Airline.FlightNumber,
+                        baggage: {
+                            cabinBag: segment.CabinBaggage || "N/A",
+                            checkedBag: segment.Baggage || "N/A"
+                        }
+                    }))
+                };
+            })
+        );
     } catch (error) {
-        console.error(`Error fetching flight details from ${fromCity} to ${toCity}:`, error.message);
+        logger.error(`Error fetching flight details from ${fromCity} to ${toCity}:`, error);
         return [];
     }
 }
 
-// Function to check if a flight fits within the free time window
-function isFlightAfterLastActivity(flight, lastActivityEndTime) {
-    const flightDepartureTime = moment(flight.flightSegments[0].departureTime);
-    return flightDepartureTime.isAfter(lastActivityEndTime.add(4, 'hours'));
-}
-
-export async function addFlightDetailsToItinerary(data, adults, children, cityIATACodes) {
+export async function addFlightDetailsToItinerary(data, adults, children, childrenAges, cityIATACodes) {
     try {
         const { itinerary } = data;
-
         for (let i = 0; i < itinerary.length - 1; i++) {
             const currentCity = itinerary[i].currentCity;
             const nextCity = itinerary[i + 1].currentCity;
 
-            if (itinerary[i].transport && itinerary[i].transport.mode === 'Flight') { 
-                // Get the last day's details for calculating the flight time
+            if (itinerary[i].transport && itinerary[i].transport.mode === 'Flight') {
                 const lastDay = itinerary[i].days[itinerary[i].days.length - 1];
-
-                // Always find flights on the next day after the last activity
                 const nextDay = moment(lastDay.date).add(1, 'days').format('YYYY-MM-DD');
-                const flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults, children, cityIATACodes);
+                const flights = await fetchFlightDetails(currentCity, nextCity, nextDay, adults, children, childrenAges, cityIATACodes);
 
                 if (flights.length > 0) {
-                    // Find the cheapest flight
                     const cheapestFlight = flights.reduce((prev, current) => {
                         return parseFloat(prev.price) < parseFloat(current.price) ? prev : current;
                     });
 
-                    // Convert the price to INR
                     const priceInINR = await convertToINR(parseFloat(cheapestFlight.price), cheapestFlight.currency);
+                    const departureDate = cheapestFlight.flightSegments[0].departureTime;
 
-                    itinerary[i].transport.modeDetails = {
-                        ...cheapestFlight,
-                        priceInINR: priceInINR.toFixed(2)
-                    };
+                    const newFlight = new Flight({
+                        departureCityId: cityIATACodes.find(city => city.name === cheapestFlight.fromCity)._id,
+                        arrivalCityId: cityIATACodes.find(city => city.name === cheapestFlight.toCity)._id,
+                        baggageIncluded: cheapestFlight.flightSegments.some(segment => segment.baggage.checkedBag !== "N/A"),
+                        baggageDetails: {
+                            cabinBag: cheapestFlight.flightSegments[0].baggage.cabinBag,
+                            checkedBag: cheapestFlight.flightSegments[0].baggage.checkedBag
+                        },
+                        price: priceInINR,
+                        currency: 'INR',
+                        airline: cheapestFlight.airline,
+                        departureDate: departureDate,
+                        flightSegments: cheapestFlight.flightSegments.map(segment => ({
+                            img: segment.img,
+                            departureTime: segment.departureTime,
+                            arrivalTime: segment.arrivalTime,
+                            flightNumber: segment.flightNumber
+                        }))
+                    });
+
+                    const savedFlight = await newFlight.save();
+                    itinerary[i].transport.modeDetails = savedFlight._id;
                 } else {
-                    itinerary[i].transport.modeDetails = 'No flights found for the next day after the last activity.';
+                    itinerary[i].transport.modeDetails = null;
                 }
             }
         }
@@ -127,7 +186,12 @@ export async function addFlightDetailsToItinerary(data, adults, children, cityIA
             itinerary
         };
     } catch (error) {
-        console.error("Error adding flight details:", error);
+        logger.error("Error adding flight details:", error);
         return { error: "Error adding flight details" };
     }
+}
+
+function isFlightAfterLastActivity(flight, lastActivityEndTime) {
+    const flightDepartureTime = moment(flight.flightSegments[0].departureTime);
+    return flightDepartureTime.isAfter(lastActivityEndTime.add(4, 'hours'));
 }

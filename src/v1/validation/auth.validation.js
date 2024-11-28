@@ -2,6 +2,36 @@ import Joi from 'joi';
 
 const signupValidation = {
   body: Joi.object().keys({
+    firstName: Joi.string()
+      .min(2)
+      .max(30)
+      .required()
+      .messages({
+        'string.base': 'First name must be a string',
+        'string.empty': 'First name cannot be empty',
+        'string.min': 'First name must have at least 2 characters',
+        'string.max': 'First name must have at most 30 characters',
+        'any.required': 'First name is required',
+      }),
+    lastName: Joi.string()
+      .min(2)
+      .max(30)
+      .required()
+      .messages({
+        'string.base': 'Last name must be a string',
+        'string.empty': 'Last name cannot be empty',
+        'string.min': 'Last name must have at least 2 characters',
+        'string.max': 'Last name must have at most 30 characters',
+        'any.required': 'Last name is required',
+      }),
+    email: Joi.string()
+      .email()
+      .required()
+      .messages({
+        'string.base': 'Email must be a string',
+        'string.email': 'Email must be a valid email address',
+        'any.required': 'Email is required',
+      }),
     phoneNumber: Joi.string()
       .length(10)
       .pattern(/^[0-9]+$/)

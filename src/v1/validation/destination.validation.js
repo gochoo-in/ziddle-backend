@@ -89,6 +89,12 @@ const destinationValidation = {
         'string.base': 'Longitude must be a string',
         'any.required': 'Longitude is required',
       }),
+      markup: Joi.number()
+      .required()
+      .messages({
+        'string.base': 'Markup must be a string',
+        'any.required': 'Markup is required',
+      }),
     currency: Joi.string()
       .length(3)
       .required()
@@ -111,6 +117,10 @@ const destinationValidation = {
         'array.base': 'Trip duration must be an array of strings',
         'any.required': 'Trip duration is required',
       }),
+      recommended: Joi.boolean(),
+
+      active: Joi.boolean()
+     
   }),
 };
 

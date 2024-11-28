@@ -35,6 +35,30 @@ const activityValidation = {
         'string.base': 'Closing time must be a string',
         'any.required': 'Closing time is required',
       }),
+      imageUrls: Joi.array()
+      .items(
+        Joi.object({
+          type: Joi.string()
+            .required()
+            .messages({
+              'string.base': 'Image type must be a string',
+              'any.required': 'Image type is required',
+            }),
+          url: Joi.string()
+            .uri()
+            .required()
+            .messages({
+              'string.base': 'Image URL must be a string',
+              'string.uri': 'Each image URL must be a valid URI',
+              'any.required': 'Image URL is required',
+            }),
+        })
+      )
+      .default([])
+      .messages({
+        'array.base': 'Image URLs must be an array of objects',
+        'object.base': 'Each item in image URLs must be an object',
+      }),
     cityName: Joi.string()
       .required()
       .messages({

@@ -2,14 +2,15 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import moment from 'moment';
 import https from 'https';
-import logger from '../../config/logger.js'; 
-import httpFormatter from '../../utils/formatter.js'; 
+import logger from '../../config/logger.js';
+import Taxi from '../models/taxi.js'; 
+import httpFormatter from '../../utils/formatter.js';
 
 dotenv.config();
 
-const API_KEY = process.env.API_KEY; 
-const REQUEST_LIMIT = 1000; 
-const RESET_INTERVAL = 3600000; 
+const API_KEY = process.env.API_KEY;
+const REQUEST_LIMIT = 1000;
+const RESET_INTERVAL = 3600000;
 
 let requestCount = 0;
 let resetTimestamp = Date.now();
@@ -17,12 +18,12 @@ let resetTimestamp = Date.now();
 async function rateLimitedFetch(options, retries = 3, delay = 1000) {
     return new Promise((resolve, reject) => {
         const now = Date.now();
-        
+
         if (now > resetTimestamp) {
             requestCount = 0;
             resetTimestamp = now + RESET_INTERVAL;
         }
-        
+
         if (requestCount >= REQUEST_LIMIT) {
             const timeUntilReset = resetTimestamp - now;
             logger.warn(`Rate limit reached. Waiting ${Math.ceil(timeUntilReset / 1000)} seconds...`);
@@ -34,7 +35,7 @@ async function rateLimitedFetch(options, retries = 3, delay = 1000) {
 
         const req = https.request(options, (res) => {
             let data = '';
-            
+
             res.on('data', (chunk) => {
                 data += chunk;
             });
@@ -89,7 +90,7 @@ async function searchLocation(query) {
 }
 
 const CONVERSION_API_URL = 'https://api.exchangerate-api.com/v4/latest/';
-const BASE_CURRENCY = 'INR';
+const BASE_CURRENCY = process.env.BASE_CURRENCY;
 
 async function convertToINR(amount, currency) {
     try {
@@ -115,9 +116,8 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
         };
 
         const response = await rateLimitedFetch(options);
-        const data = JSON.parse(JSON.stringify(JSON.parse(response)));
+        const data = JSON.parse(response);
 
-        // Check if data exists and if results is an array
         if (data && data.data && Array.isArray(data.data.results)) {
             return data.data.results.map(result => {
                 const departureTime = data.data.journeys[0].requestedPickupDateTime || 'Unknown';
@@ -135,7 +135,7 @@ async function fetchTaxiDetails(pickUpPlaceId, dropOffPlaceId, pickUpDate, pickU
                     vehicleType: result.vehicleType || 'Unknown',
                     passengerCount: result.passengerCapacity || 0,
                     luggageAllowed: result.bags || 0,
-                    price: parseFloat(result.price.amount) || 0,
+                    price: result.price.amount ? result.price.amount.toString() : "0", // Convert to string
                     currency: result.price.currencyCode || 'Unknown',
                     sharedTransfer: false
                 };
@@ -167,7 +167,7 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
                     const dropOffPlaceId = await searchLocation(nextCity);
 
                     if (!pickUpPlaceId || !dropOffPlaceId) {
-                        itinerary[i].transport.modeDetails = 'Unable to find location details.';
+                        itinerary[i].transport.modeDetails = null;
                         continue;
                     }
 
@@ -175,23 +175,34 @@ export async function addTaxiDetailsToItinerary(data, currencyCode = 'INR') {
 
                     if (taxis.length > 0) {
                         const cheapestTaxi = taxis.reduce((prev, current) => (current.price < prev.price ? current : prev));
-                        const priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
+                        let priceInINR = await convertToINR(cheapestTaxi.price, cheapestTaxi.currency);
 
-                        itinerary[i].transport.modeDetails = {
+                        // Ensure the price is a valid string
+                        priceInINR = isNaN(priceInINR) ? "0" : priceInINR.toFixed(2).toString(); // Ensure it's a string
+
+                        const newTaxi = new Taxi({
                             ...cheapestTaxi,
-                            priceInINR: priceInINR.toFixed(2)
-                        };
+                            price: priceInINR, // Stored as a string
+                            currency: 'INR' // Store price in INR
+                        });
+
+                        const savedTaxi = await newTaxi.save();
+
+                        itinerary[i].transport.modeDetails = savedTaxi._id;
                     } else {
-                        itinerary[i].transport.modeDetails = 'No taxis found for the next day after the last activity.';
+                        itinerary[i].transport.modeDetails = null;
                     }
                 } catch (innerError) {
                     logger.error(`Error processing taxi details for leg ${i}:`, { error: innerError.message });
-                    itinerary[i].transport.modeDetails = 'Error fetching taxi details.';
+                    itinerary[i].transport.modeDetails = null;
                 }
             }
         }
 
-        return httpFormatter({ ...data, itinerary }, 'Taxi details added successfully', true);
+        return {
+            ...data,
+            itinerary
+        };
     } catch (error) {
         logger.error("Error adding taxi details to itinerary:", { error: error.message });
         return httpFormatter(null, 'Error adding taxi details to itinerary', false);

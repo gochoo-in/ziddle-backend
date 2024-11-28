@@ -3,14 +3,109 @@ import Profile from '../../models/profile.js';
 import User from '../../models/user.js'; 
 import StatusCodes from 'http-status-codes';
 import logger from '../../../config/logger.js';
-// Add profile details
-export const addProfileDetails = async (req, res) => {
+import CommunicationPreference from '../../models/communicationPreference.js'; 
+import SavedContact from '../../models/savedContact.js'; 
+
+export const upsertCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params; 
+        const { preferences } = req.body; 
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        if (!preferences) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Preferences are required', false)
+            );
+        }
+
+        // Check if the preferences already exist for the user
+        const existingPreferences = await CommunicationPreference.findOne({ user: userId });
+
+        // If preferences exist, update them
+        if (existingPreferences) {
+            const updateFields = {};
+            for (const key in preferences) {
+                for (const subKey in preferences[key]) {
+                    updateFields[`preferences.${key}.${subKey}`] = preferences[key][subKey];
+                }
+            }
+
+            const updatedPreferences = await CommunicationPreference.findOneAndUpdate(
+                { user: userId },
+                { $set: updateFields }, 
+                { new: true, runValidators: true } 
+            );
+
+            if (!updatedPreferences) {
+                return res.status(StatusCodes.NOT_FOUND).json(
+                    httpFormatter({}, 'Preferences not found for this user', false)
+                );
+            }
+
+            return res.status(StatusCodes.OK).json(
+                httpFormatter({ preferences: updatedPreferences }, 'Preferences updated successfully', true)
+            );
+        } else {
+            // If no preferences exist, create new ones
+            const newPreferences = await CommunicationPreference.create({
+                user: userId,
+                preferences
+            });
+
+            return res.status(StatusCodes.CREATED).json(
+                httpFormatter({ preferences: newPreferences }, 'Preferences created successfully', true)
+            );
+        }
+    } catch (error) {
+        logger.error('Error upserting communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+
+export const getCommunicationPreferences = async (req, res) => {
+    try {
+        const { userId } = req.params; 
+
+        const preferences = await CommunicationPreference.findOne({ user: userId });
+
+        if (!preferences) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Communication preferences not found for this user', false)
+            );
+        }
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ preferences }, 'Communication preferences retrieved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error retrieving communication preferences:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const upsertProfileDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fullName, email, preferredLanguage, address, profilePhoto, phoneNumber } = req.body;
+        const { preferredLanguage, address, profilePhoto, fullName, email, phoneNumber } = req.body;
 
-        if (!fullName || !email || !address || !address.line1 || !address.pincode || !phoneNumber) {
-            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing', false));
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        if (address && (!address.line1 || !address.pincode)) {
+            return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'Required fields are missing in the address', false));
         }
 
         const userExists = await User.findById(userId);
@@ -19,67 +114,112 @@ export const addProfileDetails = async (req, res) => {
         }
 
         const profileData = {
-            fullName,
-            email,
+            fullName: fullName || `${userExists.firstName} ${userExists.lastName}`,
+            email: email || userExists.email,
+            phoneNumber: phoneNumber || userExists.phoneNumber,
             preferredLanguage,
             address,
             profilePhoto,
-            user: userId, 
-            phoneNumber
+            user: userId
         };
 
-        const savedProfile = await Profile.create(profileData);
+        const existingProfile = await Profile.findOne({ user: userId });
 
-        return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: savedProfile }, 'Profile created successfully', true));
+        if (existingProfile) {
+            const updatedProfile = await Profile.findOneAndUpdate(
+                { user: userId },
+                { $set: profileData },
+                { new: true, runValidators: true }
+            );
+
+            const userUpdates = {};
+            if (fullName) {
+                const [firstName, ...lastName] = fullName.split(' ');
+                userUpdates.firstName = firstName;
+                userUpdates.lastName = lastName.join(' ') || '';
+            }
+            if (email) userUpdates.email = email;
+            if (phoneNumber) userUpdates.phoneNumber = phoneNumber;
+
+            if (Object.keys(userUpdates).length > 0) {
+                await User.findByIdAndUpdate(userId, userUpdates, { new: true });
+            }
+
+            return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
+        } else {
+            const newProfile = await Profile.create(profileData);
+            return res.status(StatusCodes.CREATED).json(httpFormatter({ profile: newProfile }, 'Profile created successfully', true));
+        }
+
     } catch (error) {
-        logger.error('Error adding profile details:', error);
+        logger.error('Error upserting profile details:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
 
-
-// Get profile by ID
 export const getProfileById = async (req, res) => {
     try {
-        const { profileId } = req.params;
-        const profile = await Profile.findById(profileId);
+        const { userId } = req.params;
 
-        if (!profile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
+        const profile = await Profile.findOne({ user: userId });
+
+        if (profile) {
+            return res.status(StatusCodes.OK).json(httpFormatter({
+                profile: {
+                    address: profile.address,
+                    _id: profile._id,
+                    fullName: profile.fullName,
+                    email: profile.email,
+                    preferredLanguage: profile.preferredLanguage,
+                    profilePhoto: profile.profilePhoto,
+                    phoneNumber: profile.phoneNumber,
+                    user: profile.user,
+                    createdAt: profile.createdAt,
+                    updatedAt: profile.updatedAt
+                }
+            }, 'Profile retrieved successfully', true));
+        } else {
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'User not found', false));
+            }
+
+            const userProfile = {
+                _id: userId,
+                fullName: `${user.firstName} ${user.lastName}`,
+                phoneNumber: user.phoneNumber,
+                email: user.email,
+                address: {}, 
+                preferredLanguage: '',
+                profilePhoto: '',
+                user: userId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            };
+
+            return res.status(StatusCodes.OK).json(httpFormatter({
+                profile: userProfile
+            }, 'Profile retrieved successfully', true));
         }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile }, 'Profile retrieved successfully', true));
     } catch (error) {
         logger.error('Error retrieving profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
     }
 };
 
-// Update profile details
-export const updateProfileDetails = async (req, res) => {
-    try {
-        const { profileId } = req.params;
-        const updates = req.body;
 
-        const updatedProfile = await Profile.findByIdAndUpdate(profileId, updates, { new: true, runValidators: true });
-
-        if (!updatedProfile) {
-            return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
-        }
-
-        return res.status(StatusCodes.OK).json(httpFormatter({ profile: updatedProfile }, 'Profile updated successfully', true));
-    } catch (error) {
-        logger.error('Error updating profile details:', error);
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
-    }
-};
-
-// Delete profile by ID
+// Delete profile by userId
 export const deleteProfile = async (req, res) => {
     try {
-        const { profileId } = req.params;
+        const { userId } = req.params;
 
-        const deletedProfile = await Profile.findByIdAndDelete(profileId);
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        const deletedProfile = await Profile.findOneAndDelete({ user: userId });
 
         if (!deletedProfile) {
             return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Profile not found', false));
@@ -89,5 +229,157 @@ export const deleteProfile = async (req, res) => {
     } catch (error) {
         logger.error('Error deleting profile:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
+    }
+};
+
+// Add contact by userId
+export const addContact = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { salutation, firstName, surname, dob, passport } = req.body;
+
+        if (req.user.userId !== userId) {
+            return res.status(StatusCodes.FORBIDDEN).json(
+                httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+            );
+        }
+
+        if (!salutation || !firstName || !passport?.passportNumber || !passport?.expiryDate) {
+            return res.status(StatusCodes.BAD_REQUEST).json(
+                httpFormatter({}, 'Required fields are missing', false)
+            );
+        }
+
+        const profile = await Profile.findOne({ user: userId });
+        if (!profile) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Profile not found', false)
+            );
+        }
+
+        const contactData = {
+            user: userId,
+            salutation,
+            firstName,
+            surname,
+            dob,
+            passport: {
+                passportNumber: passport.passportNumber,
+                expiryDate: passport.expiryDate
+            }
+        };
+
+        const savedContact = await SavedContact.create(contactData);
+
+        return res.status(StatusCodes.CREATED).json(
+            httpFormatter({ contact: savedContact }, 'Contact saved successfully', true)
+        );
+    } catch (error) {
+        logger.error('Error adding contact:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+
+export const getContacts = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Retrieve all contacts for the given userId
+        const contacts = await SavedContact.find({ user: userId });
+
+        // Check if there are any contacts for this user
+        if (!contacts || contacts.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'No contacts found for this user', false)
+            );
+        }
+
+        // Respond with the retrieved contacts
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ contacts }, 'Contacts retrieved successfully', true)
+        );
+    } catch (error) {
+        console.error('Error fetching contacts:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+
+export const updateContact = async (req, res) => {
+    const { userId, contactId } = req.params;
+    const { salutation, firstName, surname, dob, passport } = req.body;
+
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
+
+    try {
+        // Check if the contact exists for the user
+        const contact = await SavedContact.findOne({ _id: contactId, user: userId });
+        if (!contact) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Contact not found', false)
+            );
+        }
+
+        // Update the contact fields
+        contact.salutation = salutation || contact.salutation;
+        contact.firstName = firstName || contact.firstName;
+        contact.surname = surname || contact.surname;
+        contact.dob = dob || contact.dob;
+        if (passport) {
+            contact.passport.passportNumber = passport.passportNumber || contact.passport.passportNumber;
+            contact.passport.expiryDate = passport.expiryDate || contact.passport.expiryDate;
+        }
+
+        await contact.save();
+
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({ contact }, 'Contact updated successfully', true)
+        );
+    } catch (error) {
+        console.error('Error updating contact:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
+    }
+};
+
+export const deleteContact = async (req, res) => {
+    const { userId, contactId } = req.params;
+
+    if (req.user.userId !== userId) {
+        return res.status(StatusCodes.FORBIDDEN).json(
+            httpFormatter({}, 'Forbidden: You are not authorized to perform this action', false)
+        );
+    }
+
+    try {
+        // Find and delete the contact
+        const deletedContact = await SavedContact.findOneAndDelete({ _id: contactId, user: userId });
+
+        // If no contact is found, return a 404
+        if (!deletedContact) {
+            return res.status(StatusCodes.NOT_FOUND).json(
+                httpFormatter({}, 'Contact not found', false)
+            );
+        }
+
+        // Respond with success message if deletion was successful
+        return res.status(StatusCodes.OK).json(
+            httpFormatter({}, 'Contact deleted successfully', true)
+        );
+    } catch (error) {
+        console.error('Error deleting contact:', error);
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+            httpFormatter({}, 'Internal server error', false)
+        );
     }
 };

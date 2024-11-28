@@ -1,24 +1,40 @@
 import mongoose from "mongoose";
-import City from "./city.js";
 
 const flightSchema = new mongoose.Schema({
-    departureCityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
-    arrivalCityId: { type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
-    baggageIncluded: { type: Boolean, required: true },
-    baggageDetails: {
-        cabinBag: { type: Number },
-        checkedBag: { type: Number }
+    departureCityId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        refPath: 'cityModelType', 
+        required: [true, 'Departure city ID is required'] 
     },
-    price: { type: Number, required: true },
-    currency: { type: String, required: true },
-    airline: { type: String, required: true },
+    arrivalCityId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        refPath: 'cityModelType', 
+        required: [true, 'Arrival city ID is required'] 
+    },
+    cityModelType: { 
+        type: String, 
+        enum: ['City', 'InternationalAirportCity'], 
+        default: 'City',
+        required: [true, 'City model type is required'] 
+    },
+    baggageIncluded: { 
+        type: Boolean, 
+        required: [true, 'Baggage inclusion status is required'] 
+    },
+    baggageDetails: {
+        cabinBag: { type: String, default: "N/A" },
+        checkedBag: { type: String, default: "N/A" }
+    },
+    price: { type: Number, required: [true, 'Price is required'] },
+    currency: { type: String, required: [true, 'Currency is required'] },
+    airline: { type: String, required: [true, 'Airline name is required'] },
+    departureDate: { type: Date, required: [true, 'Departure date is required'] },
     flightSegments: [{
-        departureTime: { type: Date, required: true },
-        arrivalTime: { type: Date, required: true },
-        flightNumber: { type: Number, required: true }
-    }],
-    class: { type: String },
-    refundable: { type: Boolean, required: true }
+        img: { type: String, default: null },
+        departureTime: { type: Date, required: [true, 'Segment departure time is required'] },
+        arrivalTime: { type: Date, required: [true, 'Segment arrival time is required'] },
+        flightNumber: { type: String, required: [true, 'Flight number is required'] }
+    }]
 }, { timestamps: true, versionKey: false });
 
 export default mongoose.model('Flight', flightSchema);
