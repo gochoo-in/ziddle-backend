@@ -10,7 +10,7 @@ const BASE_URL = process.env.BASE_URL;
 
 describe('Destination Management Tests', () => {
   
-
+// ---------------------------------------------------- CREATE DESTINATION ------------------------------------------------------------//
     it('should add a new destination successfully', async () => {
         const url = `${BASE_URL}/destination`;
         const options = {
@@ -48,6 +48,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- GET ALL DESTINATIONS ------------------------------------------------------------//
     it('should retrieve all destinations', async () => {
         const url = `${BASE_URL}/destination`;
         const options = {
@@ -67,6 +68,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- GET DESTINATION WITH ID ------------------------------------------------------------//
     it('should retrieve the destination by ID', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
         const options = {
@@ -86,6 +88,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- UPDATE DESTINATION ------------------------------------------------------------//
     it('should update the destination details', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
         const options = {
@@ -111,6 +114,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- TOGGLE DESTINATION STATUS ------------------------------------------------------------//
     it('should toggle the destination’s active status', async () => {
         const url = `${BASE_URL}/destination/${destinationId}/toggleDestinationActiveStatus`;
         const options = {
@@ -130,6 +134,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- GET CITIES ------------------------------------------------------------//
     it('should retrieve cities by destination ID', async () => {
         const url = `${BASE_URL}/destination/${destinationId}/cities`;
         const options = {
@@ -149,6 +154,7 @@ describe('Destination Management Tests', () => {
         }
     }, 50000);
 
+// ---------------------------------------------------- DELETE DESTINATION ------------------------------------------------------------//
     it('should delete the destination and associated cities and activities', async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
         const options = {

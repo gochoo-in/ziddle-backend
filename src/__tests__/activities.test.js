@@ -13,8 +13,8 @@ const BASE_URL = process.env.BASE_URL;
 describe('Destination, City, and Activity Management Tests', () => {
 
 
-
-  it('should create a new destination with required fields', async () => {
+// ---------------------------------------------------- CREATE DESTINATION ------------------------------------------------------------//
+it('should create a new destination with required fields', async () => {
     const url = `${BASE_URL}/destination`;
     const options = {
       method: 'POST',
@@ -49,7 +49,8 @@ describe('Destination, City, and Activity Management Tests', () => {
     }
   }, 50000);
 
-  it('should create a city associated with the destination', async () => {
+// ---------------------------------------------------- CREATE CITIES ------------------------------------------------------------//
+it('should create a city associated with the destination', async () => {
     const url = `${BASE_URL}/cities`;
     const options = {
       method: 'POST',
@@ -84,7 +85,8 @@ describe('Destination, City, and Activity Management Tests', () => {
     }
   }, 50000);
 
-  it('should create an activity for the city', async () => {
+// ---------------------------------------------------- CREATE ACTIVITIES ------------------------------------------------------------//
+it('should create an activity for the city', async () => {
     const url = `${BASE_URL}/activities`;
     const options = {
       method: 'POST',
@@ -121,8 +123,8 @@ describe('Destination, City, and Activity Management Tests', () => {
     }
   }, 50000);
 
-
-  it('should retrieve the created activity by ID', async () => {
+// ---------------------------------------------------- RETRIEVE ACTIVITY ------------------------------------------------------------//
+it('should retrieve the created activity by ID', async () => {
     const url = `${BASE_URL}/activities/${activityId}`;
     const options = {
       method: 'GET',
@@ -141,7 +143,8 @@ describe('Destination, City, and Activity Management Tests', () => {
     }
   }, 50000);
 
-  it('should update the activity details', async () => {
+// ---------------------------------------------------- UPDATE ITINERARY ------------------------------------------------------------//
+it('should update the activity details', async () => {
     const url = `${BASE_URL}/activities/${activityId}`;
     const options = {
       method: 'PATCH',
@@ -167,9 +170,8 @@ describe('Destination, City, and Activity Management Tests', () => {
     }
   }, 50000);
 
-
-
-  it('should delete the destination with associated cities and activities', async () => {
+// ---------------------------------------------------- DELETE DESTINATION ------------------------------------------------------------//
+it('should delete the destination with associated cities and activities', async () => {
     const url = `${BASE_URL}/destination/${destinationId}`;
     const options = {
       method: 'DELETE',

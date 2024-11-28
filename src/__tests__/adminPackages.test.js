@@ -22,6 +22,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         logger.info("Tests completed. Cleaning up...");
     });
 
+// ---------------------------------------------------- CREATE DESTINATION ------------------------------------------------------------//
     it("should create China as a destination", async () => {
         const url = `${BASE_URL}/destination`;
         const options = {
@@ -56,6 +57,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
 
+// ---------------------------------------------------- CREATE CITIES ------------------------------------------------------------//
     it("should create 3 cities for China", async () => {
         const cities = [
             { name: "Beijing", iataCode: "PEK",hotelApiCityName:"Beijing",  nearbyInternationalAirportCity: {
@@ -112,6 +114,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
 
+// ---------------------------------------------------- CREATE ACTIVITIES ------------------------------------------------------------//
     it("should create activities for the cities in China", async () => {
         const activities = [
             {
@@ -181,7 +184,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
 
-
+// ---------------------------------------------------- CREATE DISCOUNTS ------------------------------------------------------------//
     it("should create couponless and general discounts", async () => {
         try {
             const couponlessDiscountUrl = `${BASE_URL}/discounts`;
@@ -233,6 +236,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
 
+// ---------------------------------------------------- CREATE BASIC ADMIN PACKAGE ------------------------------------------------------------//
     it("should create a basic admin package", async () => {
         const url = `${BASE_URL}/admin/package/basic`;
         const options = {
@@ -268,42 +272,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
 
-
-    it("should create a basic admin package", async () => {
-        const url = `${BASE_URL}/admin/package/basic`;
-        const options = {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${adminToken}`,
-                "Content-Type": "application/json",
-            },
-            data: {
-                packageName: "Discover China",
-                description: "An immersive travel experience through China.",
-                destinationId,
-                totalDays: 10,
-                startDate: "2024-12-01",
-                itineraryStartDate: "2024-12-02",
-                endDate: "2024-12-10",
-                price: "80000",
-                createdBy: {
-                    name: "Test User"
-                },
-                category: "OutdoorAdventures",
-            },
-        };
-    
-        try {
-            const response = await axios(url, options);
-            adminPackageId = response.data.data.adminPackageId;
-            logger.info(`Basic Admin Package created successfully: ${adminPackageId}`);
-            expect(response.status).toBe(201);
-        } catch (error) {
-            logger.error("Error creating admin package:", error.response?.data || error.message);
-            throw error;
-        }
-    }, 500000);
-    
+// ---------------------------------------------------- ADD DETAILS TO ADMIN PACKAGE ------------------------------------------------------------//
     it("should add details to the admin package", async () => {
         const url = `${BASE_URL}/admin/package/details`;
         const options = {
@@ -394,7 +363,8 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             throw error;
         }
     }, 500000);
-    
+   
+// ---------------------------------------------------- CREATE ITINERARY FOR ADMIN PACKAGE ------------------------------------------------------------//
     it("should create a user itinerary for the admin package", async () => {
         const currentDate = new Date();
         currentDate.setDate(currentDate.getDate() + 2); // Set itinerary start date to 2 days from today
@@ -436,6 +406,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 500000);
     
+// ---------------------------------------------------- APPLY GENERAL DISCOUNT ------------------------------------------------------------//
     it("should apply a general discount to the itinerary", async () => {
         const url = `${BASE_URL}/admin/package/${adminPackageId}/itinerary/${itineraryId}/addCoupon/${generalDiscountId}`;
         const options = {
@@ -459,7 +430,8 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             throw error;
         }
     }, 50000);
-    
+
+// ---------------------------------------------------- GET ADMIN PACKAGE WITH MAX BUDGET ------------------------------------------------------------//
     it("should retrieve admin packages by max budget", async () => {
         const maxBudget = 500000;
         const url = `${BASE_URL}/admin/packages/budget?maxBudget=${maxBudget}`;
@@ -486,7 +458,8 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             throw error;
         }
     }, 50000);
-    
+
+// ---------------------------------------------------- GET ADMIN PACKAGES WITH DESTINATION ID ------------------------------------------------------------//
     it("should retrieve admin packages by destination ID", async () => {
         const url = `${BASE_URL}/admin/packages/destination/${destinationId}`;
         const options = {
@@ -513,7 +486,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 50000);
   
-    
+// ---------------------------------------------------- DELETE ADMIN PACKAGE ------------------------------------------------------------//
     it("should delete an admin package by ID", async () => {
         const deletePackageUrl = `${BASE_URL}/admin/packages/${adminPackageId}`;
         const deleteOptions = {
@@ -538,7 +511,8 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             throw error;
         }
     }, 50000);
-    
+  
+// ---------------------------------------------------- DELETE ITINERARY ------------------------------------------------------------//
     it("should delete the itinerary by ID", async () => {
         const deleteItineraryUrl = `${BASE_URL}/itinerary/${itineraryId}`;
         const deleteOptions = {
@@ -559,6 +533,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 50000);
     
+// ---------------------------------------------------- DELETE COUPONLESS DISCOUNT ------------------------------------------------------------//
     it("should delete the couponless discount by ID", async () => {
         const deleteDiscountUrl = `${BASE_URL}/discounts/${couponlessDiscountId}`;
         const deleteOptions = {
@@ -580,7 +555,8 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
             throw error;
         }
     }, 50000);
-    
+   
+// ---------------------------------------------------- DELETE GENERAL DISCOUNT ------------------------------------------------------------//
     it("should delete the general discount by ID", async () => {
         const deleteDiscountUrl = `${BASE_URL}/discounts/${generalDiscountId}`;
         const deleteOptions = {
@@ -603,6 +579,7 @@ describe("Admin Package Tests - Destination, Cities, and Activities", () => {
         }
     }, 50000);
     
+// ---------------------------------------------------- DELETE DESTINATION ------------------------------------------------------------//
     it("should delete the destination and associated cities and activities", async () => {
         const url = `${BASE_URL}/destination/${destinationId}`;
         const options = {

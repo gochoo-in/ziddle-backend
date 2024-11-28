@@ -1,6 +1,7 @@
 import Country from '../../models/country.js';
 import httpFormatter from '../../../utils/formatter.js';
 import { StatusCodes } from 'http-status-codes'; 
+import InternationalAirportCity from '../../models/internationalAirportCity.js';
 
 export const getAllCountries = async (req, res) => {
   try {
@@ -46,12 +47,20 @@ export const deleteCountry = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const deletedCities = await InternationalAirportCity.deleteMany({ country: id });
+    
+    if (deletedCities.deletedCount === 0) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'No cities found to delete for this country', false));
+    }
+
     const deletedCountry = await Country.findByIdAndDelete(id);
+
     if (!deletedCountry) {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Country not found', false));
     }
-    res.status(StatusCodes.OK).json(httpFormatter({}, 'Country deleted successfully', true));
+
+    res.status(StatusCodes.OK).json(httpFormatter({}, 'Country and its associated cities deleted successfully', true));
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Failed to delete country', false, error));
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Failed to delete country and associated cities', false, error));
   }
 };

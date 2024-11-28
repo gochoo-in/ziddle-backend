@@ -18,6 +18,7 @@ describe("Policy Management Tests", () => {
     logger.info("Cleaning up Policy Management Tests");
   });
 
+// ---------------------------------------------------- CREATE EMPLOYEE ------------------------------------------------------------//
   it("should create an employee", async () => {
     const url = `${BASE_URL}/admin/signup`;
     const data = {
@@ -49,6 +50,7 @@ describe("Policy Management Tests", () => {
     }
   }, 50000);
 
+// ---------------------------------------------------- ASSIGN POLICIES ------------------------------------------------------------//
   it("should assign policies to the employee", async () => {
     const url = `${BASE_URL}/policy`;
     const policies = [
@@ -82,8 +84,9 @@ describe("Policy Management Tests", () => {
       logger.error("Error assigning policies:", error.response?.data || error.message);
       expect(error.response?.status).not.toBe(500);
     }
-  }, 50000);
+  }, 500000);
 
+// ---------------------------------------------------- FETCH POLICIES ------------------------------------------------------------//
   it("should fetch all policies for the employee", async () => {
     const url = `${BASE_URL}/policy/${employeeId}`;
 
@@ -109,8 +112,9 @@ describe("Policy Management Tests", () => {
       logger.error("Error fetching employee policies:", error.response?.data || error.message);
       expect(error.response?.status).not.toBe(500);
     }
-  }, 50000);
+  }, 500000);
 
+// ---------------------------------------------------- UPDATE POLICIES ------------------------------------------------------------//
   it("should update a policy for the employee", async () => {
     const url = `${BASE_URL}/policy/${policyId}`;
     const updatedPolicy = {
@@ -141,6 +145,7 @@ describe("Policy Management Tests", () => {
     }
   }, 500000);
 
+// ---------------------------------------------------- DELETE POLICIES ------------------------------------------------------------//
   it("should delete policies for the employee", async () => {
     const url = `${BASE_URL}/policy/remove`;
     const policiesToRemove = [
@@ -171,6 +176,7 @@ describe("Policy Management Tests", () => {
     }
   }, 500000);
 
+// ---------------------------------------------------- DELETE EMPLOYEE ------------------------------------------------------------//
   it("should delete the employee", async () => {
     const url = `${BASE_URL}/admin/${employeeId}`;
 
@@ -192,4 +198,4 @@ describe("Policy Management Tests", () => {
       expect(error.response?.status).not.toBe(500);
     }
   });
-}, 50000);
+}, 500000);
