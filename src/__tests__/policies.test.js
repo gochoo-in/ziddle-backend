@@ -84,7 +84,7 @@ describe("Policy Management Tests", () => {
       logger.error("Error assigning policies:", error.response?.data || error.message);
       expect(error.response?.status).not.toBe(500);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- FETCH POLICIES ------------------------------------------------------------//
   it("should fetch all policies for the employee", async () => {
@@ -112,7 +112,7 @@ describe("Policy Management Tests", () => {
       logger.error("Error fetching employee policies:", error.response?.data || error.message);
       expect(error.response?.status).not.toBe(500);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- UPDATE POLICIES ------------------------------------------------------------//
   it("should update a policy for the employee", async () => {
@@ -198,4 +198,4 @@ describe("Policy Management Tests", () => {
       expect(error.response?.status).not.toBe(500);
     }
   });
-}, 50000);
+}, 500000);

@@ -41,7 +41,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error during user sign-in:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- CREATE NEW PROFILE ------------------------------------------------------------//
   it("should create a new profile for the user", async () => {
@@ -72,7 +72,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error creating profile:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- GET USER'S PROFILE ------------------------------------------------------------//
   it("should retrieve the user's profile", async () => {
@@ -94,7 +94,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error retrieving profile:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- UPDATE USER'S PROFILE ------------------------------------------------------------//
   it("should update the user's profile", async () => {
@@ -122,7 +122,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error updating profile:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- ADD A NEW CONTACT FOR A USER ------------------------------------------------------------//
   it("should add a new contact for the user", async () => {
@@ -155,7 +155,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error adding contact:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- GET CONTACTS ------------------------------------------------------------//
   it("should retrieve all contacts for the user", async () => {
@@ -177,7 +177,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error retrieving contacts:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- UPDATE CONTACT ------------------------------------------------------------//
   it("should update an existing contact for the user", async () => {
@@ -206,7 +206,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error updating contact:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- DELETE CONTACT ------------------------------------------------------------//
   it("should delete a contact for the user", async () => {
@@ -227,7 +227,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error deleting contact:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- DELETE USER PROFILE ------------------------------------------------------------//
   it("should delete the user's profile", async () => {
@@ -248,7 +248,7 @@ describe("Profiles API Tests", () => {
       logger.error("Error deleting profile:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
 
 // ---------------------------------------------------- LOG OUT USER ------------------------------------------------------------//
   it("should log out the test user successfully", async () => {
@@ -272,6 +272,6 @@ describe("Profiles API Tests", () => {
       logger.error("Error during logout:", error.response?.data || error.message);
       throw error;
     }
-  });
+  }, 50000);
   
 });

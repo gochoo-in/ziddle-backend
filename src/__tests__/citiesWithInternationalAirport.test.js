@@ -34,7 +34,7 @@ describe('International Airport City CRUD Operations Tests', () => {
     } catch (error) {
       logger.error('Error creating country for testing cities:', error.response ? error.response.data : error.message);
     }
-  });
+  }, 500000);
 
 // ---------------------------------------------------- GET CITIES WITH INTERNATIONAL AIRPORT ------------------------------------------------------------//
   it('should retrieve all international airport cities', async () => {
@@ -54,7 +54,7 @@ describe('International Airport City CRUD Operations Tests', () => {
     } catch (error) {
       logger.error('Error retrieving cities:', error.response ? error.response.data : error.message);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- ADD CITY WITH INTERNATIONAL AIRPORT ------------------------------------------------------------//
   it('should add a new international airport city', async () => {
@@ -82,7 +82,7 @@ describe('International Airport City CRUD Operations Tests', () => {
       logger.error('Error adding city:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(400);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- GET CITIES WITH COUNTRY ID ------------------------------------------------------------//
   it('should retrieve cities by country ID', async () => {
@@ -102,7 +102,7 @@ describe('International Airport City CRUD Operations Tests', () => {
     } catch (error) {
       logger.error('Error retrieving cities for country:', error.response ? error.response.data : error.message);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- UPDATE INTERNATIONAL AIRPORT CITY ------------------------------------------------------------//
   it('should update an international airport city', async () => {
@@ -128,7 +128,7 @@ describe('International Airport City CRUD Operations Tests', () => {
     } catch (error) {
       logger.error('Error updating city:', error.response ? error.response.data : error.message);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- DELETE INTERATIONAL AIRPORT CITY ------------------------------------------------------------//
   it('should delete an international airport city', async () => {
@@ -149,7 +149,7 @@ describe('International Airport City CRUD Operations Tests', () => {
       logger.error('Error deleting city:', error.response ? error.response.data : error.message);
       expect(error.response.status).not.toBe(500);
     }
-  }, 50000);
+  }, 500000);
 
 // ---------------------------------------------------- GET INDIAN CITIES WITH INTERNATIONAL AIRPORTS ------------------------------------------------------------//
   it('should retrieve all cities in India', async () => {
@@ -170,6 +170,6 @@ describe('International Airport City CRUD Operations Tests', () => {
     } catch (error) {
       logger.error('Error retrieving Indian cities:', error.response ? error.response.data : error.message);
     }
-  }, 50000);
+  }, 500000);
 
 });

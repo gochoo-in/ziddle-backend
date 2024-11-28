@@ -169,31 +169,31 @@ describe("Comprehensive Itinerary Management Tests for India", () => {
  // ---------------------------------------------------- CREATE CITIES FOR DESTINATION ----------------------------------------------//
   it("should create 7 cities for India", async () => {
     const cities = [
-      { name: "Hyderabad", iataCode: "HYD", hotelApiCityName: "Hyderabad, Telangana", nearbyInternationalAirportCity: {
+      { name: "Hyderabad", iataCode: "HYD", hotelApiCityName: "Hyderabad,   Telangana", nearbyInternationalAirportCity: {
         name: "Hyderabad",
         iataCode: "HYD"
       }},
-      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai, Maharashtra", nearbyInternationalAirportCity: {
+      { name: "Mumbai", iataCode: "BOM", hotelApiCityName: "Mumbai,   Maharashtra", nearbyInternationalAirportCity: {
         name: "Mumbai",
         iataCode: "BOM"
       }},
-      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur, Rajasthan", nearbyInternationalAirportCity: {
+      { name: "Jaipur", iataCode: "JAI", hotelApiCityName: "Jaipur,   Rajasthan", nearbyInternationalAirportCity: {
         name: "Jaipur",
         iataCode: "JAI"
       }},
-      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore, Karnataka", nearbyInternationalAirportCity: {
+      { name: "Bangalore", iataCode: "BLR", hotelApiCityName: "Bangalore,   Karnataka", nearbyInternationalAirportCity: {
         name: "Bangalore",
         iataCode: "BLR"
       }},
-      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai, Tamil Nadu", nearbyInternationalAirportCity: {
+      { name: "Chennai", iataCode: "MAA", hotelApiCityName: "Chennai,   Tamil Nadu", nearbyInternationalAirportCity: {
         name: "Chennai",
         iataCode: "MAA"
       }},
-      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta, West Bengal", nearbyInternationalAirportCity: {
+      { name: "Kolkata", iataCode: "CCU", hotelApiCityName: "Calcutta,   West Bengal", nearbyInternationalAirportCity: {
         name: "Kolkata",
         iataCode: "CCU"
       }},
-      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad, Gujarat", nearbyInternationalAirportCity: {
+      { name: "Ahemdabad", iataCode: "AMD", hotelApiCityName: "Ahemdabad,   Gujrat", nearbyInternationalAirportCity: {
         name: "Ahemdabad",
         iataCode: "AMD"
       }}
