@@ -10,6 +10,9 @@ const CONVERSION_API_URL = process.env.CONVERSION_API_URL;
 const BASE_CURRENCY = 'INR';
 const TBO_API_URL = process.env.TBO_FLIGHT_SEARCH_API;
 const AUTH_URL = process.env.TBO_AUTH_URL;
+const TBO_CLIENT_ID = process.env.TBO_CLIENT_ID
+const TBO_USERNAME = process.env.TBO_USERNAME
+const TBO_PASSWORD = process.env.TBO_PASSWORD
 
 // Server IP address from .env
 const SERVER_IP = process.env.SERVER_IP;
@@ -20,9 +23,9 @@ let LAST_TOKEN_FETCH = null;
 async function authenticateTBO() {
     try {
         const requestBody = {
-            ClientId: "ApiIntegrationNew",
-            UserName: "Yokuverse",
-            Password: "Yokuverse@1234",
+            ClientId: TBO_CLIENT_ID,
+            UserName: TBO_USERNAME,
+            Password: TBO_PASSWORD,
             EndUserIp: SERVER_IP
         };
 
