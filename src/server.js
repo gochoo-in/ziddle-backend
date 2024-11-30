@@ -27,7 +27,7 @@ app.use(cookieManager);
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'https://3.6.184.17:3000/'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
