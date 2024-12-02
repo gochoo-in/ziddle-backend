@@ -1898,15 +1898,47 @@ export const replaceFlightInItinerary = async (req, res) => {
   const { itineraryId, modeDetailsId } = req.params; // Get itinerary and flight ID (oldFlightId)
   const { selectedFlight } = req.body; // New flight details from the frontend
 
-  // Find the cities for the new flight
-  const departureCity = await City.findOne({ name: selectedFlight.segments[0].from });
-  const arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
-
-  if (!departureCity || !arrivalCity) {
-    return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
-  }
+  let departureCity, arrivalCity;
 
   try {
+    // Determine if it's an international flight by checking the InternationalAirportCity table
+    const isInternationalFlight = await InternationalAirportCity.exists({ name: selectedFlight.segments[0].from }) ||
+                                  await InternationalAirportCity.exists({ name: selectedFlight.segments[0].to });
+
+    // Fetch the cities based on the flight type
+    if (isInternationalFlight) {
+      // For international flights, fetch city names accordingly
+      if (await InternationalAirportCity.exists({ name: selectedFlight.segments[0].from })) {
+        // If departure city is in InternationalAirportCity, use that
+        departureCity = await InternationalAirportCity.findOne({ name: selectedFlight.segments[0].from });
+      } else {
+        // If departure city is not in InternationalAirportCity, use nearbyInternationalAirportCity from City model
+        const domesticCity = await City.findOne({ name: selectedFlight.segments[0].from });
+        departureCity = domesticCity?.nearbyInternationalAirportCity
+          ? await InternationalAirportCity.findOne({ name: domesticCity.nearbyInternationalAirportCity.name })
+          : null;
+      }
+
+      if (await InternationalAirportCity.exists({ name: selectedFlight.segments[0].to })) {
+        // If arrival city is in InternationalAirportCity, use that
+        arrivalCity = await InternationalAirportCity.findOne({ name: selectedFlight.segments[0].to });
+      } else {
+        // If arrival city is not in InternationalAirportCity, use nearbyInternationalAirportCity from City model
+        const domesticCity = await City.findOne({ name: selectedFlight.segments[0].to });
+        arrivalCity = domesticCity?.nearbyInternationalAirportCity
+          ? await InternationalAirportCity.findOne({ name: domesticCity.nearbyInternationalAirportCity.name })
+          : null;
+      }
+    } else {
+      // For domestic flights, fetch the city names from City model
+      departureCity = await City.findOne({ name: selectedFlight.segments[0].from });
+      arrivalCity = await City.findOne({ name: selectedFlight.segments[0].to });
+    }
+
+    if (!departureCity || !arrivalCity) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+    }
+
     // Fetch the itinerary
     const itinerary = await Itinerary.findById(itineraryId);
     if (!itinerary) {
@@ -1932,7 +1964,7 @@ export const replaceFlightInItinerary = async (req, res) => {
       arrivalCityId: arrivalCity._id,
       baggageIncluded: baggageIncluded,
       baggageDetails: baggageDetails,
-      price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')),
+      price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')) || 0,
       currency: 'INR',
       airline: selectedFlight.airline,
       departureDate: new Date(selectedFlight.departureDate),
@@ -1957,9 +1989,9 @@ export const replaceFlightInItinerary = async (req, res) => {
     // Save the new flight
     const savedFlight = await newFlight.save();
 
-    // Replace the old domestic flight in the itinerary (in itinerary.enrichedItinerary.itinerary)
+    // Replace the old flight in the itinerary (both domestic and international)
     let flightReplaced = false;
-    
+
     // Check for domestic flights and replace the old flight
     itinerary.enrichedItinerary.itinerary.forEach(city => {
       if (city.transport && city.transport.modeDetails && city.transport.modeDetails.toString() === modeDetailsId) {
@@ -2010,7 +2042,6 @@ export const replaceFlightInItinerary = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error', error: error.message });
   }
 };
-
 
 
 export const replaceHotelInItinerary = async (req, res) => {
