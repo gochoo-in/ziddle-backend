@@ -16,6 +16,7 @@ dotenv.config();
 const { port } = Config;
 
 const app = express();
+const REQUEST_TIMEOUT = 900000;
 
 // Create an HTTP server
 const httpServer = http.Server;
@@ -25,9 +26,20 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cookieManager);
 
+
+app.use((req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT, () => {
+    logger.error(`Request to ${req.originalUrl} timed out after ${REQUEST_TIMEOUT / 1000} seconds`);
+    res.status(StatusCodes.REQUEST_TIMEOUT).json({
+      message: 'Request timed out, please try again later.',
+    });
+  });
+  next();
+});
+
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'https://3.6.184.17:3000'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'https://build.d10tpduw9hjv1q.amplifyapp.com/'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
