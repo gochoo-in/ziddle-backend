@@ -13,7 +13,7 @@ export const getCasbinEnforcer = async () => {
     try {
         const adapter = await MongoAdapter.newAdapter({
             uri: mongoURI,
-            database: 'test',  
+            database: 'ziddle',  
             collection: 'casbinpolicies',  
         });
 
