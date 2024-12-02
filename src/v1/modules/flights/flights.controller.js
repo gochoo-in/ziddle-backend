@@ -47,10 +47,18 @@ export const getFlights = async (req, res) => {
             return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'No flights found for the provided cities and date.', false));
         }
 
+        // Sort flights by price
         const sortedFlights = flightDetails.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        const cheapestFlight = sortedFlights[0];
 
-        return res.status(StatusCodes.OK).json(httpFormatter({ flight: cheapestFlight }, 'Flight details fetched successfully.', true));
+        // Get the 2 cheapest, 2 expensive, and 1 mid-range flight
+        const cheapestFlights = sortedFlights.slice(0, 2);
+        const expensiveFlights = sortedFlights.slice(-2);
+        const midrangeFlight = sortedFlights[Math.floor(sortedFlights.length / 2)];
+
+        // Prepare the response with selected flights
+        const selectedFlights = [...cheapestFlights, ...expensiveFlights, midrangeFlight];
+
+        return res.status(StatusCodes.OK).json(httpFormatter({ flights: selectedFlights }, 'Flight details fetched successfully.', true));
     } catch (error) {
         logger.error('Error in getFlights:', error);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Internal server error', false));
