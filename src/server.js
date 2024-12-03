@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'https://build.d10tpduw9hjv1q.amplifyapp.com/'],
+  origin: ['https://localhost:3000', 'https://localhost:5173', 'https://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'https://build.d10tpduw9hjv1q.amplifyapp.com/'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
