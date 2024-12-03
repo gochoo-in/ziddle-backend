@@ -12,6 +12,28 @@ export const getAllInternationalAirportCities = async (req, res) => {
   }
 };
 
+
+export const getCityById = async (req, res) => {
+  try {
+      const { cityId } = req.params;
+
+      console.log("cityId",cityId)
+      // Fetch city information by cityId from the database
+      const city = await InternationalAirportCity.findById(cityId);
+
+      console.log("city",city)
+
+      if (!city) {
+          return res.status(404).json({ message: 'City not found' });
+      }
+
+      res.status(StatusCodes.OK).json(httpFormatter(city, 'Fetched all cities successfully', true));
+  } catch (error) {
+      console.error('Error fetching city:', error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Failed to fetch city', false, error));
+  }
+};
+
 export const getCitiesByCountry = async (req, res) => {
   const { countryId } = req.params;
 
