@@ -23,6 +23,7 @@ const httpServer = http.Server;
 
 // Middleware setup
 app.use(express.json());
+app.set('trust proxy', true);
 app.use(cookieParser());
 app.use(cookieManager);
 
