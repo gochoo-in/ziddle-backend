@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'http://build.d10tpduw9hjv1q.amplifyapp.com/', 'https://beta.admin.ziddle.tech', 'http://beta.admin.ziddle.tech.s3-website.ap-south-1.amazonaws.com'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://devsuperadminziddle.s3-website.ap-south-1.amazonaws.com', 'http://build.d10tpduw9hjv1q.amplifyapp.com/', 'https://beta.admin.ziddle.tech', 'http://beta.admin.ziddle.tech.s3-website.ap-south-1.amazonaws.com', 'https://beta.ziddle.tech'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
