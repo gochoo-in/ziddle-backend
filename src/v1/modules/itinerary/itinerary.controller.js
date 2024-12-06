@@ -1990,7 +1990,7 @@ export const replaceFlightInItinerary = async (req, res) => {
       }
     });
 
-    itinerary.enrichedItinerary.internationalFlights.forEach((flightId, index) => {
+    itinerary.internationalFlights.forEach((flightId, index) => {
       if (flightId.toString() === modeDetailsId) {
         itinerary.enrichedItinerary.internationalFlights[index] = savedFlight._id;
         flightReplaced = true;
@@ -2003,7 +2003,7 @@ export const replaceFlightInItinerary = async (req, res) => {
 
     await Itinerary.findByIdAndUpdate(
       itineraryId,
-      { enrichedItinerary: itinerary.enrichedItinerary },
+      { ...itinerary },
       {
         new: true,
         lean: true,
