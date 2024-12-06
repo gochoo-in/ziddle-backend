@@ -1909,6 +1909,15 @@ export const replaceFlightInItinerary = async (req, res) => {
     const fromCity = selectedFlight.fromCity; // Using fromCity from selectedFlight
     const toCity = selectedFlight.toCity;    // Using toCity from selectedFlight
 
+    const existingFlight = await Flight.findById(modeDetailsId);
+    if (!existingFlight) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Flight not found', false));
+    }
+
+    // Extract departure and arrival city IDs from the existing flight
+    const originalDepartureCityId = existingFlight.departureCityId;
+    const originalArrivalCityId = existingFlight.arrivalCityId;
+
     // Check if it's an international flight
     const isInternationalFlight = await InternationalAirportCity.exists({ name: fromCity }) ||
                                   await InternationalAirportCity.exists({ name: toCity });
@@ -1963,10 +1972,10 @@ export const replaceFlightInItinerary = async (req, res) => {
 
     // Create a new flight
     const newFlight = new Flight({
-      departureCityId: departureCity ? departureCity._id : null,
-      arrivalCityId: arrivalCity ? arrivalCity._id : null,
-      departureCityName: departureCityName || fromCity, // Use fromCity if no name found in DB
-      arrivalCityName: arrivalCityName || toCity,       // Use toCity if no name found in DB
+      departureCityId: originalDepartureCityId,
+      arrivalCityId: originalArrivalCityId,
+      departureCityName: departureCityName || fromCity, 
+      arrivalCityName: arrivalCityName || toCity,      
       baggageIncluded: baggageIncluded,
       baggageDetails: baggageDetails,
       price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')) || 0, // Parse price from selectedFlight
