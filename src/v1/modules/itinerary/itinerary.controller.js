@@ -1895,36 +1895,40 @@ export const changeTransportModeInCity = async (req, res) => {
 };
 
 export const replaceFlightInItinerary = async (req, res) => {
-  const { itineraryId, modeDetailsId } = req.params; 
-  const { selectedFlight } = req.body; 
+  const { itineraryId, modeDetailsId } = req.params;
+  const { selectedFlight } = req.body;
 
   let departureCity, arrivalCity;
   let departureCityName, arrivalCityName;
 
   try {
-    const firstSegment = selectedFlight.fromCity;
-    const lastSegment = selectedFlight.toCity;
+    const fromCity = selectedFlight.fromCity; // Using fromCity from selectedFlight
+    const toCity = selectedFlight.toCity;    // Using toCity from selectedFlight
 
-    const isInternationalFlight = await InternationalAirportCity.exists({ name: firstSegment }) ||
-                                  await InternationalAirportCity.exists({ name: lastSegment });
+    // Check if it's an international flight
+    const isInternationalFlight = await InternationalAirportCity.exists({ name: fromCity }) ||
+                                  await InternationalAirportCity.exists({ name: toCity });
 
     if (isInternationalFlight) {
-      if (await InternationalAirportCity.exists({ name: firstSegment })) {
-        departureCity = await InternationalAirportCity.findOne({ name: firstSegment });
+      // Handle departure city
+      if (await InternationalAirportCity.exists({ name: fromCity })) {
+        departureCity = await InternationalAirportCity.findOne({ name: fromCity });
       } else {
-        const domesticCity = await City.findOne({ name: firstSegment });
-        departureCityName = domesticCity?.nearbyInternationalAirportCity?.name || firstSegment;
+        const domesticCity = await City.findOne({ name: fromCity });
+        departureCityName = domesticCity?.nearbyInternationalAirportCity?.name || fromCity;
       }
 
-      if (await InternationalAirportCity.exists({ name: lastSegment })) {
-        arrivalCity = await InternationalAirportCity.findOne({ name: lastSegment });
+      // Handle arrival city
+      if (await InternationalAirportCity.exists({ name: toCity })) {
+        arrivalCity = await InternationalAirportCity.findOne({ name: toCity });
       } else {
-        const domesticCity = await City.findOne({ name: lastSegment });
-        arrivalCityName = domesticCity?.nearbyInternationalAirportCity?.name || lastSegment;
+        const domesticCity = await City.findOne({ name: toCity });
+        arrivalCityName = domesticCity?.nearbyInternationalAirportCity?.name || toCity;
       }
     } else {
-      departureCity = await City.findOne({ name: firstSegment });
-      arrivalCity = await City.findOne({ name: lastSegment });
+      // Handle domestic flights (just use City model)
+      departureCity = await City.findOne({ name: fromCity });
+      arrivalCity = await City.findOne({ name: toCity });
     }
 
     if (!departureCity && !departureCityName || !arrivalCity && !arrivalCityName) {
@@ -1936,60 +1940,59 @@ export const replaceFlightInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}/flight/${modeDetailsId}/replace`);
+    const hasAccess = await checkOwnershipOrAdminAccess(
+      req.user.userId,
+      itinerary.createdBy,
+      'PATCH',
+      `/api/v1/itinerary/${itineraryId}/flight/${modeDetailsId}/replace`
+    );
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
 
-    const baggageIncluded = selectedFlight.segments.some(segment => segment.baggage && segment.baggage.length > 0);
+    // Extract baggage details from selectedFlight
+    const baggageIncluded = selectedFlight.baggageDetails.some(bag => bag.quantity && parseInt(bag.quantity.replace(/\D/g, '')) > 0);
     const baggageDetails = {
-      cabinBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'carry_on')?.quantity || 0,
-      checkedBag: selectedFlight.segments[0].baggage.find(bag => bag.type === 'checked')?.quantity || 0,
+      cabinBag: selectedFlight.baggageDetails.find(bag => bag.type === 'Cabin Bag')?.quantity || 'N/A',
+      checkedBag: selectedFlight.baggageDetails.find(bag => bag.type === 'Checked Bag')?.quantity || 'N/A',
     };
 
+    // Create a new flight
     const newFlight = new Flight({
       departureCityId: departureCity ? departureCity._id : null,
       arrivalCityId: arrivalCity ? arrivalCity._id : null,
-      departureCityName: departureCityName || null,
-      arrivalCityName: arrivalCityName || null,
+      departureCityName: departureCityName || fromCity, // Use fromCity if no name found in DB
+      arrivalCityName: arrivalCityName || toCity,       // Use toCity if no name found in DB
       baggageIncluded: baggageIncluded,
       baggageDetails: baggageDetails,
-      price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')) || 0,
+      price: parseFloat(selectedFlight.price.replace(/[^0-9.-]+/g, '')) || 0, // Parse price from selectedFlight
       currency: 'INR',
       airline: selectedFlight.airline,
       departureDate: new Date(selectedFlight.departureDate),
-      flightSegments: selectedFlight.segments.map(segment => {
-        const departureDateTimeString = `${selectedFlight.departureDate} ${segment.departureTime}`;
-        const arrivalDateTimeString = `${selectedFlight.departureDate} ${segment.arrivalTime}`;
-        const departureTime = new Date(departureDateTimeString);
-        const arrivalTime = new Date(arrivalDateTimeString);
-
-        if (isNaN(departureTime.getTime()) || isNaN(arrivalTime.getTime())) {
-          throw new Error("Invalid date format for departure or arrival time");
-        }
-
-        return {
-          departureTime,
-          arrivalTime,
-          flightNumber: segment.flightNumber,
-        };
-      }),
+      flightSegments: selectedFlight.stopDetails.map(segment => ({
+        img: segment.img || null,
+        departureTime: new Date(`${selectedFlight.departureDate} ${selectedFlight.departureTime}`),
+        arrivalTime: new Date(`${selectedFlight.arrivalDate} ${segment.arrivalTime}`),
+        flightNumber: segment.flightNumber || 'N/A',
+      })),
     });
 
+    // Save the new flight
     const savedFlight = await newFlight.save();
 
     let flightReplaced = false;
 
+    // Replace the flight in the itinerary
     itinerary.enrichedItinerary.itinerary.forEach(city => {
       if (city.transport && city.transport.modeDetails && city.transport.modeDetails.toString() === modeDetailsId) {
-        city.transport.modeDetails = savedFlight._id; 
+        city.transport.modeDetails = savedFlight._id;
         flightReplaced = true;
       }
     });
 
     itinerary.enrichedItinerary.internationalFlights.forEach((flightId, index) => {
       if (flightId.toString() === modeDetailsId) {
-        itinerary.enrichedItinerary.internationalFlights[index] = savedFlight._id; 
+        itinerary.enrichedItinerary.internationalFlights[index] = savedFlight._id;
         flightReplaced = true;
       }
     });
@@ -2004,7 +2007,7 @@ export const replaceFlightInItinerary = async (req, res) => {
       {
         new: true,
         lean: true,
-        changedBy: { userId: req.user.userId }, 
+        changedBy: { userId: req.user.userId },
         comment: req.comment,
       }
     );
