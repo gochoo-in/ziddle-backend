@@ -12,6 +12,27 @@ export const getAllInternationalAirportCities = async (req, res) => {
   }
 };
 
+export const getInternationalAirportCityById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(StatusCodes.BAD_REQUEST).json(httpFormatter({}, 'City ID is required', false));
+  }
+
+  try {
+    const city = await InternationalAirportCity.findById(id);
+
+    if (!city) {
+      return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'City not found', false));
+    }
+
+    res.status(StatusCodes.OK).json(httpFormatter(city, 'Fetched city successfully', true));
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(httpFormatter({}, 'Failed to fetch city', false, error));
+  }
+};
+
+
 export const getCitiesByCountry = async (req, res) => {
   const { countryId } = req.params;
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllInternationalAirportCities, addInternationalAirportCity, getAllIndianCities, updateInternationalAirportCity, deleteInternationalAirportCity, getCitiesByCountry } from './internationalAirportCities.controller.js';
+import { getAllInternationalAirportCities, addInternationalAirportCity, getInternationalAirportCityById, getAllIndianCities, updateInternationalAirportCity, deleteInternationalAirportCity, getCitiesByCountry } from './internationalAirportCities.controller.js';
 import { casbinMiddleware } from '../../../utils/casbinMiddleware.js';
 
 const router = express.Router();
@@ -9,6 +9,8 @@ router.get('/', getAllInternationalAirportCities);
 
 // GET all indian cities
 router.get('/indiancities', getAllIndianCities)
+
+router.get('/:id', getInternationalAirportCityById)
 
 // GET all cities with country's id
 router.get('/:countryId', getCitiesByCountry);

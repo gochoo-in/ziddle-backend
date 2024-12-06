@@ -4,12 +4,20 @@ const flightSchema = new mongoose.Schema({
     departureCityId: { 
         type: mongoose.Schema.Types.ObjectId, 
         refPath: 'cityModelType', 
-        required: [true, 'Departure city ID is required'] 
     },
     arrivalCityId: { 
         type: mongoose.Schema.Types.ObjectId, 
         refPath: 'cityModelType', 
-        required: [true, 'Arrival city ID is required'] 
+    },
+    departureCityName: { 
+        type: String, 
+        required: false, // Add name field for departure city
+        default: null
+    },
+    arrivalCityName: { 
+        type: String, 
+        required: false, // Add name field for arrival city
+        default: null
     },
     cityModelType: { 
         type: String, 

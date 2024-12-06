@@ -201,6 +201,8 @@ export const updateInternationalFlights = async (itinerary, requestData, cityDet
     const flightToFirstNearbyDetails = await new Flight({
       departureCityId: departureCityData._id,
       arrivalCityId: firstCityData._id,
+      departureCityName: departureCityData?.name || null,
+      arrivalCityName: firstCityData?.name || null,
       cityModelType: 'InternationalAirportCity',
       baggageIncluded: cheapestFlightToFirstNearby.flightSegments?.some(
         segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'
@@ -231,6 +233,8 @@ export const updateInternationalFlights = async (itinerary, requestData, cityDet
     const flightToArrivalDetails = await new Flight({
       departureCityId: lastCityData._id,
       arrivalCityId: arrivalCityData._id,
+      departureCityName : lastCityData?.name || null,
+      arrivalCityName : arrivalCityData?.name || null,
       cityModelType: 'InternationalAirportCity',
       baggageIncluded: cheapestFlightToArrival.flightSegments?.some(
         segment => segment.baggage && segment.baggage.checkedBag !== 'N/A'

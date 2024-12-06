@@ -159,6 +159,8 @@ export async function addFlightDetailsToItinerary(data, adults, children, childr
                     const newFlight = new Flight({
                         departureCityId: cityIATACodes.find(city => city.name === cheapestFlight.fromCity)._id,
                         arrivalCityId: cityIATACodes.find(city => city.name === cheapestFlight.toCity)._id,
+                        departureCityName: cityIATACodes.find(city => city.iataCode === cheapestFlight.fromCity)?.name || null,  
+                        arrivalCityName: cityIATACodes.find(city => city.iataCode === cheapestFlight.toCity)?.name || null,       
                         baggageIncluded: cheapestFlight.flightSegments.some(segment => segment.baggage.checkedBag !== "N/A"),
                         baggageDetails: {
                             cabinBag: cheapestFlight.flightSegments[0].baggage.cabinBag,
