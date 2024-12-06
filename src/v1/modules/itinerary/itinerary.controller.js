@@ -1902,29 +1902,29 @@ export const replaceFlightInItinerary = async (req, res) => {
   let departureCityName, arrivalCityName;
 
   try {
-    const firstSegment = selectedFlight.segments[0];
-    const lastSegment = selectedFlight.segments[selectedFlight.segments.length - 1];
+    const firstSegment = selectedFlight.fromCity;
+    const lastSegment = selectedFlight.toCity;
 
-    const isInternationalFlight = await InternationalAirportCity.exists({ name: firstSegment.from }) ||
-                                  await InternationalAirportCity.exists({ name: lastSegment.to });
+    const isInternationalFlight = await InternationalAirportCity.exists({ name: firstSegment }) ||
+                                  await InternationalAirportCity.exists({ name: lastSegment });
 
     if (isInternationalFlight) {
-      if (await InternationalAirportCity.exists({ name: firstSegment.from })) {
-        departureCity = await InternationalAirportCity.findOne({ name: firstSegment.from });
+      if (await InternationalAirportCity.exists({ name: firstSegment })) {
+        departureCity = await InternationalAirportCity.findOne({ name: firstSegment });
       } else {
-        const domesticCity = await City.findOne({ name: firstSegment.from });
-        departureCityName = domesticCity?.nearbyInternationalAirportCity?.name || firstSegment.from;
+        const domesticCity = await City.findOne({ name: firstSegment });
+        departureCityName = domesticCity?.nearbyInternationalAirportCity?.name || firstSegment;
       }
 
-      if (await InternationalAirportCity.exists({ name: lastSegment.to })) {
-        arrivalCity = await InternationalAirportCity.findOne({ name: lastSegment.to });
+      if (await InternationalAirportCity.exists({ name: lastSegment })) {
+        arrivalCity = await InternationalAirportCity.findOne({ name: lastSegment });
       } else {
-        const domesticCity = await City.findOne({ name: lastSegment.to });
-        arrivalCityName = domesticCity?.nearbyInternationalAirportCity?.name || lastSegment.to;
+        const domesticCity = await City.findOne({ name: lastSegment });
+        arrivalCityName = domesticCity?.nearbyInternationalAirportCity?.name || lastSegment;
       }
     } else {
-      departureCity = await City.findOne({ name: firstSegment.from });
-      arrivalCity = await City.findOne({ name: lastSegment.to });
+      departureCity = await City.findOne({ name: firstSegment });
+      arrivalCity = await City.findOne({ name: lastSegment });
     }
 
     if (!departureCity && !departureCityName || !arrivalCity && !arrivalCityName) {
