@@ -1992,7 +1992,7 @@ export const replaceFlightInItinerary = async (req, res) => {
 
     itinerary.internationalFlights.forEach((flightId, index) => {
       if (flightId.toString() === modeDetailsId) {
-        itinerary.enrichedItinerary.internationalFlights[index] = savedFlight._id;
+        itinerary.internationalFlights[index] = savedFlight._id;
         flightReplaced = true;
       }
     });
