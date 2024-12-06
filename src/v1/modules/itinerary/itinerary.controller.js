@@ -1936,7 +1936,7 @@ export const replaceFlightInItinerary = async (req, res) => {
       return res.status(StatusCodes.NOT_FOUND).json(httpFormatter({}, 'Itinerary not found', false));
     }
 
-    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}`);
+    const hasAccess = await checkOwnershipOrAdminAccess(req.user.userId, itinerary.createdBy, 'PATCH', `/api/v1/itinerary/${itineraryId}/flight/${modeDetailsId}/replace`);
     if (!hasAccess) {
       return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access denied' });
     }
