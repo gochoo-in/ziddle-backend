@@ -320,7 +320,7 @@ export const createItinerary = async (req, res) => {
         );
     
         const lastCityEndDate = enrichedItinerary.itinerary.at(-1)?.days.at(-1)?.date;
-        const nextTravelDate = moment(lastCityEndDate).add(1, 'days').format('YYYY-MM-DD');
+        const nextTravelDate = moment(lastCityEndDate).format('YYYY-MM-DD');
     
         const flightsToArrival = await fetchFlightDetails(
           lastCityNearbyAirport.name,
@@ -3078,40 +3078,24 @@ export const replaceCityInItinerary = async (req, res) => {
       }
     } else if (parsedCityIndex === itinerary.enrichedItinerary.itinerary.length - 1) {
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
-  
-  // Add a travel activity from the previous city to the new city
-  await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd, previousCity);
-
-  // Add a departure activity for the last day of the replaced city
-  const departureActivity = await GptActivity.create({
-    name: `Departure from ${newCity}`,
-    startTime: '09:00 AM',
-    endTime: '11:00 AM',
-    duration: '2 hours',
-    timeStamp: 'Morning',
-    category: 'Departure',
-    cityId: newCityId,
-  });
-
-  // Ensure that the last city's last day has the departure activity
-  const lastCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex];
-  if (lastCity.days && lastCity.days.length > 0) {
-    const lastDay = lastCity.days[lastCity.days.length - 1];
+      await addTravelActivity(previousCity.currentCity, newCity, newCityToAdd, previousCity);
     
-      lastDay.activities = [departureActivity._id];
-    
-  } else {
-    // If no days exist, create a new day with the departure activity
-    lastCity.days.push({
-      day: lastCity.days.length + 1, // Set the day number
-      activities: [departureActivity._id],
-    });
-  }
-
-  // Ensure transport details for the previous city
-  previousCity.transport.mode = null;
-  previousCity.transport.modeDetails = null;
-    } else {
+      // Modify the last day's activity to reflect the new city
+      const lastCity = newCityToAdd;
+      if (lastCity.days.length > 0) {
+        const lastDay = lastCity.days[lastCity.days.length - 1]; // Get the last day
+        if (lastDay.activities.length > 0) {
+          // Update the activity name on the last day to reflect the new city
+          const lastActivityId = lastDay.activities[lastDay.activities.length - 1];
+          const lastActivity = await GptActivity.findById(lastActivityId);
+          if (lastActivity) {
+            lastActivity.name = `Departure from ${newCity}`;  // Modify activity name to the new city name
+            await lastActivity.save(); // Save the updated activity
+          }
+        }
+      }
+    }
+    else {
       const previousCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex - 1];
       const nextCity = itinerary.enrichedItinerary.itinerary[parsedCityIndex + 1];
 
