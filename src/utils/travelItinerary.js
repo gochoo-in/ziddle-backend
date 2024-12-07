@@ -70,6 +70,31 @@ export const addTransferActivity = (data) => {
         }
     }
 
+    // Now handle the last city separately after the loop
+    const lastCity = updatedItinerary[updatedItinerary.length - 1];
+
+    // Add departure activity for the last city on the next day (last day + 1)
+    const departureActivity = {
+        name: `Departure from ${lastCity.currentCity}`,
+        startTime: "5:00 PM",
+        endTime: "6:00 PM",
+        duration: "1 hour",
+        timeStamp: "All day",
+        category: "Travel",
+        transport: lastCity.transport,
+        departureCostPerPersonINR: lastCity.departureCostPerPersonINR || 0
+    };
+
+    // Only modify the last city by adding the departure activity
+    lastCity.days.push({
+        day: lastCity.days.length + 1, // Add a new day after the existing last day
+        date: "", // You can populate the date later
+        activities: [departureActivity]
+    });
+
+    // No need to push the last city again. Just update it in the final itinerary
+    updatedItinerary[updatedItinerary.length - 1] = lastCity;
+
     return {
         ...data,
         itinerary: updatedItinerary
