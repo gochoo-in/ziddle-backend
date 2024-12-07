@@ -1455,19 +1455,10 @@ export const addCityToItineraryAtPosition = async (req, res) => {
     
       // Now, replace the last day's departure activity in the last city with a leisure activity
       const lastCity = itinerary.enrichedItinerary.itinerary[itinerary.enrichedItinerary.itinerary.length - 2];
-      
       // Find the last day's departure activity and replace it with a leisure activity
+      const lastCityId = await City.findOne({name: lastCity.currentCity}).lean();
       const lastDay = lastCity.days[lastCity.days.length - 1];
-    
-      const departureActivityIndex = lastDay.activities.findIndex(activity => 
-        activity.name && activity.name.includes('Departure')
-      );
 
-      console.log('departureActivityIndex', departureActivityIndex)
-    
-      if (departureActivityIndex !== -1) {
-        // Remove the departure activity and replace it with a leisure activity
-        lastDay.activities.splice(departureActivityIndex, 1);
         
         const leisureActivity = await GptActivity.create({
           name: 'Leisure',
@@ -1476,12 +1467,11 @@ export const addCityToItineraryAtPosition = async (req, res) => {
           duration: '7 hours',
           timeStamp: 'All day',
           category: 'Leisure',
-          cityId: lastCity._id, // Use the last city ID
+          cityId: lastCityId._id, // Use the last city ID
         });
     
         lastDay.activities = leisureActivity._id; // Add the leisure activity instead
-        console.log('lastDay', lastDay)
-      }
+        console.log('lastDay', lastDay.activities)
     }
      else {
       // If added in the middle
