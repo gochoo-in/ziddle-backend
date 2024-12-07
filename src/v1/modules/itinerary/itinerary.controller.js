@@ -320,7 +320,7 @@ export const createItinerary = async (req, res) => {
         );
     
         const lastCityEndDate = enrichedItinerary.itinerary.at(-1)?.days.at(-1)?.date;
-        const nextTravelDate = moment(lastCityEndDate).format('YYYY-MM-DD');
+        const nextTravelDate = moment(lastCityEndDate).add(1,'days').format('YYYY-MM-DD');
     
         const flightsToArrival = await fetchFlightDetails(
           lastCityNearbyAirport.name,
